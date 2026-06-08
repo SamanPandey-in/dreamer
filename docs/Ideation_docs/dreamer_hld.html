@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dreamer PaaS — HLD Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080b10;
+    --bg2: #0d1117;
+    --bg3: #111820;
+    --border: #1e2a38;
+    --border2: #243040;
+    --text: #e2eaf4;
+    --text-dim: #6b7f96;
+    --text-muted: #3d5068;
+
+    --blue: #3b82f6;
+    --blue-glow: rgba(59,130,246,0.15);
+    --blue-dim: #1d4ed8;
+    --cyan: #22d3ee;
+    --cyan-glow: rgba(34,211,238,0.12);
+    --green: #10b981;
+    --green-glow: rgba(16,185,129,0.12);
+    --orange: #f59e0b;
+    --orange-glow: rgba(245,158,11,0.12);
+    --purple: #a855f7;
+    --purple-glow: rgba(168,85,247,0.12);
+    --red: #ef4444;
+    --red-glow: rgba(239,68,68,0.12);
+    --yellow: #eab308;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    padding: 40px 20px 60px;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #e2eaf4 0%, #3b82f6 50%, #22d3ee 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.1;
+  }
+  .header-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Env badge */
+  .env-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+  }
+  .env-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    border: 1px solid;
+  }
+  .env-badge.metal {
+    background: rgba(16,185,129,0.08);
+    border-color: rgba(16,185,129,0.3);
+    color: var(--green);
+  }
+  .env-badge.cloud {
+    background: rgba(59,130,246,0.08);
+    border-color: rgba(59,130,246,0.3);
+    color: var(--blue);
+  }
+  .env-badge .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  .env-badge.metal .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .env-badge.cloud .dot { background: var(--blue); box-shadow: 0 0 6px var(--blue); animation-delay: 0.5s; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Main diagram grid */
+  .diagram {
+    display: grid;
+    gap: 16px;
+  }
+
+  /* Row */
+  .row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  /* Section labels */
+  .section-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    padding: 8px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    border-right: 1px solid var(--border);
+  }
+
+  /* Node */
+  .node {
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    background: var(--bg2);
+    padding: 12px 14px;
+    position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .node:hover { border-color: var(--border); }
+  .node-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .node-sub {
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+  }
+  .node-tag {
+    font-size: 8px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  /* Color variants */
+  .node.blue { border-color: rgba(59,130,246,0.3); background: linear-gradient(135deg, var(--bg2), #0a1628); }
+  .node.blue .node-title { color: var(--blue); }
+  .node.blue:hover { box-shadow: 0 0 20px var(--blue-glow); border-color: var(--blue); }
+
+  .node.cyan { border-color: rgba(34,211,238,0.25); background: linear-gradient(135deg, var(--bg2), #071519); }
+  .node.cyan .node-title { color: var(--cyan); }
+  .node.cyan:hover { box-shadow: 0 0 20px var(--cyan-glow); border-color: var(--cyan); }
+
+  .node.green { border-color: rgba(16,185,129,0.25); background: linear-gradient(135deg, var(--bg2), #071410); }
+  .node.green .node-title { color: var(--green); }
+  .node.green:hover { box-shadow: 0 0 20px var(--green-glow); border-color: var(--green); }
+
+  .node.orange { border-color: rgba(245,158,11,0.25); background: linear-gradient(135deg, var(--bg2), #160f04); }
+  .node.orange .node-title { color: var(--orange); }
+  .node.orange:hover { box-shadow: 0 0 20px var(--orange-glow); border-color: var(--orange); }
+
+  .node.purple { border-color: rgba(168,85,247,0.25); background: linear-gradient(135deg, var(--bg2), #100a1a); }
+  .node.purple .node-title { color: var(--purple); }
+  .node.purple:hover { box-shadow: 0 0 20px var(--purple-glow); border-color: var(--purple); }
+
+  .node.red { border-color: rgba(239,68,68,0.25); background: linear-gradient(135deg, var(--bg2), #140606); }
+  .node.red .node-title { color: var(--red); }
+  .node.red:hover { box-shadow: 0 0 20px var(--red-glow); border-color: var(--red); }
+
+  .tag-blue { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .tag-green { background: rgba(16,185,129,0.15); color: var(--green); }
+  .tag-orange { background: rgba(245,158,11,0.15); color: var(--orange); }
+  .tag-cyan { background: rgba(34,211,238,0.15); color: var(--cyan); }
+  .tag-purple { background: rgba(168,85,247,0.15); color: var(--purple); }
+  .tag-red { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  /* Arrow connector */
+  .arrow-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    position: relative;
+  }
+  .arrow-down {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .arrow-line {
+    width: 1px;
+    height: 20px;
+    background: linear-gradient(to bottom, var(--border2), var(--text-muted));
+  }
+  .arrow-head {
+    width: 0; height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid var(--text-muted);
+  }
+  .arrow-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 8px;
+  }
+
+  /* Split section */
+  .split-container {
+    display: grid;
+    grid-template-columns: 1fr 40px 1fr;
+    gap: 0;
+    align-items: start;
+  }
+  .split-divider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 24px;
+    gap: 4px;
+  }
+  .split-divider-line {
+    width: 1px;
+    flex: 1;
+    background: linear-gradient(to bottom, var(--border2), transparent);
+    min-height: 60px;
+  }
+  .split-or {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 5px;
+    background: var(--bg);
+  }
+
+  .engine-block {
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 16px;
+    background: var(--bg3);
+  }
+  .engine-block.metal { border-color: rgba(16,185,129,0.25); }
+  .engine-block.cloud { border-color: rgba(59,130,246,0.25); }
+
+  .engine-header {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .engine-header.metal {
+    background: rgba(16,185,129,0.1);
+    color: var(--green);
+    border: 1px solid rgba(16,185,129,0.3);
+  }
+  .engine-header.cloud {
+    background: rgba(59,130,246,0.1);
+    color: var(--blue);
+    border: 1px solid rgba(59,130,246,0.3);
+  }
+
+  /* App type grid */
+  .app-types {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .app-type-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 10px;
+    text-align: center;
+  }
+  .app-type-icon {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  .app-type-name {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .app-type-detail {
+    font-size: 8px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+  .app-type-badge {
+    display: inline-block;
+    font-size: 7px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    margin-top: 3px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  /* Step list */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+  .step-num {
+    font-size: 8px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-text { color: var(--text-dim); }
+  .step-text strong { color: var(--text); }
+
+  /* Full-width centered node */
+  .node-center {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  /* Tech pills row */
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+  }
+  .pill {
+    font-size: 8px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    border: 1px solid;
+  }
+  .pill-blue { color: var(--blue); border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.06); }
+  .pill-green { color: var(--green); border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.06); }
+  .pill-orange { color: var(--orange); border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); }
+  .pill-cyan { color: var(--cyan); border-color: rgba(34,211,238,0.3); background: rgba(34,211,238,0.06); }
+  .pill-purple { color: var(--purple); border-color: rgba(168,85,247,0.3); background: rgba(168,85,247,0.06); }
+  .pill-red { color: var(--red); border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.06); }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 40px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg2);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+  }
+
+  /* Connector lines SVG */
+  .connector-area {
+    position: relative;
+    overflow: visible;
+  }
+
+  /* Flow arrows between split engines */
+  .flow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 0;
+  }
+  .flow-line {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--border2), transparent);
+    flex: 1;
+    max-width: 80px;
+  }
+
+  /* Section divider */
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0;
+  }
+  .section-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-divider-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* Convergence zone */
+  .converge-label {
+    text-align: center;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .split-container { grid-template-columns: 1fr; }
+    .split-divider { display: none; }
+    .row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-eyebrow">System Architecture · High Level Design</div>
+    <div class="header-title">Dreamer PaaS Platform</div>
+    <div class="header-sub">Dual-Engine Deployment System · v2.0 · Full Build Matrix</div>
+  </div>
+
+  <!-- Env badges -->
+  <div class="env-toggle">
+    <div class="env-badge metal">
+      <div class="dot"></div>
+      DEPLOYMENT_ENVIRONMENT=bare_metal
+    </div>
+    <div class="env-badge cloud">
+      <div class="dot"></div>
+      DEPLOYMENT_ENVIRONMENT=cloud
+    </div>
+  </div>
+
+  <div class="diagram">
+
+    <!-- ── LAYER 1: CLIENT ── -->
+    <div class="row" style="justify-content:center;">
+      <div class="node blue node-center" style="max-width:480px; text-align:center;">
+        <div class="node-title" style="justify-content:center;">
+          🖥️ Frontend Dashboard
+          <span class="node-tag tag-blue">Next.js</span>
+        </div>
+        <div class="node-sub">Deploy projects · Monitor build logs · Manage env vars · View deployments</div>
+        <div class="pills" style="justify-content:center;">
+          <span class="pill pill-blue">React</span>
+          <span class="pill pill-cyan">SSE EventSource</span>
+          <span class="pill pill-blue">TanStack Query</span>
+          <span class="pill pill-blue">Zustand</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div class="arrow-row">
+      <div class="arrow-down"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+      <span class="arrow-label">HTTPS · REST + SSE</span>
+    </div>
+
+    <!-- ── LAYER 2: API SERVER ── -->
+    <div class="row" style="justify-content:center;">
+      <div class="node cyan node-center" style="max-width:680px;">
+        <div class="node-title">
+          ⚙️ API Server — The Orchestrator
+          <span class="node-tag tag-cyan">Express.js</span>
+          <span class="node-tag tag-cyan">Prisma + Postgres</span>
+        </div>
+        <div class="node-sub" style="margin-bottom:8px;">Auth · Project management · Deploy trigger · SSE log stream · Engine factory</div>
+        <div class="pills">
+          <span class="pill pill-cyan">JWT Auth</span>
+          <span class="pill pill-cyan">POST /deploy</span>
+          <span class="pill pill-cyan">GET /logs/stream (SSE)</span>
+          <span class="pill pill-cyan">Webhook receiver</span>
+          <span class="pill pill-purple">ExecutionEngine interface</span>
+        </div>
+        <div style="margin-top:10px; padding:8px; background:var(--bg); border-radius:4px; border:1px solid var(--border); font-size:9px; color:var(--text-dim);">
+          <span style="color:var(--purple);">const</span> engine = <span style="color:var(--orange);">ENV</span> === <span style="color:var(--green);">'cloud'</span> ? <span style="color:var(--blue);">CloudEngine</span>() : <span style="color:var(--green);">BareMetalEngine</span>()
+        </div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div class="arrow-row">
+      <div class="arrow-down"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+      <span class="arrow-label">enqueue job &lt;1ms · 202 Accepted</span>
+    </div>
+
+    <!-- ── LAYER 3: QUEUE ── -->
+    <div class="row" style="justify-content:center;">
+      <div class="node orange node-center" style="max-width:680px;">
+        <div class="node-title">
+          📬 Job Queue
+          <span class="node-tag tag-orange">BullMQ</span>
+          <span class="node-tag tag-red">Redis</span>
+        </div>
+        <div class="node-sub" style="margin-bottom:6px;">Async build queue · Retries · Concurrency control · Log Pub/Sub channel</div>
+        <div class="pills">
+          <span class="pill pill-orange">build:queue</span>
+          <span class="pill pill-orange">MAX_CONCURRENCY=5</span>
+          <span class="pill pill-red">Redis Pub/Sub</span>
+          <span class="pill pill-orange">exponential backoff</span>
+          <span class="pill pill-orange">dead letter queue</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- arrow -->
+    <div class="arrow-row">
+      <div class="arrow-down"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+      <span class="arrow-label">worker picks up job</span>
+    </div>
+
+    <!-- ── LAYER 4: ENGINE DECISION ── -->
+    <div class="row" style="justify-content:center;">
+      <div class="node purple node-center" style="max-width:480px; text-align:center;">
+        <div class="node-title" style="justify-content:center;">
+          🔀 Engine Factory · Deploy Worker
+          <span class="node-tag tag-purple">Node.js Worker</span>
+        </div>
+        <div class="node-sub">Reads <code style="color:var(--orange);">DEPLOYMENT_ENVIRONMENT</code> → instantiates correct engine</div>
+        <div style="margin-top:8px; font-size:9px; color:var(--text-muted);">↙ bare_metal &nbsp;&nbsp;&nbsp; cloud ↘</div>
+      </div>
+    </div>
+
+    <!-- SPLIT: two engines -->
+    <div style="margin-top:4px;">
+      <div class="split-container">
+
+        <!-- LEFT: bare_metal -->
+        <div class="engine-block metal">
+          <div class="engine-header metal">
+            <span>🖥</span> bare_metal engine
+          </div>
+
+          <div class="steps">
+            <div class="step">
+              <div class="step-num" style="background:rgba(16,185,129,0.15);color:var(--green);">01</div>
+              <div class="step-text"><strong>git clone --depth 1</strong> → <code>/tmp/deployments/&lt;id&gt;/</code></div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(16,185,129,0.15);color:var(--green);">02</div>
+              <div class="step-text"><strong>Framework detect</strong> via package.json inspection</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(16,185,129,0.15);color:var(--green);">03</div>
+              <div class="step-text"><strong>npm install</strong> --prefer-offline inside workdir</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(16,185,129,0.15);color:var(--green);">04</div>
+              <div class="step-text"><strong>Build step</strong> (if applicable): npm run build → dist/</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(16,185,129,0.15);color:var(--green);">05</div>
+              <div class="step-text"><strong>docker run</strong> local daemon · assign port 4000–9000</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(16,185,129,0.15);color:var(--green);">06</div>
+              <div class="step-text"><strong>Health check</strong> GET localhost:&lt;port&gt; → 200 OK</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(16,185,129,0.15);color:var(--green);">07</div>
+              <div class="step-text"><strong>Generate NGINX config</strong> → /etc/nginx/sites-enabled/</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(16,185,129,0.15);color:var(--green);">08</div>
+              <div class="step-text"><strong>nginx -t && nginx -s reload</strong> · zero-downtime</div>
+            </div>
+          </div>
+
+          <!-- App types for bare_metal -->
+          <div class="section-divider" style="margin-top:14px;">
+            <div class="section-divider-line"></div>
+            <div class="section-divider-label">build matrix</div>
+            <div class="section-divider-line"></div>
+          </div>
+          <div class="app-types">
+            <div class="app-type-card">
+              <div class="app-type-icon">⚛️</div>
+              <div class="app-type-name">React (CRA)</div>
+              <div class="app-type-detail">npm run build → serve dist/ on port</div>
+              <div class="app-type-badge" style="background:rgba(34,211,238,0.1);color:var(--cyan);">STATIC</div>
+            </div>
+            <div class="app-type-card">
+              <div class="app-type-icon">⚡</div>
+              <div class="app-type-name">Vite</div>
+              <div class="app-type-detail">npm run build → serve dist/ on port</div>
+              <div class="app-type-badge" style="background:rgba(34,211,238,0.1);color:var(--cyan);">STATIC</div>
+            </div>
+            <div class="app-type-card">
+              <div class="app-type-icon">▲</div>
+              <div class="app-type-name">Next.js</div>
+              <div class="app-type-detail">next build → docker run npm start -p PORT</div>
+              <div class="app-type-badge" style="background:rgba(168,85,247,0.1);color:var(--purple);">DYNAMIC</div>
+            </div>
+            <div class="app-type-card">
+              <div class="app-type-icon">🟢</div>
+              <div class="app-type-name">Node/Express</div>
+              <div class="app-type-detail">no build · docker run node server.js</div>
+              <div class="app-type-badge" style="background:rgba(168,85,247,0.1);color:var(--purple);">DYNAMIC</div>
+            </div>
+            <div class="app-type-card">
+              <div class="app-type-icon">📄</div>
+              <div class="app-type-name">Static HTML</div>
+              <div class="app-type-detail">no build · npx serve -s . -l PORT</div>
+              <div class="app-type-badge" style="background:rgba(34,211,238,0.1);color:var(--cyan);">STATIC</div>
+            </div>
+          </div>
+
+          <!-- Serving -->
+          <div class="section-divider" style="margin-top:14px;">
+            <div class="section-divider-line"></div>
+            <div class="section-divider-label">serving layer</div>
+            <div class="section-divider-line"></div>
+          </div>
+          <div class="node green" style="margin-top:0;">
+            <div class="node-title">🔀 NGINX Reverse Proxy</div>
+            <div class="node-sub">
+              Static: proxy to <code>npx serve</code> container port<br>
+              Dynamic: proxy_pass to long-running container port<br>
+              Wildcard DNS: <code>*.localhost</code> → NGINX → container
+            </div>
+            <div class="pills" style="margin-top:6px;">
+              <span class="pill pill-green">CoreDNS (local)</span>
+              <span class="pill pill-green">wildcard *.local</span>
+              <span class="pill pill-green">zero-downtime reload</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="split-divider">
+          <div class="split-divider-line"></div>
+          <div class="split-or">OR</div>
+          <div class="split-divider-line"></div>
+        </div>
+
+        <!-- RIGHT: cloud -->
+        <div class="engine-block cloud">
+          <div class="engine-header cloud">
+            <span>☁️</span> cloud engine (AWS)
+          </div>
+
+          <div class="steps">
+            <div class="step">
+              <div class="step-num" style="background:rgba(59,130,246,0.15);color:var(--blue);">01</div>
+              <div class="step-text"><strong>Spin up ECS Task</strong> (Fargate) · isolated container</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(59,130,246,0.15);color:var(--blue);">02</div>
+              <div class="step-text"><strong>git clone --depth 1</strong> inside ECS task</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(59,130,246,0.15);color:var(--blue);">03</div>
+              <div class="step-text"><strong>Framework detect</strong> · npm install · npm run build</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(59,130,246,0.15);color:var(--blue);">04</div>
+              <div class="step-text">
+                <strong>[STATIC]</strong> aws s3 sync dist/ → <code>s3://bucket/outputs/&lt;id&gt;/</code><br>
+                <strong>[DYNAMIC]</strong> push image to ECR · keep ECS task running
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(59,130,246,0.15);color:var(--blue);">05</div>
+              <div class="step-text">
+                <strong>[STATIC]</strong> ECS task exits · S3 serves from here<br>
+                <strong>[DYNAMIC]</strong> ECS task persists · ALB target group registered
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(59,130,246,0.15);color:var(--blue);">06</div>
+              <div class="step-text"><strong>Route53</strong> wildcard A record → Reverse Proxy / ALB</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(59,130,246,0.15);color:var(--blue);">07</div>
+              <div class="step-text"><strong>SSL via ACM</strong> · auto-provisioned certificate</div>
+            </div>
+            <div class="step">
+              <div class="step-num" style="background:rgba(59,130,246,0.15);color:var(--blue);">08</div>
+              <div class="step-text"><strong>Deployment record</strong> updated · URL emitted via SSE</div>
+            </div>
+          </div>
+
+          <!-- App types for cloud -->
+          <div class="section-divider" style="margin-top:14px;">
+            <div class="section-divider-line"></div>
+            <div class="section-divider-label">build matrix</div>
+            <div class="section-divider-line"></div>
+          </div>
+          <div class="app-types">
+            <div class="app-type-card">
+              <div class="app-type-icon">⚛️</div>
+              <div class="app-type-name">React (CRA)</div>
+              <div class="app-type-detail">build → sync dist/ to S3 bucket</div>
+              <div class="app-type-badge" style="background:rgba(34,211,238,0.1);color:var(--cyan);">S3 STATIC</div>
+            </div>
+            <div class="app-type-card">
+              <div class="app-type-icon">⚡</div>
+              <div class="app-type-name">Vite</div>
+              <div class="app-type-detail">build → sync dist/ to S3 bucket</div>
+              <div class="app-type-badge" style="background:rgba(34,211,238,0.1);color:var(--cyan);">S3 STATIC</div>
+            </div>
+            <div class="app-type-card">
+              <div class="app-type-icon">▲</div>
+              <div class="app-type-name">Next.js</div>
+              <div class="app-type-detail">ECR image → ECS Fargate task → ALB</div>
+              <div class="app-type-badge" style="background:rgba(168,85,247,0.1);color:var(--purple);">ECS DYNAMIC</div>
+            </div>
+            <div class="app-type-card">
+              <div class="app-type-icon">🟢</div>
+              <div class="app-type-name">Node/Express</div>
+              <div class="app-type-detail">ECR image → ECS Fargate task → ALB</div>
+              <div class="app-type-badge" style="background:rgba(168,85,247,0.1);color:var(--purple);">ECS DYNAMIC</div>
+            </div>
+            <div class="app-type-card">
+              <div class="app-type-icon">📄</div>
+              <div class="app-type-name">Static HTML</div>
+              <div class="app-type-detail">sync directly to S3, no build step</div>
+              <div class="app-type-badge" style="background:rgba(34,211,238,0.1);color:var(--cyan);">S3 STATIC</div>
+            </div>
+          </div>
+
+          <!-- Serving Cloud -->
+          <div class="section-divider" style="margin-top:14px;">
+            <div class="section-divider-line"></div>
+            <div class="section-divider-label">serving layer</div>
+            <div class="section-divider-line"></div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div class="node cyan" style="margin-top:0;">
+              <div class="node-title" style="font-size:10px;">📦 S3 Reverse Proxy</div>
+              <div class="node-sub">
+                Streams files from <code>s3://outputs/{id}/</code><br>
+                No memory load · path-mapped · lightweight
+              </div>
+              <div class="pills" style="margin-top:5px;">
+                <span class="pill pill-cyan">static apps</span>
+                <span class="pill pill-cyan">streaming</span>
+              </div>
+            </div>
+            <div class="node blue" style="margin-top:0;">
+              <div class="node-title" style="font-size:10px;">⚖️ ALB + ECS Fargate</div>
+              <div class="node-sub">
+                Long-running containers<br>
+                ALB routes <code>{id}.domain.com</code> → ECS task
+              </div>
+              <div class="pills" style="margin-top:5px;">
+                <span class="pill pill-blue">dynamic apps</span>
+                <span class="pill pill-blue">ACM SSL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── LAYER 5: LOG STREAMING (cross-cutting) ── -->
+    <div class="section-divider" style="margin-top:16px;">
+      <div class="section-divider-line"></div>
+      <div class="section-divider-label">cross-cutting · real-time observability</div>
+      <div class="section-divider-line"></div>
+    </div>
+
+    <div class="row">
+      <div class="node red" style="flex:2; min-width:200px;">
+        <div class="node-title">📡 Log Streaming Pipeline</div>
+        <div class="node-sub" style="margin-bottom:8px;">Both engines push build logs to Redis Pub/Sub during build. API server subscribes and emits to frontend via SSE.</div>
+        <div style="display:flex; align-items:center; gap:8px; font-size:9px; flex-wrap:wrap;">
+          <span style="color:var(--green);">Worker</span>
+          <span style="color:var(--text-muted);">→</span>
+          <span class="pill pill-red" style="display:inline;">Redis Pub/Sub</span>
+          <span style="color:var(--text-muted);">→</span>
+          <span style="color:var(--cyan);">API Socket Sub</span>
+          <span style="color:var(--text-muted);">→</span>
+          <span class="pill pill-cyan" style="display:inline;">SSE Stream</span>
+          <span style="color:var(--text-muted);">→</span>
+          <span style="color:var(--blue);">Frontend EventSource</span>
+        </div>
+        <div class="pills" style="margin-top:6px;">
+          <span class="pill pill-red">channel: logs:{deploymentId}</span>
+          <span class="pill pill-red">X-Accel-Buffering: no</span>
+          <span class="pill pill-orange">500ms poll fallback</span>
+        </div>
+      </div>
+      <div class="node orange" style="flex:1; min-width:180px;">
+        <div class="node-title">🔐 Env Variables</div>
+        <div class="node-sub">AES-256-GCM encrypted at rest in Postgres. Decrypted in-memory only at build time. Injected as env into Docker container.</div>
+        <div class="pills" style="margin-top:6px;">
+          <span class="pill pill-orange">AES-256-GCM</span>
+          <span class="pill pill-orange">per-project key</span>
+          <span class="pill pill-orange">--env-file injection</span>
+        </div>
+      </div>
+      <div class="node purple" style="flex:1; min-width:180px;">
+        <div class="node-title">🔁 GitHub Webhook</div>
+        <div class="node-sub">Auto-deploy on git push. POST /webhooks/github → validate HMAC-SHA256 → enqueue new build job → SSE notifies frontend.</div>
+        <div class="pills" style="margin-top:6px;">
+          <span class="pill pill-purple">HMAC-SHA256</span>
+          <span class="pill pill-purple">auto-redeploy</span>
+          <span class="pill pill-purple">X-Hub-Signature-256</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LAYER 6: PUBLIC SERVING CONVERGENCE ── -->
+    <div class="arrow-row">
+      <div class="arrow-down"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+      <span class="arrow-label">deployment live</span>
+    </div>
+
+    <div class="row" style="justify-content:center;">
+      <div class="node cyan node-center" style="max-width:680px;">
+        <div class="node-title" style="justify-content:center;">
+          🌐 Public Serving · DNS Resolution
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px;">
+          <div style="font-size:9px; color:var(--text-dim); border:1px solid var(--border); border-radius:4px; padding:8px;">
+            <div style="color:var(--green); font-weight:700; margin-bottom:4px;">🖥 BARE METAL</div>
+            <code style="color:var(--text-dim);">{deploymentId}.yourdomain.local</code><br>
+            CoreDNS wildcard → NGINX → container port<br>
+            <span style="color:var(--text-muted);">Self-signed SSL (mkcert) for local HTTPS</span>
+          </div>
+          <div style="font-size:9px; color:var(--text-dim); border:1px solid var(--border); border-radius:4px; padding:8px;">
+            <div style="color:var(--blue); font-weight:700; margin-bottom:4px;">☁️ CLOUD</div>
+            <code style="color:var(--text-dim);">{deploymentId}.yourdomain.com</code><br>
+            Route53 wildcard A → Proxy / ALB → S3 or ECS<br>
+            <span style="color:var(--text-muted);">ACM auto-cert · HTTPS enforced</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LAYER 7: STATE MACHINE ── -->
+    <div class="section-divider" style="margin-top:16px;">
+      <div class="section-divider-line"></div>
+      <div class="section-divider-label">deployment state machine</div>
+      <div class="section-divider-line"></div>
+    </div>
+
+    <div class="row" style="justify-content:center; align-items:center; flex-wrap:wrap; gap:8px;">
+      <!-- States -->
+      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:center;">
+        <div style="padding:6px 12px; border-radius:4px; font-size:10px; font-weight:600; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:var(--orange);">QUEUED</div>
+        <div style="color:var(--text-muted); font-size:10px;">→</div>
+        <div style="padding:6px 12px; border-radius:4px; font-size:10px; font-weight:600; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); color:var(--blue);">BUILDING</div>
+        <div style="color:var(--text-muted); font-size:10px;">→</div>
+        <div style="padding:6px 12px; border-radius:4px; font-size:10px; font-weight:600; background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); color:var(--purple);">STARTING</div>
+        <div style="color:var(--text-muted); font-size:10px;">→</div>
+        <div style="padding:6px 12px; border-radius:4px; font-size:10px; font-weight:600; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); color:var(--green);">RUNNING ✓</div>
+        <div style="color:var(--text-muted); font-size:10px;">or</div>
+        <div style="padding:6px 12px; border-radius:4px; font-size:10px; font-weight:600; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--red);">FAILED ✗</div>
+        <div style="color:var(--text-muted); font-size:10px;">or</div>
+        <div style="padding:6px 12px; border-radius:4px; font-size:10px; font-weight:600; background:rgba(107,127,150,0.1); border:1px solid var(--border2); color:var(--text-dim);">STOPPED</div>
+      </div>
+    </div>
+
+  </div><!-- /diagram -->
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green);"></div> bare_metal path</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--blue);"></div> cloud (AWS) path</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--cyan);border-radius:50%;"></div> static build (React, Vite, HTML)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple);border-radius:50%;"></div> dynamic build (Next.js, Node)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--orange);"></div> queue / infra</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--red);"></div> observability / logs</div>
+  </div>
+
+</div><!-- /wrapper -->
+</body>
+</html>
