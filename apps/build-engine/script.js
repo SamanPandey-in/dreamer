@@ -3,9 +3,9 @@ const path = require('path')
 const fs = require('fs')
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
 const mime = require('mime-types')
-// const Redis = require('ioredis')
+const Redis = require('ioredis')
 
-// const publisher = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
+const publisher = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
 
 const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'ap-south-1',
@@ -17,9 +17,9 @@ const s3Client = new S3Client({
 
 const PROJECT_ID = process.env.PROJECT_ID
 
-// function publishLog(log) {
-//     publisher.publish(`logs:${PROJECT_ID}`, JSON.stringify({ log }))
-// }
+function publishLog(log) {
+    publisher.publish(`logs:${PROJECT_ID}`, JSON.stringify({ log }))
+}
 
 // Helper function to run the build sequentially
 function runBuildCommand(dirPath) {
@@ -28,13 +28,13 @@ function runBuildCommand(dirPath) {
 
         p.stdout.on('data', function (data) {
             console.log(data.toString())
-            // publishLog(data.toString())
+            publishLog(data.toString())
         })
 
         // Capture stderr logs from the build command safely
         p.stderr.on('data', function (data) {
             console.error(data.toString())
-            // publishLog(`stderr: ${data.toString()}`)
+            publishLog(`stderr: ${data.toString()}`)
         })
 
         p.on('close', function (code) {
@@ -49,7 +49,7 @@ function runBuildCommand(dirPath) {
 
 async function init() {
     console.log('Executing script.js')
-    // publishLog('Build Started...')
+    publishLog('Build Started...')
     const outDirPath = path.join(__dirname, 'output')
 
     try {
@@ -57,7 +57,7 @@ async function init() {
         await runBuildCommand(outDirPath)
         
         console.log('Build Complete')
-        // publishLog(`Build Complete`)
+        publishLog(`Build Complete`)
 
         const distFolderPath = path.join(__dirname, 'output', 'dist')
         
@@ -68,13 +68,13 @@ async function init() {
 
         const distFolderContents = fs.readdirSync(distFolderPath, { recursive: true })
 
-        // publishLog(`Starting to upload`)
+        publishLog(`Starting to upload`)
         for (const file of distFolderContents) {
             const filePath = path.join(distFolderPath, file)
             if (fs.lstatSync(filePath).isDirectory()) continue;
 
             console.log('uploading', filePath)
-            // publishLog(`uploading ${file}`)
+            publishLog(`uploading ${file}`)
 
             const command = new PutObjectCommand({
                 Bucket: 'dreamer-outputs',
@@ -84,15 +84,15 @@ async function init() {
             })
 
             await s3Client.send(command)
-            // publishLog(`uploaded ${file}`)
+            publishLog(`uploaded ${file}`)
             console.log('uploaded', filePath)
         }
-        // publishLog(`Done`)
+        publishLog(`Done`)
         console.log('Done...')
 
     } catch (error) {
         console.error('Fatal execution error:', error.message)
-        // publishLog(`Fatal Error: ${error.message}`)
+        publishLog(`Fatal Error: ${error.message}`)
         process.exit(1)
     }
 }
