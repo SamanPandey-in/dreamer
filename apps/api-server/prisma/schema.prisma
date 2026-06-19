@@ -1,0 +1,408 @@
+// schema.prisma
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+// ENUMS — enforced at DB level
+
+enum DeploymentStatus {
+  QUEUED      // Job created in BullMQ, DB record exists, ECS not yet launched
+  BUILDING    // ECS task is running: git clone + npm install + npm build
+  UPLOADING   // (Static only) Syncing dist/ to S3
+  STARTING    // (Dynamic only) ECS service created, container starting, health check pending
+  RUNNING     // App is live and responding
+  SLEEPING    // (Dynamic only) ECS service scaled to desiredCount=0
+  WAKING      // (Dynamic only) ECS service scaling back up, wake proxy is holding requests
+  STOPPED     // Manually stopped by user or replaced by newer deployment
+  FAILED      // Any step errored — see errorMessage + errorCode
+  CANCELLED   // Queued but cancelled before a worker picked it up
+  ERROR     // BullMQ job failed (e.g. worker crashed) — should be retried
+}
+
+enum DeploymentType {
+  STATIC   // React, Vite, Vue, Next export, plain HTML → S3
+  DYNAMIC  // Next.js SSR, Express, Fastify, Hono → persistent ECS container
+}
+
+enum Framework {
+  REACT_CRA
+  REACT_VITE
+  VUE
+  SVELTE
+  NEXT_STATIC   // next.config output: 'export'
+  NEXT_SSR      // standard Next.js
+  EXPRESS
+  FASTIFY
+  HONO
+  STATIC_HTML
+  UNKNOWN
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+  DEBUG
+  SYSTEM  // Internal platform messages (e.g. "Uploading to S3", "Container starting")
+}
+
+enum WebhookEvent {
+  PUSH
+  PULL_REQUEST
+  RELEASE
+}
+
+
+// USERS
+
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  email            String    @unique @db.VarChar(320)
+  passwordHash     String    @db.VarChar(255)    // bcrypt, cost factor 12
+  name             String    @db.VarChar(255)
+  avatarUrl        String?
+
+  // GitHub OAuth (nullable — user may log in with email/password)
+  githubId         Int?      @unique
+  githubUsername   String?   @db.VarChar(255)
+  githubToken      String?   // AES-256-GCM encrypted — see encryption note below
+
+  // Refresh token for JWT rotation
+  refreshTokenHash String?   // bcrypt hash of the current refresh token
+
+  // Soft account management
+  emailVerified    Boolean   @default(false)
+  isActive         Boolean   @default(true)  // false = suspended
+  
+  createdAt        DateTime  @default(now()) @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @db.Timestamptz
+  lastLoginAt      DateTime? @db.Timestamptz
+
+  // Relations
+  projects         Project[]
+  sessions         UserSession[]
+  auditLogs        AuditLog[]
+
+  @@index([email])
+  @@index([githubId])
+}
+
+
+// USER SESSIONS
+// Tracks active refresh tokens. Lets you invalidate 
+// all sessions on password change or from a "Sign out everywhere" button.
+
+model UserSession {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tokenHash     String    @unique   // bcrypt hash of the refresh token — never store the raw token
+  userAgent     String?   @db.VarChar(512)
+  ipAddress     String?   @db.VarChar(45)   // supports IPv6
+  
+  expiresAt     DateTime  @db.Timestamptz
+  createdAt     DateTime  @default(now()) @db.Timestamptz
+  lastUsedAt    DateTime  @default(now()) @db.Timestamptz
+
+  @@index([userId])
+  @@index([expiresAt])  // for cleanup jobs that delete expired sessions
+}
+
+
+// PROJECTS
+// A project = one GitHub repo + all its deployments
+
+model Project {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name             String    @db.VarChar(255)
+  slug             String    @unique @db.VarChar(63)  // used in URLs, max 63 chars (DNS label limit)
+  description      String?   @db.VarChar(500)
+
+  // Source repo
+  repoUrl          String    @db.VarChar(2048)
+  repoFullName     String?   @db.VarChar(512)   // "owner/repo" for GitHub API calls
+  defaultBranch    String    @default("main") @db.VarChar(255)
+  isPrivate        Boolean   @default(false)
+
+  // GitHub webhook (set when user connects GitHub)
+  webhookId        Int?      // GitHub's webhook ID — needed to delete webhook on disconnect
+  webhookSecret    String?   // HMAC secret for validating push events (AES-256 encrypted)
+
+  // Computed / cached fields (denormalized for dashboard query performance)
+  activeDeploymentId  String?  @db.Uuid   // FK set after a deployment reaches RUNNING
+  lastDeployedAt      DateTime? @db.Timestamptz
+
+  // Soft delete
+  deletedAt        DateTime? @db.Timestamptz
+
+  createdAt        DateTime  @default(now()) @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @db.Timestamptz
+
+  // Relations
+  deployments      Deployment[]
+  envVariables     EnvVariable[]
+  customDomains    CustomDomain[]
+  webhookDeliveries WebhookDelivery[]
+
+  @@index([userId, deletedAt])      // "my projects" query — filters out deleted
+  @@index([slug])
+  @@index([repoFullName])           // webhook handler lookup: "which project owns this repo?"
+}
+
+
+// DEPLOYMENTS
+// One row per deploy attempt.
+
+model Deployment {
+  id               String            @id @default(uuid()) @db.Uuid
+  projectId        String            @db.Uuid
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Unique public identifier — becomes the subdomain
+  // e.g. "fuzzy-cat-42" → fuzzy-cat-42.dreamer.yourdomain.com
+  slug             String            @unique @db.VarChar(63)
+  
+  status           DeploymentStatus  @default(QUEUED)
+  type             DeploymentType?   // set after framework detection
+  framework        Framework?        // set after framework detection
+
+  // Source
+  branch           String            @default("main") @db.VarChar(255)
+  commitHash       String?           @db.VarChar(40)   // full SHA
+  commitMessage    String?           @db.VarChar(500)
+  commitAuthor     String?           @db.VarChar(255)
+
+  // Output
+  url              String?           // public URL once RUNNING
+  
+  // AWS resource references (needed for stop/sleep/wake/scale operations)
+  ecsTaskArn       String?           // for STATIC builds (RunTask — ephemeral)
+  ecsServiceArn    String?           // for DYNAMIC apps (CreateService — persistent)
+  ecsTaskDefArn    String?           // the registered task definition ARN
+  ecrImageUri      String?           // ECR image URI for dynamic apps
+  albTargetGroupArn String?          // per-deployment ALB target group
+  albListenerRuleArn String?         // per-deployment ALB listener rule
+  s3Prefix         String?           // for static: "__outputs/{slug}/"
+
+  // Error tracking
+  errorMessage     String?           @db.Text
+  errorCode        String?           @db.VarChar(50)   // machine-readable: BUILD_FAILED | S3_UPLOAD_FAILED | ECS_TIMEOUT etc.
+  errorStep        String?           @db.VarChar(50)   // which step failed: install | build | upload | start
+
+  // Build metrics
+  buildDurationMs  Int?              // total build time in ms
+  uploadedFileCount Int?             // how many files uploaded to S3 (static only)
+  imageSizeBytes   Int?              // Docker image size (dynamic only)
+
+  // Scale-to-zero tracking
+  lastRequestAt    DateTime?         @db.Timestamptz   // kept in Redis too, synced here for durability
+  sleepCount       Int               @default(0)        // how many times this deployment has slept
+  totalSleepMs     BigInt            @default(0)        // total accumulated sleep time
+
+  // Trigger info
+  triggeredBy      String            @default("manual") // "manual" | "webhook" | "api"
+  webhookDeliveryId String?          @db.Uuid
+
+  // Timestamps for each state transition
+  queuedAt         DateTime          @default(now()) @db.Timestamptz
+  buildStartedAt   DateTime?         @db.Timestamptz
+  buildFinishedAt  DateTime?         @db.Timestamptz
+  deployedAt       DateTime?         @db.Timestamptz   // when it first reached RUNNING
+  stoppedAt        DateTime?         @db.Timestamptz
+
+  createdAt        DateTime          @default(now()) @db.Timestamptz
+  updatedAt        DateTime          @updatedAt @db.Timestamptz
+
+  // Relations
+  logs             DeploymentLog[]
+  stateTransitions DeploymentStateTransition[]
+  envSnapshot      DeploymentEnvSnapshot[]
+
+  @@index([projectId, createdAt(sort: Desc)])   // "deployments for this project" query
+  @@index([status])                              // idle detector: WHERE status = 'RUNNING' AND type = 'DYNAMIC'
+  @@index([slug])
+  @@index([ecsServiceArn])                       // reverse lookup for ECS event bridge events
+}
+
+
+// DEPLOYMENT STATE TRANSITIONS
+// Append-only audit trail of every status change.
+// Critical for debugging "why did this deployment fail"
+// and for building a timeline view in the dashboard.
+
+model DeploymentStateTransition {
+  id             String            @id @default(uuid()) @db.Uuid
+  deploymentId   String            @db.Uuid
+  deployment     Deployment        @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  
+  fromStatus     DeploymentStatus?  // null for the first transition (QUEUED)
+  toStatus       DeploymentStatus
+  reason         String?            @db.VarChar(500)  // human-readable: "Build completed", "ECS health check timeout"
+  triggeredBy    String?            @db.VarChar(100)  // "build-worker" | "idle-detector" | "user-api" | "ecs-event"
+  metadata       Json?              // e.g. { "taskExitCode": 1, "workerJobId": "..." }
+  
+  createdAt      DateTime           @default(now()) @db.Timestamptz
+
+  @@index([deploymentId, createdAt])
+}
+
+
+// DEPLOYMENT LOGS
+// Every line of output from git clone, npm install, npm build,
+// S3 upload, container start — all stored here.
+// This is the highest-volume table. 
+
+model DeploymentLog {
+  id             BigInt     @id @default(autoincrement())   // BigInt — this table will have millions of rows
+  deploymentId   String     @db.Uuid
+  deployment     Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  
+  level          LogLevel   @default(INFO)
+  message        String     @db.Text
+  
+  // Full-text search index (built in migration, not in Prisma schema)
+  // See migration note below.
+  
+  sequence       Int        // monotonically increasing within a deployment (for ordered SSE replay)
+  source         String?    @db.VarChar(50)   // "build" | "npm" | "s3" | "platform" | "container"
+  
+  timestamp      DateTime   @default(now()) @db.Timestamptz
+
+  @@index([deploymentId, sequence])     // log stream query: ORDER BY sequence
+  @@index([deploymentId, timestamp])    // time-range queries
+  // Full-text index created in raw migration — see migration note
+}
+
+
+// ENV VARIABLES
+// Per-project secrets. Values are AES-256-GCM encrypted in the application layer
+// before being stored. The DB never sees plaintext secrets.
+
+model EnvVariable {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @db.Uuid
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  key          String   @db.VarChar(255)
+  value        String   @db.Text        // AES-256-GCM encrypted blob (base64)
+  iv           String   @db.VarChar(32) // Initialization vector for AES-GCM (per value)
+  
+  isSecret     Boolean  @default(true)   // false = shown in UI, true = masked
+  description  String?  @db.VarChar(500)
+  
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  @@unique([projectId, key])   // one value per key per project
+  @@index([projectId])
+}
+
+
+// DEPLOYMENT ENV SNAPSHOT
+// At deploy time, copy the resolved env vars into the deployment record.
+// This means: if you change an env var after deploying, old deployments
+// still have a record of what they were built with. Critical for rollbacks.
+
+model DeploymentEnvSnapshot {
+  id             String     @id @default(uuid()) @db.Uuid
+  deploymentId   String     @db.Uuid
+  deployment     Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  
+  key            String     @db.VarChar(255)
+  value          String     @db.Text        // Still encrypted — decrypted only when injecting into ECS task
+  iv             String     @db.VarChar(32)
+  
+  @@index([deploymentId])
+}
+
+
+// CUSTOM DOMAINS
+// Users can attach their own domain to a project's active deployment.
+
+model CustomDomain {
+  id              String   @id @default(uuid()) @db.Uuid
+  projectId       String   @db.Uuid
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  domain          String   @unique @db.VarChar(253)  // e.g. "myapp.com"
+  
+  // Verification
+  verificationToken String  @db.VarChar(64)  // TXT record value user must add to their DNS
+  verified          Boolean @default(false)
+  verifiedAt        DateTime? @db.Timestamptz
+  
+  // SSL
+  sslStatus         String    @default("pending")  // pending|issuing|active|error
+  sslIssuedAt       DateTime? @db.Timestamptz
+  sslExpiresAt      DateTime? @db.Timestamptz
+  
+  createdAt         DateTime  @default(now()) @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @db.Timestamptz
+
+  @@index([projectId])
+  @@index([domain])
+}
+
+
+// WEBHOOK DELIVERIES
+// Every GitHub webhook push event, logged.
+// Required for debugging "why didn't my push trigger a deploy"
+
+model WebhookDelivery {
+  id              String   @id @default(uuid()) @db.Uuid
+  projectId       String   @db.Uuid
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  githubDeliveryId String? @db.VarChar(255)   // X-GitHub-Delivery header
+  event           WebhookEvent
+  branch          String   @db.VarChar(255)
+  commitHash      String?  @db.VarChar(40)
+  commitMessage   String?  @db.VarChar(500)
+  
+  // Was a deployment triggered?
+  deploymentTriggered Boolean  @default(false)
+  deploymentId        String?  @db.Uuid
+  skipReason          String?  @db.VarChar(255)  // e.g. "branch not watched" | "already building"
+  
+  rawPayload      Json?    // store the full GitHub payload for debugging
+  
+  receivedAt      DateTime @default(now()) @db.Timestamptz
+
+  @@index([projectId, receivedAt(sort: Desc)])
+}
+
+
+// AUDIT LOG
+// Every sensitive action a user takes.
+// Required for "who deleted my project" questions.
+
+model AuditLog {
+  id           BigInt   @id @default(autoincrement())
+  userId       String?  @db.Uuid   // null for unauthenticated actions
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action       String   @db.VarChar(100)    // "project.create" | "deployment.stop" | "env.update" | "user.login"
+  resourceType String?  @db.VarChar(50)     // "project" | "deployment" | "env_variable"
+  resourceId   String?  @db.VarChar(36)
+  
+  ipAddress    String?  @db.VarChar(45)
+  userAgent    String?  @db.VarChar(512)
+  
+  metadata     Json?    // action-specific data
+  
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])  // for retention cleanup job
+}
