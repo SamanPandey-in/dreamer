@@ -29,7 +29,7 @@ function setRefreshCookie(res: Response, token: string) {
     // is scoped to the registrable domain, not the exact origin. If you ever
     // deploy them on two unrelated domains, switch to 'none' + secure: true.
     // sameSite: 'strict',
-    sameSite: 'none',
+    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
     path: REFRESH_COOKIE_PATH,
     maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
   });
