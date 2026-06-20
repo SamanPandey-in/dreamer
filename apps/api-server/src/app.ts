@@ -17,6 +17,12 @@ const ecsClient = new ECSClient({
 
 export const app = express();
 
+// Render sits exactly one reverse-proxy hop in front of this app. Trusting
+// only that one hop (not `true`, which trusts the whole X-Forwarded-For
+// chain) is what lets req.ip resolve to the real visitor — and is what
+// express-rate-limit needs to key the abuse-prone auth routes correctly.
+app.set('trust proxy', true); // Trust the first proxy (e.g., load balancer) for correct client IP and secure cookie handling
+
 // CORS must allow exactly ONE known origin (never '*') AND credentials: true,
 // or the browser silently refuses to send/receive the refresh cookie at all.
 app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));

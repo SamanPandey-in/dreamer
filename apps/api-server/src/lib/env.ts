@@ -13,6 +13,7 @@ const envSchema = z.object({
   FRONTEND_URL: z.url(),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  DATABASE_CA_CERT: z.string().min(1, 'DATABASE_CA_CERT is required (the PEM contents of your Postgres CA certificate)'),
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
 
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),

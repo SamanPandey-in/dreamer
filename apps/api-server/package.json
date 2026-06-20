@@ -7,7 +7,8 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -26,7 +27,9 @@
     "pg": "^8.21.0",
     "random-word-slugs": "^0.1.7",
     "socket.io": "^4.8.3",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -35,8 +38,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.3",
     "@types/pg": "^8.20.0",
-    "prisma": "^7.8.0",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "prisma": "^7.8.0"
   }
 }
