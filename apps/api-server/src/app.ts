@@ -1,19 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { ECSClient, RunTaskCommand } from '@aws-sdk/client-ecs';
+import { RunTaskCommand } from '@aws-sdk/client-ecs';
 import { generateSlug } from 'random-word-slugs';
 import { env } from './lib/env';
 import { authRouter } from './auth';
 import { errorHandlerMiddleware } from './middleware/error-handler.middleware';
-
-const ecsClient = new ECSClient({
-  region: env.AWS_REGION,
-  credentials: {
-    accessKeyId: env.AWS_ACCESS_KEY_ID ?? '',
-    secretAccessKey: env.AWS_SECRET_ACCESS_KEY ?? '',
-  },
-});
+import { ecsClient } from './lib/ecs-client';
 
 export const app = express();
 
