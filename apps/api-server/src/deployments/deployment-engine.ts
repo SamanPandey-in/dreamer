@@ -34,6 +34,8 @@ export interface BuildJob {
   projectId: string;
   repoUrl: string;
   branch: string;
+  /** Only set for project.isPrivate — decrypted just-in-time, never persisted, never logged. */
+  gitAccessToken?: string;
 }
 
 export interface EngineHandle {
@@ -83,6 +85,7 @@ export class EcsDeploymentEngine implements DeploymentEngine {
               // same value once one project can have many deployments.
               { name: 'DEPLOYMENT_ID', value: job.deploymentId },
               { name: 'DEPLOYMENT_SLUG', value: job.deploymentSlug },
+              ...(job.gitAccessToken ? [{ name: 'GIT_ACCESS_TOKEN', value: job.gitAccessToken }] : []), // Conditional, on purpose — public repos never get handed a live token at all
             ],
           },
         ],

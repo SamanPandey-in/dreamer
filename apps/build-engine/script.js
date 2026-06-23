@@ -3,9 +3,8 @@ const path = require('path')
 const fs = require('fs')
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
 const mime = require('mime-types')
-const Redis = require('ioredis')
-
-const publisher = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
+const { publishLog, publishStatus, publisher } = require('./redis')
+const { writeNetrcIfNeeded, scrubNetrc, runClone } = require('./clone-repo')
 
 const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'ap-south-1',
@@ -17,28 +16,15 @@ const s3Client = new S3Client({
 
 const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID
 const DEPLOYMENT_SLUG = process.env.DEPLOYMENT_SLUG
+const GIT_REPOSITORY_URL = process.env.GIT_REPOSITORY_URL
+const BRANCH = process.env.BRANCH || 'main'
 const S3_BUCKET = process.env.S3_BUCKET || 'dreamer-outputs'
 const BASE_DOMAIN = process.env.BASE_DOMAIN || 'singularitydev.xyz'
-
-// Same channel carries both log lines and status events — api-server's
-// src/realtime/log-relay.ts tells them apart by `type`. Keep this contract
-// in sync BY HAND with src/realtime/realtime.types.ts on the API server —
-// there's no shared package between this app (plain Node) and that one
-// (TypeScript) to enforce it for you.
-const CHANNEL = `deployment:${DEPLOYMENT_ID}`
-
-function publishLog(message, level = 'INFO', source = 'build') {
-    publisher.publish(CHANNEL, JSON.stringify({ type: 'log', level, message, source }))
-}
-
-function publishStatus(status, extra = {}) {
-    publisher.publish(CHANNEL, JSON.stringify({ type: 'status', status, ...extra }))
-}
 
 // Helper function to run the build sequentially
 function runBuildCommand(dirPath) {
     return new Promise((resolve, reject) => {
-        const p = exec(`cd ${dirPath} && npm install && npm run build`)
+        const p = exec(`cd ${dirPath} && npm ci --legacy-peer-deps && npm run build`)
 
         p.stdout.on('data', function (data) {
             console.log(data.toString())
@@ -72,6 +58,15 @@ async function init() {
     const outDirPath = path.join(__dirname, 'output')
 
     try {
+        // 0. Clone — now INSIDE this try/catch, unlike the original
+        // prototype where main.sh ran it before this process even started
+        // (see the note above Part 6.1 for why that made clone failures
+        // invisible to the dashboard).
+        writeNetrcIfNeeded()
+        publishLog(`Cloning ${GIT_REPOSITORY_URL} (branch: ${BRANCH})`, 'SYSTEM', 'platform')
+        await runClone()
+        scrubNetrc() // before npm touches a single dependency — see the comment on scrubNetrc()
+
         // 1. Wait for the build to completely finish
         await runBuildCommand(outDirPath)
 
@@ -126,6 +121,11 @@ async function init() {
         publishStatus('FAILED', { errorMessage: error.message, errorCode: 'BUILD_FAILED', errorStep: 'build' })
         process.exitCode = 1
     } finally {
+        // Guarantees cleanup even if the clone itself is what threw — the
+        // success-path call above is the one that matters for the
+        // npm-install threat model, but this one matters for "the process
+        // is about to exit no matter what, leave nothing behind."
+        scrubNetrc()
         // publisher.publish() is fire-and-forget over an already-open
         // connection — give the last message a moment to actually flush
         // over the socket before the process (and the whole Fargate task)

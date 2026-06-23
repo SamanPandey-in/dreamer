@@ -2,7 +2,8 @@ import { generateSlug } from 'random-word-slugs';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
 import { audit, type AuditMeta } from '../lib/audit';
-import { ConflictError, NotFoundError } from '../lib/errors';
+import { BadRequestError, ConflictError, NotFoundError } from '../lib/errors';
+import { decryptFromStorage } from '../lib/crypto';
 import { assertProjectOwnership } from '../projects/project.service'; // concrete file, not the barrel — see §0.5
 import { deploymentEngine } from './deployment-engine';
 import type {
@@ -96,6 +97,21 @@ export async function createDeployment(
   meta: AuditMeta
 ): Promise<PublicDeployment> {
   const project = await assertProjectOwnership(projectId, userId);
+  
+  // This fails loudly before ever touching ECS — an email/password-only user trying to deploy
+  // a private repo gets a clear 400, not a build that queues and then mysteriously hangs.
+  let gitAccessToken: string | undefined;
+  if (project.isPrivate) {
+    const owner = await prisma.user.findUnique({ where: { id: userId }, select: { githubToken: true } });
+    if (!owner?.githubToken) {
+      throw new BadRequestError(
+        'Connect your GitHub account before deploying a private repository',
+        'GITHUB_NOT_CONNECTED'
+      );
+    }
+    gitAccessToken = decryptFromStorage(owner.githubToken);
+  }
+
   const branch = input.branch ?? project.defaultBranch;
   const slug = await generateUniqueDeploymentSlug();
 
@@ -142,6 +158,7 @@ export async function createDeployment(
       projectId,
       repoUrl: project.repoUrl,
       branch,
+      gitAccessToken,
     });
 
     const updated = await prisma.deployment.update({
