@@ -60,7 +60,14 @@ function toPublicLogLine(log: DeploymentLog): PublicLogLine {
   };
 }
 
-/** Deployment.slug is `@unique @db.VarChar(63)` and becomes the live subdomain — same collision-retry reasoning as project.service.ts. */
+/**
+ * Deployment.slug is still `@unique` and generated independently here — but
+ * it no longer drives the S3 prefix or the live subdomain. That's
+ * project.slug now (see createDeployment below, and project.service.ts's
+ * name-derived slug generation). This survives purely as a per-deployment
+ * internal label, useful in logs/history ("deployment fuzzy-cat-42
+ * failed"), deliberately decoupled from anything user-facing.
+ */
 async function generateUniqueDeploymentSlug(): Promise<string> {
   for (let attempt = 0; attempt < SLUG_MAX_ATTEMPTS; attempt++) {
     const candidate = generateSlug();
@@ -119,6 +126,12 @@ export async function createDeployment(
   // atomically — there is never a moment a Deployment exists without a
   // QUEUED transition already recorded, which the timeline UI on the
   // deployment detail page relies on existing from the very first render.
+  //
+  // s3Prefix is keyed by the PROJECT's slug, not `slug` (this deployment's
+  // own, generated two lines up) — every deployment of the same project
+  // writes to, and overwrites, the same S3 location and the same live
+  // subdomain. `slug` is stored on the row purely as this deployment's own
+  // internal label; it was never meant to reach S3 or a URL.
   const deployment = await prisma.$transaction(async (tx) => {
     const created = await tx.deployment.create({
       data: {
@@ -127,7 +140,7 @@ export async function createDeployment(
         branch,
         triggeredBy: 'manual',
         status: 'QUEUED',
-        s3Prefix: `__outputs/${slug}/`,
+        s3Prefix: `__outputs/${project.slug}/`,
       },
     });
 
@@ -154,7 +167,7 @@ export async function createDeployment(
   try {
     const handle = await deploymentEngine.launchBuildTask({
       deploymentId: deployment.id,
-      deploymentSlug: deployment.slug,
+      projectSlug: project.slug, // the S3 prefix / live subdomain — see the comment above the $transaction call
       projectId,
       repoUrl: project.repoUrl,
       branch,

@@ -47,6 +47,15 @@ export async function getProject(projectId: string): Promise<Project> {
   return data.project;
 }
 
+/** 204 No Content on success — see project.controller.ts's deleteProjectHandler on the API. */
+export async function deleteProject(projectId: string): Promise<void> {
+  const res = await apiFetch(`/api/projects/${projectId}`, { method: "DELETE" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "Failed to delete project. Please try again.");
+  }
+}
+
 // Deployments
 
 export async function createDeployment(projectId: string, branch?: string): Promise<Deployment> {

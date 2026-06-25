@@ -30,7 +30,14 @@ export interface DeploymentEngine {
 
 export interface BuildJob {
   deploymentId: string;
-  deploymentSlug: string;
+  /**
+   * The PROJECT's slug — not this deployment's own random one. This is what
+   * becomes the S3 prefix and the live subdomain; every deployment of the
+   * same project intentionally writes to (and overwrites) the same
+   * location. See deployment.service.ts's createDeployment for the full
+   * reasoning.
+   */
+  projectSlug: string;
   projectId: string;
   repoUrl: string;
   branch: string;
@@ -80,11 +87,14 @@ export class EcsDeploymentEngine implements DeploymentEngine {
               // Renamed from the prototype's single PROJECT_ID: the build
               // container now needs BOTH identifiers — the deployment ID
               // keys the Redis channel (so logs/status land on the right
-              // row), the slug keys the S3 prefix (so it becomes the
-              // subdomain) — see Part 6 for why these can no longer be the
-              // same value once one project can have many deployments.
+              // row), the PROJECT's slug keys the S3 prefix (so it becomes
+              // the subdomain). This must be project.slug, never this
+              // deployment's own random slug — using the deployment's own
+              // slug here was the cause of a real bug where the live
+              // URL/S3 prefix showed a random word triplet instead of the
+              // project's name.
               { name: 'DEPLOYMENT_ID', value: job.deploymentId },
-              { name: 'DEPLOYMENT_SLUG', value: job.deploymentSlug },
+              { name: 'PROJECT_SLUG', value: job.projectSlug },
               ...(job.gitAccessToken ? [{ name: 'GIT_ACCESS_TOKEN', value: job.gitAccessToken }] : []), // Conditional, on purpose — public repos never get handed a live token at all
             ],
           },

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ExternalLink, GitBranch, Rocket } from "lucide-react";
-import { createDeployment, getProject, listDeployments } from "@/lib/dashboard-api";
+import { ExternalLink, GitBranch, Loader2, Rocket, Trash2 } from "lucide-react";
+import { createDeployment, deleteProject, getProject, listDeployments } from "@/lib/dashboard-api";
 import type { Deployment, Project } from "@/lib/dashboard-types";
 import { DeploymentRow } from "@/components/dashboard/DeploymentRow";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
@@ -16,6 +16,8 @@ export default function ProjectOverviewPage() {
   const [deployments, setDeployments] = useState<Deployment[] | null>(null);
   const [deploying, setDeploying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     Promise.all([getProject(projectId), listDeployments(projectId, { limit: 10 })])
@@ -34,6 +36,18 @@ export default function ProjectOverviewPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start deployment");
       setDeploying(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await deleteProject(projectId);
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete project");
+      setDeleting(false);
+      setConfirmingDelete(false);
     }
   }
 
@@ -131,6 +145,40 @@ export default function ProjectOverviewPage() {
                 <dd className="text-zinc-300">{deployments.length}</dd>
               </div>
             </dl>
+          </div>
+
+          <div className="bg-red-500/5 rounded-2xl border border-red-500/20 p-5">
+            <h2 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-2">Danger Zone</h2>
+            <p className="text-xs text-zinc-500 mb-3">
+              Deletes the project and takes down its live deployment. This can&apos;t be undone.
+            </p>
+            {!confirmingDelete ? (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="flex items-center gap-1.5 text-sm text-red-400 hover:text-red-300 font-medium"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete Project
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/90 hover:bg-red-500 text-white text-sm font-medium transition-colors disabled:opacity-60"
+                >
+                  {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  {deleting ? "Deleting..." : `Confirm delete "${project.name}"`}
+                </button>
+                <button
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="text-sm text-zinc-400 hover:text-zinc-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

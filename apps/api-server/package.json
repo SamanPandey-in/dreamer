@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-ecs": "^3.1071.0",
+    "@aws-sdk/client-s3": "^3.1075.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcryptjs": "^3.0.3",
@@ -27,9 +28,9 @@
     "pg": "^8.21.0",
     "random-word-slugs": "^0.1.7",
     "socket.io": "^4.8.3",
-    "zod": "^4.4.3",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

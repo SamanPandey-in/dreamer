@@ -15,7 +15,7 @@ const s3Client = new S3Client({
 })
 
 const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID
-const DEPLOYMENT_SLUG = process.env.DEPLOYMENT_SLUG
+const PROJECT_SLUG = process.env.PROJECT_SLUG
 const GIT_REPOSITORY_URL = process.env.GIT_REPOSITORY_URL
 const BRANCH = process.env.BRANCH || 'main'
 const S3_BUCKET = process.env.S3_BUCKET || 'dreamer-outputs'
@@ -93,15 +93,15 @@ async function init() {
             console.log('uploading', filePath)
             publishLog(`uploading ${file}`, 'INFO', 'platform')
 
-            // __outputs/{DEPLOYMENT_SLUG}/... — keyed by the DEPLOYMENT's
-            // slug now, not the project's. This is what Deployment.s3Prefix
-            // in schema.prisma documents ("__outputs/{slug}/") and it's why
-            // apps/reverse-proxy needs NO changes at all: it already proxies
-            // subdomain -> __outputs/{subdomain}, and the subdomain a user
-            // visits IS this deployment's slug.
+            // __outputs/{PROJECT_SLUG}/... — keyed by the PROJECT's slug,
+            // not this deployment's own random one. Every deployment of the
+            // same project writes to, and overwrites, the same prefix — on
+            // purpose. apps/reverse-proxy needs NO changes: it already
+            // proxies subdomain -> __outputs/{subdomain}, and the subdomain
+            // a user visits IS the project's slug.
             const command = new PutObjectCommand({
                 Bucket: S3_BUCKET,
-                Key: `__outputs/${DEPLOYMENT_SLUG}/${file}`,
+                Key: `__outputs/${PROJECT_SLUG}/${file}`,
                 Body: fs.createReadStream(filePath),
                 ContentType: mime.lookup(filePath) || 'application/octet-stream'
             })
@@ -111,7 +111,7 @@ async function init() {
             publishLog(`uploaded ${file}`, 'INFO', 'platform')
         }
 
-        const url = `https://${DEPLOYMENT_SLUG}.${BASE_DOMAIN}`
+        const url = `https://${PROJECT_SLUG}.${BASE_DOMAIN}`
         publishLog(`Done — ${uploadedCount} files uploaded`, 'SYSTEM')
         publishStatus('RUNNING', { url })
         console.log('Done...')
