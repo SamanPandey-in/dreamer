@@ -43,17 +43,19 @@ function toPublicDeployment(deployment: Deployment): PublicDeployment {
     status: deployment.status,
     type: deployment.type,
     framework: deployment.framework,
+    environment: deployment.environment,
     branch: deployment.branch,
     commitHash: deployment.commitHash,
     commitMessage: deployment.commitMessage,
     commitAuthor: deployment.commitAuthor,
+    deployedById: deployment.deployedById,
     url: deployment.url,
     errorMessage: deployment.errorMessage,
     errorCode: deployment.errorCode,
     errorStep: deployment.errorStep,
     buildDurationMs: deployment.buildDurationMs,
-    uploadedFileCount: deployment.uploadedFileCount, //  NEW
-    imageSizeBytes: deployment.imageSizeBytes, //  NEW
+    uploadedFileCount: deployment.uploadedFileCount,
+    imageSizeBytes: deployment.imageSizeBytes,
     triggeredBy: deployment.triggeredBy,
     queuedAt: deployment.queuedAt,
     buildStartedAt: deployment.buildStartedAt,
@@ -139,6 +141,7 @@ async function createDeploymentInternal(
 
   const branch = opts.branch ?? project.defaultBranch;
   const slug = await generateUniqueDeploymentSlug();
+  const environment: 'PRODUCTION' | 'PREVIEW' = branch === project.defaultBranch ? 'PRODUCTION' : 'PREVIEW';
 
   const deployment = await prisma.$transaction(async (tx) => {
     const created = await tx.deployment.create({
@@ -146,14 +149,11 @@ async function createDeploymentInternal(
         projectId,
         slug,
         branch,
+        environment,
+        deployedById: userId,
         triggeredBy: opts.triggeredBy,
         status: 'QUEUED',
         s3Prefix: `__outputs/${project.slug}/`,
-        // Pre-fill immediately for a pinned rollback — the dashboard shows
-        // what's being rebuilt the moment it's queued, rather than waiting on
-        // build-engine's commit_info event to report back the same hash a
-        // few seconds later. For a normal (unpinned) deploy this stays null
-        // until that event arrives, same behavior as before this change.
         commitHash: opts.commitHash,
       },
     });
@@ -340,12 +340,36 @@ export async function stopDeployment(
 export async function listDeploymentsForProject(
   projectId: string,
   userId: string,
-  { cursor, limit }: { cursor?: string; limit: number }
+  {
+    cursor,
+    limit,
+    branch,
+    status,
+    environment,
+    dateFrom,
+    dateTo,
+  }: {
+    cursor?: string;
+    limit: number;
+    branch?: string;
+    status?: DeploymentStatus;
+    environment?: 'PRODUCTION' | 'PREVIEW';
+    dateFrom?: Date;
+    dateTo?: Date;
+  }
 ): Promise<{ deployments: PublicDeployment[]; nextCursor: string | null }> {
   await assertProjectOwnership(projectId, userId);
 
   const rows = await prisma.deployment.findMany({
-    where: { projectId },
+    where: {
+      projectId,
+      ...(branch ? { branch } : {}),
+      ...(status ? { status } : {}),
+      ...(environment ? { environment } : {}),
+      ...(dateFrom || dateTo
+        ? { createdAt: { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) } }
+        : {}),
+    },
     orderBy: { createdAt: 'desc' },
     take: limit + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

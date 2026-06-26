@@ -48,6 +48,11 @@ function toPublicProject(project: Project): PublicProject {
     isPrivate: project.isPrivate,
     activeDeploymentId: project.activeDeploymentId,
     lastDeployedAt: project.lastDeployedAt,
+    buildCommand: project.buildCommand,
+    installCommand: project.installCommand,
+    outputDirectory: project.outputDirectory,
+    rootDirectory: project.rootDirectory,
+    autoDeployEnabled: project.autoDeployEnabled,
     createdAt: project.createdAt,
   };
 }
@@ -239,6 +244,11 @@ export async function updateProject(
       name: input.name,
       description: input.description,
       defaultBranch: input.defaultBranch,
+      buildCommand: input.buildCommand,
+      installCommand: input.installCommand,
+      outputDirectory: input.outputDirectory,
+      rootDirectory: input.rootDirectory,
+      autoDeployEnabled: input.autoDeployEnabled,
     },
   });
 

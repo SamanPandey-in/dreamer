@@ -8,11 +8,21 @@ export const createDeploymentSchema = z.object({
   }),
 });
 
+const DEPLOYMENT_STATUS_VALUES = [
+  'QUEUED', 'BUILDING', 'UPLOADING', 'STARTING', 'RUNNING',
+  'SLEEPING', 'WAKING', 'STOPPED', 'FAILED', 'CANCELLED', 'ERROR',
+] as const;
+
 export const listDeploymentsQuerySchema = z.object({
   params: z.object({ projectId: z.uuid() }),
   query: z.object({
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
+    branch: z.string().trim().min(1).optional(),
+    status: z.enum(DEPLOYMENT_STATUS_VALUES).optional(),
+    environment: z.enum(['PRODUCTION', 'PREVIEW']).optional(),
+    dateFrom: z.coerce.date().optional(),
+    dateTo: z.coerce.date().optional(),
   }),
 });
 
@@ -29,6 +39,7 @@ export const listDeploymentLogsSchema = z.object({
 });
 
 export type CreateDeploymentInput = z.infer<typeof createDeploymentSchema>['body'];
+export type ListDeploymentsQuery = z.infer<typeof listDeploymentsQuerySchema>['query'];
 
 export interface PublicDeployment {
   id: string;
@@ -37,17 +48,19 @@ export interface PublicDeployment {
   status: Deployment['status'];
   type: Deployment['type'];
   framework: Deployment['framework'];
+  environment: Deployment['environment'];
   branch: string;
   commitHash: string | null;
   commitMessage: string | null;
   commitAuthor: string | null;
+  deployedById: string | null;
   url: string | null;
   errorMessage: string | null;
   errorCode: string | null;
   errorStep: string | null;
   buildDurationMs: number | null;
-  uploadedFileCount: number | null; //  NEW
-  imageSizeBytes: number | null; //  NEW
+  uploadedFileCount: number | null;
+  imageSizeBytes: number | null;
   triggeredBy: string;
   queuedAt: Date;
   buildStartedAt: Date | null;

@@ -20,6 +20,11 @@ export const updateProjectSchema = z.object({
     name: z.string().min(1).max(255).trim().optional(),
     description: z.string().max(500).trim().optional(),
     defaultBranch: z.string().min(1).max(255).trim().optional(),
+    buildCommand: z.string().max(500).trim().optional(),
+    installCommand: z.string().max(500).trim().optional(),
+    outputDirectory: z.string().max(255).trim().optional(),
+    rootDirectory: z.string().max(255).trim().optional(),
+    autoDeployEnabled: z.boolean().optional(),
   }),
 });
 
@@ -42,6 +47,11 @@ export interface PublicProject {
   isPrivate: boolean;
   activeDeploymentId: string | null;
   lastDeployedAt: Date | null;
+  buildCommand: string | null;
+  installCommand: string | null;
+  outputDirectory: string | null;
+  rootDirectory: string | null;
+  autoDeployEnabled: boolean;
   createdAt: Date;
 }
 
