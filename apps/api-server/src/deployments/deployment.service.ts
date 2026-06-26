@@ -4,6 +4,7 @@ import { redis } from '../lib/redis';
 import { audit, type AuditMeta } from '../lib/audit';
 import { BadRequestError, ConflictError, NotFoundError } from '../lib/errors';
 import { decryptFromStorage } from '../lib/crypto';
+import { deleteS3Prefix } from '../lib/s3-client';
 import { assertProjectOwnership } from '../projects/project.service'; // concrete file, not the barrel — see §0.5
 import { deploymentEngine } from './deployment-engine';
 import type {
@@ -18,9 +19,21 @@ const SLUG_MAX_ATTEMPTS = 5;
 
 /** Statuses where a build is still in flight — used by the frontend to decide whether to open a socket at all. */
 export const ACTIVE_STATUSES: DeploymentStatus[] = ['QUEUED', 'BUILDING', 'UPLOADING', 'STARTING'];
-
-/** Statuses where no further events will ever arrive for this deployment. */
 export const TERMINAL_STATUSES: DeploymentStatus[] = ['RUNNING', 'STOPPED', 'FAILED', 'CANCELLED'];
+
+/**
+ *  NEW. Distinct from TERMINAL_STATUSES above on purpose — that one answers
+ * "will any more realtime events ever arrive" (RUNNING counts as terminal
+ * there; the build is over). This one answers "can the Stop button still do
+ * anything" — and RUNNING very much can: it's the live site.
+ */
+export const NON_STOPPABLE_STATUSES: DeploymentStatus[] = ['STOPPED', 'FAILED', 'CANCELLED'];
+
+/**  NEW. Build states where the ECS task itself is still alive and killable via stopBuildTask. */
+const IN_FLIGHT_BUILD_STATUSES: DeploymentStatus[] = ['BUILDING', 'UPLOADING', 'STARTING'];
+
+/**  NEW. A rollback target must have actually finished — rolling back TO a FAILED or still-QUEUED row would just reproduce whatever didn't work. */
+const ROLLBACK_TARGET_STATUSES: DeploymentStatus[] = ['RUNNING', 'STOPPED'];
 
 function toPublicDeployment(deployment: Deployment): PublicDeployment {
   return {
@@ -39,6 +52,8 @@ function toPublicDeployment(deployment: Deployment): PublicDeployment {
     errorCode: deployment.errorCode,
     errorStep: deployment.errorStep,
     buildDurationMs: deployment.buildDurationMs,
+    uploadedFileCount: deployment.uploadedFileCount, //  NEW
+    imageSizeBytes: deployment.imageSizeBytes, //  NEW
     triggeredBy: deployment.triggeredBy,
     queuedAt: deployment.queuedAt,
     buildStartedAt: deployment.buildStartedAt,
@@ -80,14 +95,6 @@ async function generateUniqueDeploymentSlug(): Promise<string> {
   );
 }
 
-/**
- * Ownership check for a SINGLE deployment, reused by getDeploymentDetail,
- * listDeploymentLogs, AND src/realtime/socket.server.ts (so the socket
- * gateway never re-implements this where-clause itself — see §4.2). Includes
- * stateTransitions because the relation is tiny (a handful of rows per
- * deployment, ever) and every caller except listDeploymentLogs wants it
- * anyway; not worth a second leaner query for that one case.
- */
 export async function assertDeploymentOwnership(deploymentId: string, userId: string) {
   const deployment = await prisma.deployment.findFirst({
     where: { id: deploymentId, project: { userId, deletedAt: null } },
@@ -97,16 +104,27 @@ export async function assertDeploymentOwnership(deploymentId: string, userId: st
   return deployment;
 }
 
-export async function createDeployment(
+/**
+ *  NEW (refactor). The shared body of "create a Deployment row and launch
+ * it" — both createDeployment (public API: branch only) and
+ * rollbackDeployment (internal: branch + a pinned commitHash) call this, so
+ * the transaction/audit/ECS-launch logic exists exactly once.
+ */
+interface CreateDeploymentOptions {
+  branch?: string;
+  /** Only ever set by rollbackDeployment. */
+  commitHash?: string;
+  triggeredBy: string; // 'manual' | 'api' | 'rollback' | (future) 'webhook'
+}
+
+async function createDeploymentInternal(
   projectId: string,
   userId: string,
-  input: CreateDeploymentInput,
+  opts: CreateDeploymentOptions,
   meta: AuditMeta
 ): Promise<PublicDeployment> {
   const project = await assertProjectOwnership(projectId, userId);
-  
-  // This fails loudly before ever touching ECS — an email/password-only user trying to deploy
-  // a private repo gets a clear 400, not a build that queues and then mysteriously hangs.
+
   let gitAccessToken: string | undefined;
   if (project.isPrivate) {
     const owner = await prisma.user.findUnique({ where: { id: userId }, select: { githubToken: true } });
@@ -119,28 +137,24 @@ export async function createDeployment(
     gitAccessToken = decryptFromStorage(owner.githubToken);
   }
 
-  const branch = input.branch ?? project.defaultBranch;
+  const branch = opts.branch ?? project.defaultBranch;
   const slug = await generateUniqueDeploymentSlug();
 
-  // The Deployment row and its first state-transition row are created
-  // atomically — there is never a moment a Deployment exists without a
-  // QUEUED transition already recorded, which the timeline UI on the
-  // deployment detail page relies on existing from the very first render.
-  //
-  // s3Prefix is keyed by the PROJECT's slug, not `slug` (this deployment's
-  // own, generated two lines up) — every deployment of the same project
-  // writes to, and overwrites, the same S3 location and the same live
-  // subdomain. `slug` is stored on the row purely as this deployment's own
-  // internal label; it was never meant to reach S3 or a URL.
   const deployment = await prisma.$transaction(async (tx) => {
     const created = await tx.deployment.create({
       data: {
         projectId,
         slug,
         branch,
-        triggeredBy: 'manual',
+        triggeredBy: opts.triggeredBy,
         status: 'QUEUED',
         s3Prefix: `__outputs/${project.slug}/`,
+        // Pre-fill immediately for a pinned rollback — the dashboard shows
+        // what's being rebuilt the moment it's queued, rather than waiting on
+        // build-engine's commit_info event to report back the same hash a
+        // few seconds later. For a normal (unpinned) deploy this stays null
+        // until that event arrives, same behavior as before this change.
+        commitHash: opts.commitHash,
       },
     });
 
@@ -149,7 +163,7 @@ export async function createDeployment(
         deploymentId: created.id,
         fromStatus: null,
         toStatus: 'QUEUED',
-        reason: 'Deployment created',
+        reason: opts.commitHash ? 'Rollback deployment created' : 'Deployment created',
         triggeredBy: 'api',
       },
     });
@@ -159,18 +173,14 @@ export async function createDeployment(
 
   await audit(userId, 'deployment.create', meta, { resourceType: 'deployment', resourceId: deployment.id });
 
-  // The ECS call is a real network round trip to AWS — deliberately OUTSIDE
-  // the transaction above. Holding a Postgres transaction open across an AWS
-  // API call would hold row locks (and a connection from your pool) for as
-  // long as ECS takes to respond — exactly the kind of thing that takes a
-  // small Postgres instance down under any real concurrency.
   try {
     const handle = await deploymentEngine.launchBuildTask({
       deploymentId: deployment.id,
-      projectSlug: project.slug, // the S3 prefix / live subdomain — see the comment above the $transaction call
+      projectSlug: project.slug,
       projectId,
       repoUrl: project.repoUrl,
       branch,
+      commitHash: opts.commitHash,
       gitAccessToken,
     });
 
@@ -181,11 +191,6 @@ export async function createDeployment(
 
     return toPublicDeployment(updated);
   } catch (err) {
-    // The build container never even started — no log lines and no status
-    // report will ever come from build-engine for this deployment, so the
-    // API itself is responsible for moving it to a terminal state. This is
-    // the ONE place outside transitionDeploymentStatus's own callers in
-    // realtime/ that calls it directly.
     const failed = await transitionDeploymentStatus(deployment.id, 'FAILED', {
       reason: 'Failed to launch build task',
       errorCode: 'ENGINE_LAUNCH_FAILED',
@@ -194,6 +199,142 @@ export async function createDeployment(
     });
     return toPublicDeployment(failed ?? deployment);
   }
+}
+
+export async function createDeployment(
+  projectId: string,
+  userId: string,
+  input: CreateDeploymentInput,
+  meta: AuditMeta
+): Promise<PublicDeployment> {
+  return createDeploymentInternal(projectId, userId, { branch: input.branch, triggeredBy: 'manual' }, meta);
+}
+
+/**
+ *  NEW. "Roll back" = rebuild the exact commit the target deployment ran,
+ * as a brand-new Deployment row — not a copy of the old row's id/slug/AWS
+ * handles, and not a re-point of traffic at old build output. Nothing keeps
+ * a per-deployment artifact cache around to re-point at (every deploy
+ * overwrites the same project-scoped S3 prefix — see s3Prefix's comment in
+ * schema.prisma), so this is the same thing Vercel's own rollback does for
+ * any provider that doesn't keep a full build-artifact cache per deployment
+ * indefinitely: rebuild, from the known-good commit, right now.
+ */
+export async function rollbackDeployment(
+  deploymentId: string,
+  userId: string,
+  meta: AuditMeta
+): Promise<PublicDeployment> {
+  const target = await assertDeploymentOwnership(deploymentId, userId);
+
+  if (!ROLLBACK_TARGET_STATUSES.includes(target.status)) {
+    throw new BadRequestError(
+      'Can only roll back to a deployment that previously ran successfully',
+      'INVALID_ROLLBACK_TARGET'
+    );
+  }
+
+  if (!target.commitHash) {
+    throw new BadRequestError(
+      'This deployment has no recorded commit to roll back to',
+      'ROLLBACK_COMMIT_UNKNOWN'
+    );
+  }
+
+  const created = await createDeploymentInternal(
+    target.projectId,
+    userId,
+    { branch: target.branch, commitHash: target.commitHash, triggeredBy: 'rollback' },
+    meta
+  );
+
+  await audit(userId, 'deployment.rollback', meta, {
+    resourceType: 'deployment',
+    resourceId: created.id,
+    metadata: { rolledBackFromDeploymentId: deploymentId },
+  });
+
+  return created;
+}
+
+/**
+ *  NEW. See Part 1 §3b for the DB trigger this respects: STOPPED is only a
+ * legal target from BUILDING/UPLOADING/STARTING/RUNNING (after the trigger
+ * extension) — QUEUED routes to the pre-existing CANCELLED instead, and the
+ * three terminal statuses are rejected before any transition is attempted.
+ */
+export async function stopDeployment(
+  deploymentId: string,
+  userId: string,
+  meta: AuditMeta
+): Promise<PublicDeployment> {
+  const deployment = await assertDeploymentOwnership(deploymentId, userId);
+
+  if (NON_STOPPABLE_STATUSES.includes(deployment.status)) {
+    throw new ConflictError(
+      `Cannot stop a deployment that is already ${deployment.status.toLowerCase()}`,
+      'DEPLOYMENT_NOT_STOPPABLE'
+    );
+  }
+
+  if (deployment.type === 'DYNAMIC') {
+    // EcsDeploymentEngine never implements service-based dynamic apps (see
+    // deployment-engine.ts) — there's no live ECS Service to tear down yet.
+    // An honest 400 now beats a button that silently no-ops once dynamic
+    // deploys actually ship.
+    throw new BadRequestError('Stopping dynamic deployments is not supported yet', 'DYNAMIC_STOP_UNSUPPORTED');
+  }
+
+  if (deployment.status === 'QUEUED') {
+    const updated = await transitionDeploymentStatus(deploymentId, 'CANCELLED', {
+      reason: 'Cancelled by user before the build started',
+      triggeredBy: 'user',
+    });
+    await audit(userId, 'deployment.cancel', meta, { resourceType: 'deployment', resourceId: deploymentId });
+    return toPublicDeployment(updated ?? deployment);
+  }
+
+  if (IN_FLIGHT_BUILD_STATUSES.includes(deployment.status) && deployment.ecsTaskArn) {
+    try {
+      await deploymentEngine.stopBuildTask(deployment.ecsTaskArn);
+    } catch (err) {
+      // The task may have already exited on its own a moment before this
+      // call landed — proceed to mark the row STOPPED regardless; don't
+      // leave it stuck mid-flight in the DB just because ECS's view and
+      // ours raced.
+      console.error(`[STOP_DEPLOYMENT] ECS StopTask failed for ${deploymentId}:`, err);
+    }
+  } else if (deployment.status === 'RUNNING') {
+    // Already-finished static output has no running compute to kill — the
+    // ECS task that built it already exited after upload. "Stopping" a live
+    // static deployment means taking its output down, and that only makes
+    // sense if it's the one the project is CURRENTLY serving — every
+    // deployment of the same project shares one S3 prefix (project.slug), so
+    // stopping an old, already-superseded RUNNING row must never touch
+    // whatever the project is serving right now.
+    const project = await prisma.project.findUnique({
+      where: { id: deployment.projectId },
+      select: { slug: true, activeDeploymentId: true },
+    });
+
+    if (project?.activeDeploymentId === deploymentId) {
+      try {
+        await deleteS3Prefix(deployment.s3Prefix ?? `__outputs/${project.slug}/`);
+      } catch (err) {
+        console.error(`[STOP_DEPLOYMENT] S3 cleanup failed for ${deploymentId}:`, err);
+      }
+      await prisma.project.update({ where: { id: deployment.projectId }, data: { activeDeploymentId: null } });
+    }
+  }
+
+  const updated = await transitionDeploymentStatus(deploymentId, 'STOPPED', {
+    reason: 'Stopped by user',
+    triggeredBy: 'user',
+  });
+
+  await audit(userId, 'deployment.stop', meta, { resourceType: 'deployment', resourceId: deploymentId });
+
+  return toPublicDeployment(updated ?? deployment);
 }
 
 export async function listDeploymentsForProject(
@@ -206,7 +347,7 @@ export async function listDeploymentsForProject(
   const rows = await prisma.deployment.findMany({
     where: { projectId },
     orderBy: { createdAt: 'desc' },
-    take: limit + 1, // fetch one extra row to know whether a next page exists, without a second COUNT query
+    take: limit + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
@@ -239,10 +380,6 @@ export async function listDeploymentLogs(
   userId: string,
   { after, limit }: { after: number; limit: number }
 ): Promise<PublicLogLine[]> {
-  // DeploymentLog has no userId column of its own — skipping this ownership
-  // check would let any authenticated user read any other user's build
-  // output by guessing a deployment UUID (a textbook IDOR). The check has to
-  // happen here, on every read, not just at deployment-creation time.
   await assertDeploymentOwnership(deploymentId, userId);
 
   const logs = await prisma.deploymentLog.findMany({
@@ -262,23 +399,16 @@ export interface TransitionOptions {
   url?: string;
   triggeredBy?: string;
   metadata?: Prisma.InputJsonValue;
+  uploadedFileCount?: number; //  NEW
 }
 
-/**
- * THE state machine. Called by the realtime gateway whenever build-engine
- * reports progress (Part 4), and exactly once directly from
- * createDeployment() above, for the one case where build-engine will never
- * get the chance to report anything itself. No other function writes
- * Deployment.status — see the note at the top of this section for why that
- * invariant matters.
- */
 export async function transitionDeploymentStatus(
   deploymentId: string,
   toStatus: DeploymentStatus,
   opts: TransitionOptions = {}
 ): Promise<Deployment | null> {
   const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
-  if (!current) return null; // e.g. the project was hard-deleted mid-build — nothing left to update
+  if (!current) return null;
 
   const now = new Date();
   const timestampPatch: Prisma.DeploymentUpdateInput = {};
@@ -305,6 +435,7 @@ export async function transitionDeploymentStatus(
       errorMessage: opts.errorMessage,
       errorCode: opts.errorCode,
       errorStep: opts.errorStep,
+      uploadedFileCount: opts.uploadedFileCount, //  NEW
       ...timestampPatch,
     },
   });
@@ -320,10 +451,6 @@ export async function transitionDeploymentStatus(
     },
   });
 
-  // Keep Project's denormalized "what's live right now" fields in sync —
-  // the entire reason activeDeploymentId/lastDeployedAt exist on Project
-  // (per the schema.prisma comment) is so the dashboard home page can show a
-  // status badge with zero extra joins.
   if (toStatus === 'RUNNING') {
     await prisma.project.update({
       where: { id: updated.projectId },
@@ -335,19 +462,37 @@ export async function transitionDeploymentStatus(
 }
 
 /**
- * Allocates the next sequence number for a deployment's log stream and
- * persists the line. Redis INCR is atomic across concurrent writers — the
- * build container's stdout and stderr are read concurrently (see
- * build-engine/script.js in Part 6) — which `SELECT MAX(sequence) + 1` in
- * Postgres is NOT, without taking an explicit row lock on every write.
+ *  NEW. The only function that writes commitHash/commitMessage/commitAuthor
+ * — same single-writer discipline as transitionDeploymentStatus above, kept
+ * SEPARATE from it (not folded in) because this isn't a status change:
+ * build-engine reports commit info once, early, independent of whatever
+ * status transitions happen around it. Called from realtime/log-relay.ts
+ * when a `commit_info` event arrives.
  */
+export interface CommitInfo {
+  commitHash: string;
+  commitMessage?: string;
+  commitAuthor?: string;
+}
+
+export async function recordCommitInfo(deploymentId: string, info: CommitInfo): Promise<void> {
+  await prisma.deployment.update({
+    where: { id: deploymentId },
+    data: {
+      commitHash: info.commitHash,
+      commitMessage: info.commitMessage,
+      commitAuthor: info.commitAuthor,
+    },
+  });
+}
+
 export async function appendLogLine(
   deploymentId: string,
   line: { level: DeploymentLog['level']; message: string; source?: string }
 ): Promise<PublicLogLine> {
   const sequenceKey = `deploy:seq:${deploymentId}`;
   const sequence = await redis.incr(sequenceKey);
-  await redis.expire(sequenceKey, 60 * 60 * 24 * 7); // 7 days — comfortably outlives any single build
+  await redis.expire(sequenceKey, 60 * 60 * 24 * 7);
 
   const log = await prisma.deploymentLog.create({
     data: { deploymentId, level: line.level, message: line.message, source: line.source, sequence },

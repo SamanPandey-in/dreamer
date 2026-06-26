@@ -3,8 +3,8 @@ const path = require('path')
 const fs = require('fs')
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
 const mime = require('mime-types')
-const { publishLog, publishStatus, publisher } = require('./redis')
-const { writeNetrcIfNeeded, scrubNetrc, runClone } = require('./clone-repo')
+const { publishLog, publishStatus, publishCommitInfo, publisher } = require('./redis')
+const { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommitInfo } = require('./clone-repo')
 
 const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'ap-south-1',
@@ -65,8 +65,21 @@ async function init() {
         writeNetrcIfNeeded()
         publishLog(`Cloning ${GIT_REPOSITORY_URL} (branch: ${BRANCH})`, 'SYSTEM', 'platform')
         await runClone()
+
+        // NEW — if this build is a rollback (COMMIT_HASH set), pin the
+        // checkout to that exact commit BEFORE scrubbing credentials and
+        // BEFORE reading commit info, so getCommitInfo() below reports the
+        // pinned commit, not the branch's current HEAD.
+        await runCheckoutIfPinned()
         scrubNetrc() // before npm touches a single dependency — see the comment on scrubNetrc()
 
+        // NEW — best-effort; a null result just means the commit fields
+        // stay null on this deployment, same as they already do for every
+        // deployment created before this change.
+        const commitInfo = await getCommitInfo()
+        if (commitInfo) {
+            publishCommitInfo({ commitHash: commitInfo.hash, commitMessage: commitInfo.message, commitAuthor: commitInfo.author })
+        }
         // 1. Wait for the build to completely finish
         await runBuildCommand(outDirPath)
 
@@ -113,7 +126,10 @@ async function init() {
 
         const url = `https://${PROJECT_SLUG}.${BASE_DOMAIN}`
         publishLog(`Done — ${uploadedCount} files uploaded`, 'SYSTEM')
-        publishStatus('RUNNING', { url })
+        // CHANGED — uploadedCount was computed and logged, but never sent
+        // here, so Deployment.uploadedFileCount stayed null forever. This is
+        // the one-line fix the Build Summary card (Part 7) depends on.
+        publishStatus('RUNNING', { url, uploadedFileCount: uploadedCount })
         console.log('Done...')
     } catch (error) {
         console.error('Fatal execution error:', error.message)

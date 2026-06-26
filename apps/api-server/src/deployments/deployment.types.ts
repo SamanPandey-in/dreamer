@@ -4,9 +4,6 @@ import type { Deployment, DeploymentLog, DeploymentStateTransition } from '../ge
 export const createDeploymentSchema = z.object({
   params: z.object({ projectId: z.uuid() }),
   body: z.object({
-    // Defaults to the project's own defaultBranch — resolved in the service
-    // layer, since the schema has no access to the project row to default
-    // against.
     branch: z.string().min(1).max(255).trim().optional(),
   }),
 });
@@ -26,10 +23,6 @@ export const deploymentIdParamSchema = z.object({
 export const listDeploymentLogsSchema = z.object({
   params: z.object({ deploymentId: z.uuid() }),
   query: z.object({
-    // Cursor by sequence number, not offset/limit — logs are an append-only,
-    // strictly ordered stream; "give me everything after sequence N" stays
-    // correct even while a build is actively writing new lines underneath
-    // you. An offset would shift mid-poll.
     after: z.coerce.number().int().min(0).default(0),
     limit: z.coerce.number().int().min(1).max(1000).default(500),
   }),
@@ -37,7 +30,6 @@ export const listDeploymentLogsSchema = z.object({
 
 export type CreateDeploymentInput = z.infer<typeof createDeploymentSchema>['body'];
 
-/** Shape returned to the client — never the AWS ARNs, the S3 prefix, or anything else AWS-shaped. */
 export interface PublicDeployment {
   id: string;
   projectId: string;
@@ -54,6 +46,8 @@ export interface PublicDeployment {
   errorCode: string | null;
   errorStep: string | null;
   buildDurationMs: number | null;
+  uploadedFileCount: number | null; //  NEW
+  imageSizeBytes: number | null; //  NEW
   triggeredBy: string;
   queuedAt: Date;
   buildStartedAt: Date | null;
@@ -71,15 +65,6 @@ export interface PublicStateTransition {
   createdAt: Date;
 }
 
-/**
- * DeploymentLog.id is a Postgres BIGSERIAL → Prisma types it as a JS
- * `bigint`. `JSON.stringify({ id: 5n })` throws — `TypeError: Do not know how
- * to serialize a BigInt`. Every log line that crosses the HTTP or socket
- * boundary goes through this DTO (id pre-converted to a string), never the
- * raw Prisma row. This is the single most common production bug with
- * BigInt primary keys in a Node API — worth knowing by name, not just
- * working around once.
- */
 export interface PublicLogLine {
   id: string;
   level: DeploymentLog['level'];

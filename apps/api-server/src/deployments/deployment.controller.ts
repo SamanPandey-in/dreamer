@@ -38,3 +38,23 @@ export async function getDeploymentLogsHandler(req: Request, res: Response) {
   });
   res.status(200).json({ logs });
 }
+
+/**  NEW */
+export async function rollbackDeploymentHandler(req: Request, res: Response) {
+  const deployment = await deploymentService.rollbackDeployment(
+    req.params.deploymentId as string,
+    req.user!.id,
+    auditMeta(req)
+  );
+  res.status(201).json({ deployment });
+}
+
+/**  NEW */
+export async function stopDeploymentHandler(req: Request, res: Response) {
+  const deployment = await deploymentService.stopDeployment(
+    req.params.deploymentId as string,
+    req.user!.id,
+    auditMeta(req)
+  );
+  res.status(200).json({ deployment });
+}

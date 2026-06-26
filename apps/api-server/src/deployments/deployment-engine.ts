@@ -1,61 +1,47 @@
-import { RunTaskCommand } from '@aws-sdk/client-ecs';
+import { RunTaskCommand, StopTaskCommand } from '@aws-sdk/client-ecs';
 import { ecsClient } from '../lib/ecs-client';
 import { env } from '../lib/env';
 
 /**
  * Everything deployment.service.ts needs from "whatever actually runs the
- * build" — and nothing more (Dependency Inversion: the high-level module
- * depends on this abstraction; the low-level AWS SDK detail depends on it
- * too, by implementing it — neither depends on the other directly).
+ * build" — Dependency Inversion: the high-level module depends on this
+ * abstraction; the AWS SDK detail depends on it too, by implementing it.
  *
- * This interface is deliberately THIS small. It is not the full
- * sleep/wake/stop/getStatus surface the platform will eventually need for
- * scale-to-zero — adding unimplemented methods now would be speculative
- * complexity (the inverse SOLID failure: an interface so big nothing can
- * honestly implement all of it yet). When that work starts, I'll add
- * `stopBuildTask()` here AND to EcsDeploymentEngine — TypeScript will refuse
- * to compile until every implementer satisfies the new shape, which is the
- * entire enforcement value of coding to an interface in the first place.
+ * `stopBuildTask` is the method this file's own original comment said would
+ * get added here "when that work starts" — it has, in Part 2 of the polish
+ * guide. TypeScript now refuses to compile until every implementer (today,
+ * just EcsDeploymentEngine) satisfies the new shape — that compiler error is
+ * the actual enforcement mechanism, not just a comment promising you won't
+ * forget a second implementation.
  */
 export interface DeploymentEngine {
-  /**
-   * Starts a build for one deployment and returns as soon as the work has
-   * been *handed off* — it does not wait for the build to finish. Progress
-   * reporting is the realtime gateway's job (Part 4), not this interface's;
-   * mixing "start the work" and "report on the work" into one method would
-   * violate Single Responsibility for no benefit.
-   */
   launchBuildTask(job: BuildJob): Promise<EngineHandle>;
+
+  /**
+   * Stops an in-flight build task. ECS's StopTask is idempotent — calling it
+   * on a task that already exited does not throw, it just no-ops — which is
+   * exactly the semantics stopDeployment() in deployment.service.ts wants:
+   * it's allowed to call this speculatively without first re-checking ECS's
+   * live state.
+   */
+  stopBuildTask(ecsTaskArn: string): Promise<void>;
 }
 
 export interface BuildJob {
   deploymentId: string;
-  /**
-   * The PROJECT's slug — not this deployment's own random one. This is what
-   * becomes the S3 prefix and the live subdomain; every deployment of the
-   * same project intentionally writes to (and overwrites) the same
-   * location. See deployment.service.ts's createDeployment for the full
-   * reasoning.
-   */
   projectSlug: string;
   projectId: string;
   repoUrl: string;
   branch: string;
-  /** Only set for project.isPrivate — decrypted just-in-time, never persisted, never logged. */
+  /**  NEW — set only by rollbackDeployment. Pins the build to this exact commit instead of the branch's current HEAD; see clone-repo.js's runCheckoutIfPinned. */
+  commitHash?: string;
   gitAccessToken?: string;
 }
 
 export interface EngineHandle {
-  /** Provider-specific reference, persisted on Deployment.ecsTaskArn for later lookup. */
   ecsTaskArn: string;
 }
 
-/**
- * Fargate implementation. This is the ONLY file in deployments/ that imports
- * an AWS SDK package. Swapping in a `BareMetalEngine` (`docker run` against
- * a local daemon, for local dev without an AWS bill) later is a new class
- * implementing the same interface — deployment.service.ts doesn't change.
- */
 export class EcsDeploymentEngine implements DeploymentEngine {
   async launchBuildTask(job: BuildJob): Promise<EngineHandle> {
     const command = new RunTaskCommand({
@@ -84,18 +70,13 @@ export class EcsDeploymentEngine implements DeploymentEngine {
               { name: 'REDIS_URL', value: env.REDIS_URL },
               { name: 'GIT_REPOSITORY_URL', value: job.repoUrl },
               { name: 'BRANCH', value: job.branch },
-              // Renamed from the prototype's single PROJECT_ID: the build
-              // container now needs BOTH identifiers — the deployment ID
-              // keys the Redis channel (so logs/status land on the right
-              // row), the PROJECT's slug keys the S3 prefix (so it becomes
-              // the subdomain). This must be project.slug, never this
-              // deployment's own random slug — using the deployment's own
-              // slug here was the cause of a real bug where the live
-              // URL/S3 prefix showed a random word triplet instead of the
-              // project's name.
               { name: 'DEPLOYMENT_ID', value: job.deploymentId },
               { name: 'PROJECT_SLUG', value: job.projectSlug },
-              ...(job.gitAccessToken ? [{ name: 'GIT_ACCESS_TOKEN', value: job.gitAccessToken }] : []), // Conditional, on purpose — public repos never get handed a live token at all
+              //  NEW — conditional, same reasoning as GIT_ACCESS_TOKEN below:
+              // an ordinary deploy never sends this at all, so clone-repo.js's
+              // runCheckoutIfPinned() is a no-op for every build except a rollback.
+              ...(job.commitHash ? [{ name: 'COMMIT_HASH', value: job.commitHash }] : []),
+              ...(job.gitAccessToken ? [{ name: 'GIT_ACCESS_TOKEN', value: job.gitAccessToken }] : []),
             ],
           },
         ],
@@ -106,22 +87,23 @@ export class EcsDeploymentEngine implements DeploymentEngine {
     const taskArn = result.tasks?.[0]?.taskArn;
 
     if (!taskArn) {
-      // result.failures carries ECS's own reason (no capacity, bad subnet,
-      // throttled, ...) — surface it instead of a generic message, so a
-      // FAILED deployment in the dashboard is actually debuggable.
       const reason = result.failures?.[0]?.reason ?? 'ECS RunTask returned no task ARN';
       throw new Error(`Failed to launch build task: ${reason}`);
     }
 
     return { ecsTaskArn: taskArn };
   }
+
+  /**  NEW */
+  async stopBuildTask(ecsTaskArn: string): Promise<void> {
+    await ecsClient.send(
+      new StopTaskCommand({
+        cluster: env.ECS_CLUSTER_ARN,
+        task: ecsTaskArn,
+        reason: 'Stopped by user via Dreamer dashboard',
+      })
+    );
+  }
 }
 
-/**
- * The one place anything in this codebase decides WHICH engine is active.
- * deployment.service.ts imports this constant, never the class — if a
- * factory based on env.DEPLOYMENT_ENVIRONMENT gets added later (cloud vs.
- * bare-metal, per the multi-engine design in your own docs/Ideation_docs),
- * it changes here and nowhere else.
- */
 export const deploymentEngine: DeploymentEngine = new EcsDeploymentEngine();
