@@ -60,3 +60,28 @@ export function decryptFromStorage(packed: string): string {
   }
   return decrypt({ iv, authTag, ciphertext });
 }
+
+/**
+ *  NEW. EnvVariable and DeploymentEnvSnapshot have separate `value` + `iv`
+ * columns (no third column for the auth tag) — so here the IV stays in its
+ * own column as-is, and only ciphertext+authTag share `value`, joined by the
+ * same `:` delimiter for the same reason as above (both halves are base64,
+ * which never contains a literal colon).
+ */
+export interface ColumnEncryptedPayload {
+  value: string; // "ciphertextBase64:authTagBase64"
+  iv: string; // ivBase64
+}
+
+export function encryptForColumn(plaintext: string): ColumnEncryptedPayload {
+  const { ciphertext, iv, authTag } = encrypt(plaintext);
+  return { value: `${ciphertext}:${authTag}`, iv };
+}
+
+export function decryptFromColumn(payload: ColumnEncryptedPayload): string {
+  const [ciphertext, authTag] = payload.value.split(':');
+  if (!ciphertext || !authTag) {
+    throw new Error('Malformed encrypted column payload');
+  }
+  return decrypt({ ciphertext, iv: payload.iv, authTag });
+}
