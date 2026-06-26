@@ -1,0 +1,43 @@
+name: Reverse Proxy
+
+on:
+  push:
+    paths:
+      - "apps/reverse-proxy/**"
+      - ".github/workflows/reverse-proxy.yml"
+  pull_request:
+    paths:
+      - "apps/reverse-proxy/**"
+      - ".github/workflows/reverse-proxy.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/reverse-proxy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/reverse-proxy/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check
+        run: node --check index.js

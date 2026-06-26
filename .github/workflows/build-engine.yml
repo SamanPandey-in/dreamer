@@ -1,0 +1,43 @@
+name: Build Engine
+
+on:
+  push:
+    paths:
+      - "apps/build-engine/**"
+      - ".github/workflows/build-engine.yml"
+  pull_request:
+    paths:
+      - "apps/build-engine/**"
+      - ".github/workflows/build-engine.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/build-engine
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/build-engine/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Dockerfile builds
+        run: docker build -t build-engine:test .

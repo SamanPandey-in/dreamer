@@ -1,0 +1,49 @@
+name: API Server
+
+on:
+  push:
+    paths:
+      - "apps/api-server/**"
+      - ".github/workflows/api-server.yml"
+  pull_request:
+    paths:
+      - "apps/api-server/**"
+      - ".github/workflows/api-server.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Build & Typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api-server
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/api-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
