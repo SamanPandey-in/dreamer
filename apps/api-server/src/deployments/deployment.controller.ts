@@ -17,10 +17,23 @@ export async function createDeploymentHandler(req: Request, res: Response) {
 }
 
 export async function listDeploymentsHandler(req: Request, res: Response) {
-  const { cursor, limit } = req.query as unknown as { cursor?: string; limit: number };
+  const { cursor, limit, branch, status, environment, dateFrom, dateTo } = req.query as unknown as {
+    cursor?: string;
+    limit: number;
+    branch?: string;
+    status?: string;
+    environment?: 'PRODUCTION' | 'PREVIEW';
+    dateFrom?: Date;
+    dateTo?: Date;
+  };
   const result = await deploymentService.listDeploymentsForProject(req.params.projectId as string, req.user!.id, {
     cursor,
     limit,
+    branch,
+    status: status as never,
+    environment,
+    dateFrom,
+    dateTo,
   });
   res.status(200).json(result);
 }
@@ -37,4 +50,24 @@ export async function getDeploymentLogsHandler(req: Request, res: Response) {
     limit,
   });
   res.status(200).json({ logs });
+}
+
+/**  NEW */
+export async function rollbackDeploymentHandler(req: Request, res: Response) {
+  const deployment = await deploymentService.rollbackDeployment(
+    req.params.deploymentId as string,
+    req.user!.id,
+    auditMeta(req)
+  );
+  res.status(201).json({ deployment });
+}
+
+/**  NEW */
+export async function stopDeploymentHandler(req: Request, res: Response) {
+  const deployment = await deploymentService.stopDeployment(
+    req.params.deploymentId as string,
+    req.user!.id,
+    auditMeta(req)
+  );
+  res.status(200).json({ deployment });
 }

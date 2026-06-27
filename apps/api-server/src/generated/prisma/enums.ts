@@ -69,3 +69,12 @@ export const WebhookEvent = {
 } as const
 
 export type WebhookEvent = (typeof WebhookEvent)[keyof typeof WebhookEvent]
+
+
+export const EnvironmentTarget = {
+  PRODUCTION: 'PRODUCTION',
+  PREVIEW: 'PREVIEW',
+  DEVELOPMENT: 'DEVELOPMENT'
+} as const
+
+export type EnvironmentTarget = (typeof EnvironmentTarget)[keyof typeof EnvironmentTarget]

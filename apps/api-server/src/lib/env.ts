@@ -39,6 +39,10 @@ const envSchema = z.object({
   ECS_SUBNET2_ARN: z.string().optional(),
   ECS_SUBNET3_ARN: z.string().optional(),
   ECS_SECURITY_GROUP_ARN: z.string().optional(),
+  // Needed to clean up a project's live S3 output on delete (lib/s3-client.ts).
+  // Optional, like the other AWS_*/ECS_* fields above — a setup that hasn't
+  // wired up AWS at all shouldn't fail to boot over a feature it isn't using.
+  S3_BUCKET: z.string().optional(),
 });
 
 function loadEnv() {

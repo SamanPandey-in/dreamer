@@ -250,6 +250,13 @@ export type EnumFrameworkNullableFilter<$PrismaModel = never> = {
   not?: Prisma.NestedEnumFrameworkNullableFilter<$PrismaModel> | $Enums.Framework | null
 }
 
+export type EnumEnvironmentTargetFilter<$PrismaModel = never> = {
+  equals?: $Enums.EnvironmentTarget | Prisma.EnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  in?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEnvironmentTargetFilter<$PrismaModel> | $Enums.EnvironmentTarget
+}
+
 export type IntFilter<$PrismaModel = never> = {
   equals?: number | Prisma.IntFieldRefInput<$PrismaModel>
   in?: number[] | Prisma.ListIntFieldRefInput<$PrismaModel>
@@ -300,6 +307,16 @@ export type EnumFrameworkNullableWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedEnumFrameworkNullableFilter<$PrismaModel>
   _max?: Prisma.NestedEnumFrameworkNullableFilter<$PrismaModel>
+}
+
+export type EnumEnvironmentTargetWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EnvironmentTarget | Prisma.EnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  in?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEnvironmentTargetWithAggregatesFilter<$PrismaModel> | $Enums.EnvironmentTarget
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEnvironmentTargetFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEnvironmentTargetFilter<$PrismaModel>
 }
 
 export type IntWithAggregatesFilter<$PrismaModel = never> = {
@@ -681,6 +698,13 @@ export type NestedEnumFrameworkNullableFilter<$PrismaModel = never> = {
   not?: Prisma.NestedEnumFrameworkNullableFilter<$PrismaModel> | $Enums.Framework | null
 }
 
+export type NestedEnumEnvironmentTargetFilter<$PrismaModel = never> = {
+  equals?: $Enums.EnvironmentTarget | Prisma.EnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  in?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEnvironmentTargetFilter<$PrismaModel> | $Enums.EnvironmentTarget
+}
+
 export type NestedBigIntFilter<$PrismaModel = never> = {
   equals?: bigint | number | Prisma.BigIntFieldRefInput<$PrismaModel>
   in?: bigint[] | number[] | Prisma.ListBigIntFieldRefInput<$PrismaModel>
@@ -720,6 +744,16 @@ export type NestedEnumFrameworkNullableWithAggregatesFilter<$PrismaModel = never
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedEnumFrameworkNullableFilter<$PrismaModel>
   _max?: Prisma.NestedEnumFrameworkNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumEnvironmentTargetWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EnvironmentTarget | Prisma.EnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  in?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEnvironmentTargetWithAggregatesFilter<$PrismaModel> | $Enums.EnvironmentTarget
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEnvironmentTargetFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEnvironmentTargetFilter<$PrismaModel>
 }
 
 export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {

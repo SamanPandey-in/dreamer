@@ -1313,6 +1313,11 @@ export const ProjectScalarFieldEnum = {
   isPrivate: 'isPrivate',
   webhookId: 'webhookId',
   webhookSecret: 'webhookSecret',
+  autoDeployEnabled: 'autoDeployEnabled',
+  buildCommand: 'buildCommand',
+  installCommand: 'installCommand',
+  outputDirectory: 'outputDirectory',
+  rootDirectory: 'rootDirectory',
   activeDeploymentId: 'activeDeploymentId',
   lastDeployedAt: 'lastDeployedAt',
   deletedAt: 'deletedAt',
@@ -1330,10 +1335,12 @@ export const DeploymentScalarFieldEnum = {
   status: 'status',
   type: 'type',
   framework: 'framework',
+  environment: 'environment',
   branch: 'branch',
   commitHash: 'commitHash',
   commitMessage: 'commitMessage',
   commitAuthor: 'commitAuthor',
+  deployedById: 'deployedById',
   url: 'url',
   ecsTaskArn: 'ecsTaskArn',
   ecsServiceArn: 'ecsServiceArn',
@@ -1398,6 +1405,7 @@ export const EnvVariableScalarFieldEnum = {
   key: 'key',
   value: 'value',
   iv: 'iv',
+  environments: 'environments',
   isSecret: 'isSecret',
   description: 'description',
   createdAt: 'createdAt',
@@ -1603,6 +1611,20 @@ export type EnumFrameworkFieldRefInput<$PrismaModel> = FieldRefInputType<$Prisma
  * Reference to a field of type 'Framework[]'
  */
 export type ListEnumFrameworkFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Framework[]'>
+    
+
+
+/**
+ * Reference to a field of type 'EnvironmentTarget'
+ */
+export type EnumEnvironmentTargetFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EnvironmentTarget'>
+    
+
+
+/**
+ * Reference to a field of type 'EnvironmentTarget[]'
+ */
+export type ListEnumEnvironmentTargetFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EnvironmentTarget[]'>
     
 
 

@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { GithubIcon as Github } from "@/components/icons"
 import { createDeployment, createProject } from "@/lib/dashboard-api";
 import { repoNameFromUrl, slugPreview } from "@/lib/format";
 import { API_BASE_URL } from "@/lib/config";
+import { Button } from "@/components/ui/Button";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function NewProjectPage() {
         isPrivate,
       });
       const deployment = await createDeployment(project.id);
-      router.push(`/dashboard/projects/${project.id}/deployments/${deployment.id}`);
+      router.push(`/project/${project.id}/deployments/${deployment.id}`);
     } catch (err) {
       // GITHUB_NOT_CONNECTED isn't really an "error to read," it's a missing
       // step — surfacing it as a direct fix (a link, not just red text) is
@@ -162,20 +163,14 @@ export default function NewProjectPage() {
           <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
         )}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex items-center justify-center gap-2 w-full py-2.5 mt-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-60 text-white font-medium rounded-lg shadow-lg shadow-blue-500/20 transition-all"
-        >
-          {submitting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
+        <Button variant="primary" type="submit" loading={submitting} className="w-full mt-1">
+          {!submitting && (
             <>
               Deploy
               <ArrowRight className="w-4 h-4" />
             </>
           )}
-        </button>
+        </Button>
       </form>
     </div>
   );

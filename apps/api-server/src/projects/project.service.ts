@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { audit, type AuditMeta } from '../lib/audit';
+import { deleteS3Prefix } from '../lib/s3-client';
 import { ConflictError, NotFoundError } from '../lib/errors';
 import type {
   CreateProjectInput,
@@ -47,6 +48,11 @@ function toPublicProject(project: Project): PublicProject {
     isPrivate: project.isPrivate,
     activeDeploymentId: project.activeDeploymentId,
     lastDeployedAt: project.lastDeployedAt,
+    buildCommand: project.buildCommand,
+    installCommand: project.installCommand,
+    outputDirectory: project.outputDirectory,
+    rootDirectory: project.rootDirectory,
+    autoDeployEnabled: project.autoDeployEnabled,
     createdAt: project.createdAt,
   };
 }
@@ -238,6 +244,11 @@ export async function updateProject(
       name: input.name,
       description: input.description,
       defaultBranch: input.defaultBranch,
+      buildCommand: input.buildCommand,
+      installCommand: input.installCommand,
+      outputDirectory: input.outputDirectory,
+      rootDirectory: input.rootDirectory,
+      autoDeployEnabled: input.autoDeployEnabled,
     },
   });
 
@@ -256,10 +267,24 @@ export async function updateProject(
  * one). Only listProjectsForUser filters deletedAt: null, so the history
  * stays queryable directly by ID if you ever need to investigate "what was
  * this project before it was deleted."
+ *
+ * Also tears down the project's live S3 output — a "deleted" project
+ * shouldn't keep serving traffic at its subdomain, and (since project.slug
+ * is the actual S3 prefix now) leaving it behind would mean a NEW project
+ * that happens to land on the same slug later inherits stale content from
+ * this one until its first successful deploy overwrites it. Best-effort and
+ * non-blocking: an S3 hiccup logs an error but doesn't stop the delete — the
+ * user asked to delete a project, not to block on AWS being reachable now.
  */
 export async function softDeleteProject(projectId: string, userId: string, meta: AuditMeta): Promise<void> {
-  await findOwnedProject(projectId, userId);
+  const project = await findOwnedProject(projectId, userId);
 
   await prisma.project.update({ where: { id: projectId }, data: { deletedAt: new Date() } });
   await audit(userId, 'project.delete', meta, { resourceType: 'project', resourceId: projectId });
+
+  try {
+    await deleteS3Prefix(`__outputs/${project.slug}/`);
+  } catch (err) {
+    console.error(`[PROJECT_DELETE] Failed to clean up S3 prefix for project ${projectId}:`, err);
+  }
 }

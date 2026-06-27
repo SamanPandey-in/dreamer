@@ -49,10 +49,12 @@ export type DeploymentMinAggregateOutputType = {
   status: $Enums.DeploymentStatus | null
   type: $Enums.DeploymentType | null
   framework: $Enums.Framework | null
+  environment: $Enums.EnvironmentTarget | null
   branch: string | null
   commitHash: string | null
   commitMessage: string | null
   commitAuthor: string | null
+  deployedById: string | null
   url: string | null
   ecsTaskArn: string | null
   ecsServiceArn: string | null
@@ -88,10 +90,12 @@ export type DeploymentMaxAggregateOutputType = {
   status: $Enums.DeploymentStatus | null
   type: $Enums.DeploymentType | null
   framework: $Enums.Framework | null
+  environment: $Enums.EnvironmentTarget | null
   branch: string | null
   commitHash: string | null
   commitMessage: string | null
   commitAuthor: string | null
+  deployedById: string | null
   url: string | null
   ecsTaskArn: string | null
   ecsServiceArn: string | null
@@ -127,10 +131,12 @@ export type DeploymentCountAggregateOutputType = {
   status: number
   type: number
   framework: number
+  environment: number
   branch: number
   commitHash: number
   commitMessage: number
   commitAuthor: number
+  deployedById: number
   url: number
   ecsTaskArn: number
   ecsServiceArn: number
@@ -184,10 +190,12 @@ export type DeploymentMinAggregateInputType = {
   status?: true
   type?: true
   framework?: true
+  environment?: true
   branch?: true
   commitHash?: true
   commitMessage?: true
   commitAuthor?: true
+  deployedById?: true
   url?: true
   ecsTaskArn?: true
   ecsServiceArn?: true
@@ -223,10 +231,12 @@ export type DeploymentMaxAggregateInputType = {
   status?: true
   type?: true
   framework?: true
+  environment?: true
   branch?: true
   commitHash?: true
   commitMessage?: true
   commitAuthor?: true
+  deployedById?: true
   url?: true
   ecsTaskArn?: true
   ecsServiceArn?: true
@@ -262,10 +272,12 @@ export type DeploymentCountAggregateInputType = {
   status?: true
   type?: true
   framework?: true
+  environment?: true
   branch?: true
   commitHash?: true
   commitMessage?: true
   commitAuthor?: true
+  deployedById?: true
   url?: true
   ecsTaskArn?: true
   ecsServiceArn?: true
@@ -388,10 +400,12 @@ export type DeploymentGroupByOutputType = {
   status: $Enums.DeploymentStatus
   type: $Enums.DeploymentType | null
   framework: $Enums.Framework | null
+  environment: $Enums.EnvironmentTarget
   branch: string
   commitHash: string | null
   commitMessage: string | null
   commitAuthor: string | null
+  deployedById: string | null
   url: string | null
   ecsTaskArn: string | null
   ecsServiceArn: string | null
@@ -450,10 +464,12 @@ export type DeploymentWhereInput = {
   status?: Prisma.EnumDeploymentStatusFilter<"Deployment"> | $Enums.DeploymentStatus
   type?: Prisma.EnumDeploymentTypeNullableFilter<"Deployment"> | $Enums.DeploymentType | null
   framework?: Prisma.EnumFrameworkNullableFilter<"Deployment"> | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFilter<"Deployment"> | $Enums.EnvironmentTarget
   branch?: Prisma.StringFilter<"Deployment"> | string
   commitHash?: Prisma.StringNullableFilter<"Deployment"> | string | null
   commitMessage?: Prisma.StringNullableFilter<"Deployment"> | string | null
   commitAuthor?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  deployedById?: Prisma.UuidNullableFilter<"Deployment"> | string | null
   url?: Prisma.StringNullableFilter<"Deployment"> | string | null
   ecsTaskArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
   ecsServiceArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
@@ -481,6 +497,7 @@ export type DeploymentWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
+  deployedBy?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
   logs?: Prisma.DeploymentLogListRelationFilter
   stateTransitions?: Prisma.DeploymentStateTransitionListRelationFilter
   envSnapshot?: Prisma.DeploymentEnvSnapshotListRelationFilter
@@ -493,10 +510,12 @@ export type DeploymentOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   type?: Prisma.SortOrderInput | Prisma.SortOrder
   framework?: Prisma.SortOrderInput | Prisma.SortOrder
+  environment?: Prisma.SortOrder
   branch?: Prisma.SortOrder
   commitHash?: Prisma.SortOrderInput | Prisma.SortOrder
   commitMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   commitAuthor?: Prisma.SortOrderInput | Prisma.SortOrder
+  deployedById?: Prisma.SortOrderInput | Prisma.SortOrder
   url?: Prisma.SortOrderInput | Prisma.SortOrder
   ecsTaskArn?: Prisma.SortOrderInput | Prisma.SortOrder
   ecsServiceArn?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -524,6 +543,7 @@ export type DeploymentOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   project?: Prisma.ProjectOrderByWithRelationInput
+  deployedBy?: Prisma.UserOrderByWithRelationInput
   logs?: Prisma.DeploymentLogOrderByRelationAggregateInput
   stateTransitions?: Prisma.DeploymentStateTransitionOrderByRelationAggregateInput
   envSnapshot?: Prisma.DeploymentEnvSnapshotOrderByRelationAggregateInput
@@ -539,10 +559,12 @@ export type DeploymentWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.EnumDeploymentStatusFilter<"Deployment"> | $Enums.DeploymentStatus
   type?: Prisma.EnumDeploymentTypeNullableFilter<"Deployment"> | $Enums.DeploymentType | null
   framework?: Prisma.EnumFrameworkNullableFilter<"Deployment"> | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFilter<"Deployment"> | $Enums.EnvironmentTarget
   branch?: Prisma.StringFilter<"Deployment"> | string
   commitHash?: Prisma.StringNullableFilter<"Deployment"> | string | null
   commitMessage?: Prisma.StringNullableFilter<"Deployment"> | string | null
   commitAuthor?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  deployedById?: Prisma.UuidNullableFilter<"Deployment"> | string | null
   url?: Prisma.StringNullableFilter<"Deployment"> | string | null
   ecsTaskArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
   ecsServiceArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
@@ -570,6 +592,7 @@ export type DeploymentWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
+  deployedBy?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
   logs?: Prisma.DeploymentLogListRelationFilter
   stateTransitions?: Prisma.DeploymentStateTransitionListRelationFilter
   envSnapshot?: Prisma.DeploymentEnvSnapshotListRelationFilter
@@ -582,10 +605,12 @@ export type DeploymentOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   type?: Prisma.SortOrderInput | Prisma.SortOrder
   framework?: Prisma.SortOrderInput | Prisma.SortOrder
+  environment?: Prisma.SortOrder
   branch?: Prisma.SortOrder
   commitHash?: Prisma.SortOrderInput | Prisma.SortOrder
   commitMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   commitAuthor?: Prisma.SortOrderInput | Prisma.SortOrder
+  deployedById?: Prisma.SortOrderInput | Prisma.SortOrder
   url?: Prisma.SortOrderInput | Prisma.SortOrder
   ecsTaskArn?: Prisma.SortOrderInput | Prisma.SortOrder
   ecsServiceArn?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -629,10 +654,12 @@ export type DeploymentScalarWhereWithAggregatesInput = {
   status?: Prisma.EnumDeploymentStatusWithAggregatesFilter<"Deployment"> | $Enums.DeploymentStatus
   type?: Prisma.EnumDeploymentTypeNullableWithAggregatesFilter<"Deployment"> | $Enums.DeploymentType | null
   framework?: Prisma.EnumFrameworkNullableWithAggregatesFilter<"Deployment"> | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetWithAggregatesFilter<"Deployment"> | $Enums.EnvironmentTarget
   branch?: Prisma.StringWithAggregatesFilter<"Deployment"> | string
   commitHash?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
   commitMessage?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
   commitAuthor?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
+  deployedById?: Prisma.UuidNullableWithAggregatesFilter<"Deployment"> | string | null
   url?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
   ecsTaskArn?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
   ecsServiceArn?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
@@ -667,6 +694,7 @@ export type DeploymentCreateInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
@@ -698,6 +726,7 @@ export type DeploymentCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   project: Prisma.ProjectCreateNestedOneWithoutDeploymentsInput
+  deployedBy?: Prisma.UserCreateNestedOneWithoutDeploymentsTriggeredInput
   logs?: Prisma.DeploymentLogCreateNestedManyWithoutDeploymentInput
   stateTransitions?: Prisma.DeploymentStateTransitionCreateNestedManyWithoutDeploymentInput
   envSnapshot?: Prisma.DeploymentEnvSnapshotCreateNestedManyWithoutDeploymentInput
@@ -710,10 +739,12 @@ export type DeploymentUncheckedCreateInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
   commitAuthor?: string | null
+  deployedById?: string | null
   url?: string | null
   ecsTaskArn?: string | null
   ecsServiceArn?: string | null
@@ -751,6 +782,7 @@ export type DeploymentUpdateInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -782,6 +814,7 @@ export type DeploymentUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   project?: Prisma.ProjectUpdateOneRequiredWithoutDeploymentsNestedInput
+  deployedBy?: Prisma.UserUpdateOneWithoutDeploymentsTriggeredNestedInput
   logs?: Prisma.DeploymentLogUpdateManyWithoutDeploymentNestedInput
   stateTransitions?: Prisma.DeploymentStateTransitionUpdateManyWithoutDeploymentNestedInput
   envSnapshot?: Prisma.DeploymentEnvSnapshotUpdateManyWithoutDeploymentNestedInput
@@ -794,10 +827,12 @@ export type DeploymentUncheckedUpdateInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitAuthor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deployedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsTaskArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsServiceArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -836,10 +871,12 @@ export type DeploymentCreateManyInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
   commitAuthor?: string | null
+  deployedById?: string | null
   url?: string | null
   ecsTaskArn?: string | null
   ecsServiceArn?: string | null
@@ -874,6 +911,7 @@ export type DeploymentUpdateManyMutationInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -913,10 +951,12 @@ export type DeploymentUncheckedUpdateManyInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitAuthor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deployedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsTaskArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsServiceArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -962,10 +1002,12 @@ export type DeploymentCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   type?: Prisma.SortOrder
   framework?: Prisma.SortOrder
+  environment?: Prisma.SortOrder
   branch?: Prisma.SortOrder
   commitHash?: Prisma.SortOrder
   commitMessage?: Prisma.SortOrder
   commitAuthor?: Prisma.SortOrder
+  deployedById?: Prisma.SortOrder
   url?: Prisma.SortOrder
   ecsTaskArn?: Prisma.SortOrder
   ecsServiceArn?: Prisma.SortOrder
@@ -1009,10 +1051,12 @@ export type DeploymentMaxOrderByAggregateInput = {
   status?: Prisma.SortOrder
   type?: Prisma.SortOrder
   framework?: Prisma.SortOrder
+  environment?: Prisma.SortOrder
   branch?: Prisma.SortOrder
   commitHash?: Prisma.SortOrder
   commitMessage?: Prisma.SortOrder
   commitAuthor?: Prisma.SortOrder
+  deployedById?: Prisma.SortOrder
   url?: Prisma.SortOrder
   ecsTaskArn?: Prisma.SortOrder
   ecsServiceArn?: Prisma.SortOrder
@@ -1048,10 +1092,12 @@ export type DeploymentMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   type?: Prisma.SortOrder
   framework?: Prisma.SortOrder
+  environment?: Prisma.SortOrder
   branch?: Prisma.SortOrder
   commitHash?: Prisma.SortOrder
   commitMessage?: Prisma.SortOrder
   commitAuthor?: Prisma.SortOrder
+  deployedById?: Prisma.SortOrder
   url?: Prisma.SortOrder
   ecsTaskArn?: Prisma.SortOrder
   ecsServiceArn?: Prisma.SortOrder
@@ -1091,6 +1137,48 @@ export type DeploymentSumOrderByAggregateInput = {
 export type DeploymentScalarRelationFilter = {
   is?: Prisma.DeploymentWhereInput
   isNot?: Prisma.DeploymentWhereInput
+}
+
+export type DeploymentCreateNestedManyWithoutDeployedByInput = {
+  create?: Prisma.XOR<Prisma.DeploymentCreateWithoutDeployedByInput, Prisma.DeploymentUncheckedCreateWithoutDeployedByInput> | Prisma.DeploymentCreateWithoutDeployedByInput[] | Prisma.DeploymentUncheckedCreateWithoutDeployedByInput[]
+  connectOrCreate?: Prisma.DeploymentCreateOrConnectWithoutDeployedByInput | Prisma.DeploymentCreateOrConnectWithoutDeployedByInput[]
+  createMany?: Prisma.DeploymentCreateManyDeployedByInputEnvelope
+  connect?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+}
+
+export type DeploymentUncheckedCreateNestedManyWithoutDeployedByInput = {
+  create?: Prisma.XOR<Prisma.DeploymentCreateWithoutDeployedByInput, Prisma.DeploymentUncheckedCreateWithoutDeployedByInput> | Prisma.DeploymentCreateWithoutDeployedByInput[] | Prisma.DeploymentUncheckedCreateWithoutDeployedByInput[]
+  connectOrCreate?: Prisma.DeploymentCreateOrConnectWithoutDeployedByInput | Prisma.DeploymentCreateOrConnectWithoutDeployedByInput[]
+  createMany?: Prisma.DeploymentCreateManyDeployedByInputEnvelope
+  connect?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+}
+
+export type DeploymentUpdateManyWithoutDeployedByNestedInput = {
+  create?: Prisma.XOR<Prisma.DeploymentCreateWithoutDeployedByInput, Prisma.DeploymentUncheckedCreateWithoutDeployedByInput> | Prisma.DeploymentCreateWithoutDeployedByInput[] | Prisma.DeploymentUncheckedCreateWithoutDeployedByInput[]
+  connectOrCreate?: Prisma.DeploymentCreateOrConnectWithoutDeployedByInput | Prisma.DeploymentCreateOrConnectWithoutDeployedByInput[]
+  upsert?: Prisma.DeploymentUpsertWithWhereUniqueWithoutDeployedByInput | Prisma.DeploymentUpsertWithWhereUniqueWithoutDeployedByInput[]
+  createMany?: Prisma.DeploymentCreateManyDeployedByInputEnvelope
+  set?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+  disconnect?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+  delete?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+  connect?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+  update?: Prisma.DeploymentUpdateWithWhereUniqueWithoutDeployedByInput | Prisma.DeploymentUpdateWithWhereUniqueWithoutDeployedByInput[]
+  updateMany?: Prisma.DeploymentUpdateManyWithWhereWithoutDeployedByInput | Prisma.DeploymentUpdateManyWithWhereWithoutDeployedByInput[]
+  deleteMany?: Prisma.DeploymentScalarWhereInput | Prisma.DeploymentScalarWhereInput[]
+}
+
+export type DeploymentUncheckedUpdateManyWithoutDeployedByNestedInput = {
+  create?: Prisma.XOR<Prisma.DeploymentCreateWithoutDeployedByInput, Prisma.DeploymentUncheckedCreateWithoutDeployedByInput> | Prisma.DeploymentCreateWithoutDeployedByInput[] | Prisma.DeploymentUncheckedCreateWithoutDeployedByInput[]
+  connectOrCreate?: Prisma.DeploymentCreateOrConnectWithoutDeployedByInput | Prisma.DeploymentCreateOrConnectWithoutDeployedByInput[]
+  upsert?: Prisma.DeploymentUpsertWithWhereUniqueWithoutDeployedByInput | Prisma.DeploymentUpsertWithWhereUniqueWithoutDeployedByInput[]
+  createMany?: Prisma.DeploymentCreateManyDeployedByInputEnvelope
+  set?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+  disconnect?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+  delete?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+  connect?: Prisma.DeploymentWhereUniqueInput | Prisma.DeploymentWhereUniqueInput[]
+  update?: Prisma.DeploymentUpdateWithWhereUniqueWithoutDeployedByInput | Prisma.DeploymentUpdateWithWhereUniqueWithoutDeployedByInput[]
+  updateMany?: Prisma.DeploymentUpdateManyWithWhereWithoutDeployedByInput | Prisma.DeploymentUpdateManyWithWhereWithoutDeployedByInput[]
+  deleteMany?: Prisma.DeploymentScalarWhereInput | Prisma.DeploymentScalarWhereInput[]
 }
 
 export type DeploymentCreateNestedManyWithoutProjectInput = {
@@ -1145,6 +1233,10 @@ export type NullableEnumDeploymentTypeFieldUpdateOperationsInput = {
 
 export type NullableEnumFrameworkFieldUpdateOperationsInput = {
   set?: $Enums.Framework | null
+}
+
+export type EnumEnvironmentTargetFieldUpdateOperationsInput = {
+  set?: $Enums.EnvironmentTarget
 }
 
 export type IntFieldUpdateOperationsInput = {
@@ -1205,12 +1297,13 @@ export type DeploymentUpdateOneRequiredWithoutEnvSnapshotNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.DeploymentUpdateToOneWithWhereWithoutEnvSnapshotInput, Prisma.DeploymentUpdateWithoutEnvSnapshotInput>, Prisma.DeploymentUncheckedUpdateWithoutEnvSnapshotInput>
 }
 
-export type DeploymentCreateWithoutProjectInput = {
+export type DeploymentCreateWithoutDeployedByInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
@@ -1241,6 +1334,163 @@ export type DeploymentCreateWithoutProjectInput = {
   stoppedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  project: Prisma.ProjectCreateNestedOneWithoutDeploymentsInput
+  logs?: Prisma.DeploymentLogCreateNestedManyWithoutDeploymentInput
+  stateTransitions?: Prisma.DeploymentStateTransitionCreateNestedManyWithoutDeploymentInput
+  envSnapshot?: Prisma.DeploymentEnvSnapshotCreateNestedManyWithoutDeploymentInput
+}
+
+export type DeploymentUncheckedCreateWithoutDeployedByInput = {
+  id?: string
+  projectId: string
+  slug: string
+  status?: $Enums.DeploymentStatus
+  type?: $Enums.DeploymentType | null
+  framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
+  branch?: string
+  commitHash?: string | null
+  commitMessage?: string | null
+  commitAuthor?: string | null
+  url?: string | null
+  ecsTaskArn?: string | null
+  ecsServiceArn?: string | null
+  ecsTaskDefArn?: string | null
+  ecrImageUri?: string | null
+  albTargetGroupArn?: string | null
+  albListenerRuleArn?: string | null
+  s3Prefix?: string | null
+  errorMessage?: string | null
+  errorCode?: string | null
+  errorStep?: string | null
+  buildDurationMs?: number | null
+  uploadedFileCount?: number | null
+  imageSizeBytes?: number | null
+  lastRequestAt?: Date | string | null
+  sleepCount?: number
+  totalSleepMs?: bigint | number
+  triggeredBy?: string
+  webhookDeliveryId?: string | null
+  queuedAt?: Date | string
+  buildStartedAt?: Date | string | null
+  buildFinishedAt?: Date | string | null
+  deployedAt?: Date | string | null
+  stoppedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  logs?: Prisma.DeploymentLogUncheckedCreateNestedManyWithoutDeploymentInput
+  stateTransitions?: Prisma.DeploymentStateTransitionUncheckedCreateNestedManyWithoutDeploymentInput
+  envSnapshot?: Prisma.DeploymentEnvSnapshotUncheckedCreateNestedManyWithoutDeploymentInput
+}
+
+export type DeploymentCreateOrConnectWithoutDeployedByInput = {
+  where: Prisma.DeploymentWhereUniqueInput
+  create: Prisma.XOR<Prisma.DeploymentCreateWithoutDeployedByInput, Prisma.DeploymentUncheckedCreateWithoutDeployedByInput>
+}
+
+export type DeploymentCreateManyDeployedByInputEnvelope = {
+  data: Prisma.DeploymentCreateManyDeployedByInput | Prisma.DeploymentCreateManyDeployedByInput[]
+  skipDuplicates?: boolean
+}
+
+export type DeploymentUpsertWithWhereUniqueWithoutDeployedByInput = {
+  where: Prisma.DeploymentWhereUniqueInput
+  update: Prisma.XOR<Prisma.DeploymentUpdateWithoutDeployedByInput, Prisma.DeploymentUncheckedUpdateWithoutDeployedByInput>
+  create: Prisma.XOR<Prisma.DeploymentCreateWithoutDeployedByInput, Prisma.DeploymentUncheckedCreateWithoutDeployedByInput>
+}
+
+export type DeploymentUpdateWithWhereUniqueWithoutDeployedByInput = {
+  where: Prisma.DeploymentWhereUniqueInput
+  data: Prisma.XOR<Prisma.DeploymentUpdateWithoutDeployedByInput, Prisma.DeploymentUncheckedUpdateWithoutDeployedByInput>
+}
+
+export type DeploymentUpdateManyWithWhereWithoutDeployedByInput = {
+  where: Prisma.DeploymentScalarWhereInput
+  data: Prisma.XOR<Prisma.DeploymentUpdateManyMutationInput, Prisma.DeploymentUncheckedUpdateManyWithoutDeployedByInput>
+}
+
+export type DeploymentScalarWhereInput = {
+  AND?: Prisma.DeploymentScalarWhereInput | Prisma.DeploymentScalarWhereInput[]
+  OR?: Prisma.DeploymentScalarWhereInput[]
+  NOT?: Prisma.DeploymentScalarWhereInput | Prisma.DeploymentScalarWhereInput[]
+  id?: Prisma.UuidFilter<"Deployment"> | string
+  projectId?: Prisma.UuidFilter<"Deployment"> | string
+  slug?: Prisma.StringFilter<"Deployment"> | string
+  status?: Prisma.EnumDeploymentStatusFilter<"Deployment"> | $Enums.DeploymentStatus
+  type?: Prisma.EnumDeploymentTypeNullableFilter<"Deployment"> | $Enums.DeploymentType | null
+  framework?: Prisma.EnumFrameworkNullableFilter<"Deployment"> | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFilter<"Deployment"> | $Enums.EnvironmentTarget
+  branch?: Prisma.StringFilter<"Deployment"> | string
+  commitHash?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  commitMessage?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  commitAuthor?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  deployedById?: Prisma.UuidNullableFilter<"Deployment"> | string | null
+  url?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  ecsTaskArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  ecsServiceArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  ecsTaskDefArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  ecrImageUri?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  albTargetGroupArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  albListenerRuleArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  s3Prefix?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  errorMessage?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  errorCode?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  errorStep?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  buildDurationMs?: Prisma.IntNullableFilter<"Deployment"> | number | null
+  uploadedFileCount?: Prisma.IntNullableFilter<"Deployment"> | number | null
+  imageSizeBytes?: Prisma.IntNullableFilter<"Deployment"> | number | null
+  lastRequestAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
+  sleepCount?: Prisma.IntFilter<"Deployment"> | number
+  totalSleepMs?: Prisma.BigIntFilter<"Deployment"> | bigint | number
+  triggeredBy?: Prisma.StringFilter<"Deployment"> | string
+  webhookDeliveryId?: Prisma.UuidNullableFilter<"Deployment"> | string | null
+  queuedAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
+  buildStartedAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
+  buildFinishedAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
+  deployedAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
+  stoppedAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
+  createdAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
+}
+
+export type DeploymentCreateWithoutProjectInput = {
+  id?: string
+  slug: string
+  status?: $Enums.DeploymentStatus
+  type?: $Enums.DeploymentType | null
+  framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
+  branch?: string
+  commitHash?: string | null
+  commitMessage?: string | null
+  commitAuthor?: string | null
+  url?: string | null
+  ecsTaskArn?: string | null
+  ecsServiceArn?: string | null
+  ecsTaskDefArn?: string | null
+  ecrImageUri?: string | null
+  albTargetGroupArn?: string | null
+  albListenerRuleArn?: string | null
+  s3Prefix?: string | null
+  errorMessage?: string | null
+  errorCode?: string | null
+  errorStep?: string | null
+  buildDurationMs?: number | null
+  uploadedFileCount?: number | null
+  imageSizeBytes?: number | null
+  lastRequestAt?: Date | string | null
+  sleepCount?: number
+  totalSleepMs?: bigint | number
+  triggeredBy?: string
+  webhookDeliveryId?: string | null
+  queuedAt?: Date | string
+  buildStartedAt?: Date | string | null
+  buildFinishedAt?: Date | string | null
+  deployedAt?: Date | string | null
+  stoppedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deployedBy?: Prisma.UserCreateNestedOneWithoutDeploymentsTriggeredInput
   logs?: Prisma.DeploymentLogCreateNestedManyWithoutDeploymentInput
   stateTransitions?: Prisma.DeploymentStateTransitionCreateNestedManyWithoutDeploymentInput
   envSnapshot?: Prisma.DeploymentEnvSnapshotCreateNestedManyWithoutDeploymentInput
@@ -1252,10 +1502,12 @@ export type DeploymentUncheckedCreateWithoutProjectInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
   commitAuthor?: string | null
+  deployedById?: string | null
   url?: string | null
   ecsTaskArn?: string | null
   ecsServiceArn?: string | null
@@ -1313,54 +1565,13 @@ export type DeploymentUpdateManyWithWhereWithoutProjectInput = {
   data: Prisma.XOR<Prisma.DeploymentUpdateManyMutationInput, Prisma.DeploymentUncheckedUpdateManyWithoutProjectInput>
 }
 
-export type DeploymentScalarWhereInput = {
-  AND?: Prisma.DeploymentScalarWhereInput | Prisma.DeploymentScalarWhereInput[]
-  OR?: Prisma.DeploymentScalarWhereInput[]
-  NOT?: Prisma.DeploymentScalarWhereInput | Prisma.DeploymentScalarWhereInput[]
-  id?: Prisma.UuidFilter<"Deployment"> | string
-  projectId?: Prisma.UuidFilter<"Deployment"> | string
-  slug?: Prisma.StringFilter<"Deployment"> | string
-  status?: Prisma.EnumDeploymentStatusFilter<"Deployment"> | $Enums.DeploymentStatus
-  type?: Prisma.EnumDeploymentTypeNullableFilter<"Deployment"> | $Enums.DeploymentType | null
-  framework?: Prisma.EnumFrameworkNullableFilter<"Deployment"> | $Enums.Framework | null
-  branch?: Prisma.StringFilter<"Deployment"> | string
-  commitHash?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  commitMessage?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  commitAuthor?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  url?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  ecsTaskArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  ecsServiceArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  ecsTaskDefArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  ecrImageUri?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  albTargetGroupArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  albListenerRuleArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  s3Prefix?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  errorMessage?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  errorCode?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  errorStep?: Prisma.StringNullableFilter<"Deployment"> | string | null
-  buildDurationMs?: Prisma.IntNullableFilter<"Deployment"> | number | null
-  uploadedFileCount?: Prisma.IntNullableFilter<"Deployment"> | number | null
-  imageSizeBytes?: Prisma.IntNullableFilter<"Deployment"> | number | null
-  lastRequestAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
-  sleepCount?: Prisma.IntFilter<"Deployment"> | number
-  totalSleepMs?: Prisma.BigIntFilter<"Deployment"> | bigint | number
-  triggeredBy?: Prisma.StringFilter<"Deployment"> | string
-  webhookDeliveryId?: Prisma.UuidNullableFilter<"Deployment"> | string | null
-  queuedAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
-  buildStartedAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
-  buildFinishedAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
-  deployedAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
-  stoppedAt?: Prisma.DateTimeNullableFilter<"Deployment"> | Date | string | null
-  createdAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
-  updatedAt?: Prisma.DateTimeFilter<"Deployment"> | Date | string
-}
-
 export type DeploymentCreateWithoutStateTransitionsInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
@@ -1392,6 +1603,7 @@ export type DeploymentCreateWithoutStateTransitionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   project: Prisma.ProjectCreateNestedOneWithoutDeploymentsInput
+  deployedBy?: Prisma.UserCreateNestedOneWithoutDeploymentsTriggeredInput
   logs?: Prisma.DeploymentLogCreateNestedManyWithoutDeploymentInput
   envSnapshot?: Prisma.DeploymentEnvSnapshotCreateNestedManyWithoutDeploymentInput
 }
@@ -1403,10 +1615,12 @@ export type DeploymentUncheckedCreateWithoutStateTransitionsInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
   commitAuthor?: string | null
+  deployedById?: string | null
   url?: string | null
   ecsTaskArn?: string | null
   ecsServiceArn?: string | null
@@ -1459,6 +1673,7 @@ export type DeploymentUpdateWithoutStateTransitionsInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1490,6 +1705,7 @@ export type DeploymentUpdateWithoutStateTransitionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   project?: Prisma.ProjectUpdateOneRequiredWithoutDeploymentsNestedInput
+  deployedBy?: Prisma.UserUpdateOneWithoutDeploymentsTriggeredNestedInput
   logs?: Prisma.DeploymentLogUpdateManyWithoutDeploymentNestedInput
   envSnapshot?: Prisma.DeploymentEnvSnapshotUpdateManyWithoutDeploymentNestedInput
 }
@@ -1501,10 +1717,12 @@ export type DeploymentUncheckedUpdateWithoutStateTransitionsInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitAuthor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deployedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsTaskArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsServiceArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1541,6 +1759,7 @@ export type DeploymentCreateWithoutLogsInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
@@ -1572,6 +1791,7 @@ export type DeploymentCreateWithoutLogsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   project: Prisma.ProjectCreateNestedOneWithoutDeploymentsInput
+  deployedBy?: Prisma.UserCreateNestedOneWithoutDeploymentsTriggeredInput
   stateTransitions?: Prisma.DeploymentStateTransitionCreateNestedManyWithoutDeploymentInput
   envSnapshot?: Prisma.DeploymentEnvSnapshotCreateNestedManyWithoutDeploymentInput
 }
@@ -1583,10 +1803,12 @@ export type DeploymentUncheckedCreateWithoutLogsInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
   commitAuthor?: string | null
+  deployedById?: string | null
   url?: string | null
   ecsTaskArn?: string | null
   ecsServiceArn?: string | null
@@ -1639,6 +1861,7 @@ export type DeploymentUpdateWithoutLogsInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1670,6 +1893,7 @@ export type DeploymentUpdateWithoutLogsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   project?: Prisma.ProjectUpdateOneRequiredWithoutDeploymentsNestedInput
+  deployedBy?: Prisma.UserUpdateOneWithoutDeploymentsTriggeredNestedInput
   stateTransitions?: Prisma.DeploymentStateTransitionUpdateManyWithoutDeploymentNestedInput
   envSnapshot?: Prisma.DeploymentEnvSnapshotUpdateManyWithoutDeploymentNestedInput
 }
@@ -1681,10 +1905,12 @@ export type DeploymentUncheckedUpdateWithoutLogsInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitAuthor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deployedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsTaskArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsServiceArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1721,6 +1947,7 @@ export type DeploymentCreateWithoutEnvSnapshotInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
@@ -1752,6 +1979,7 @@ export type DeploymentCreateWithoutEnvSnapshotInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   project: Prisma.ProjectCreateNestedOneWithoutDeploymentsInput
+  deployedBy?: Prisma.UserCreateNestedOneWithoutDeploymentsTriggeredInput
   logs?: Prisma.DeploymentLogCreateNestedManyWithoutDeploymentInput
   stateTransitions?: Prisma.DeploymentStateTransitionCreateNestedManyWithoutDeploymentInput
 }
@@ -1763,10 +1991,12 @@ export type DeploymentUncheckedCreateWithoutEnvSnapshotInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
   commitAuthor?: string | null
+  deployedById?: string | null
   url?: string | null
   ecsTaskArn?: string | null
   ecsServiceArn?: string | null
@@ -1819,6 +2049,133 @@ export type DeploymentUpdateWithoutEnvSnapshotInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
+  branch?: Prisma.StringFieldUpdateOperationsInput | string
+  commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commitAuthor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecsTaskArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecsServiceArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecsTaskDefArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  buildDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  uploadedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  imageSizeBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastRequestAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sleepCount?: Prisma.IntFieldUpdateOperationsInput | number
+  totalSleepMs?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  triggeredBy?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookDeliveryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  queuedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  buildStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  buildFinishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  stoppedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  project?: Prisma.ProjectUpdateOneRequiredWithoutDeploymentsNestedInput
+  deployedBy?: Prisma.UserUpdateOneWithoutDeploymentsTriggeredNestedInput
+  logs?: Prisma.DeploymentLogUpdateManyWithoutDeploymentNestedInput
+  stateTransitions?: Prisma.DeploymentStateTransitionUpdateManyWithoutDeploymentNestedInput
+}
+
+export type DeploymentUncheckedUpdateWithoutEnvSnapshotInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  projectId?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
+  framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
+  branch?: Prisma.StringFieldUpdateOperationsInput | string
+  commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commitAuthor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deployedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecsTaskArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecsServiceArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecsTaskDefArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  buildDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  uploadedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  imageSizeBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastRequestAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sleepCount?: Prisma.IntFieldUpdateOperationsInput | number
+  totalSleepMs?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  triggeredBy?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookDeliveryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  queuedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  buildStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  buildFinishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  stoppedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  logs?: Prisma.DeploymentLogUncheckedUpdateManyWithoutDeploymentNestedInput
+  stateTransitions?: Prisma.DeploymentStateTransitionUncheckedUpdateManyWithoutDeploymentNestedInput
+}
+
+export type DeploymentCreateManyDeployedByInput = {
+  id?: string
+  projectId: string
+  slug: string
+  status?: $Enums.DeploymentStatus
+  type?: $Enums.DeploymentType | null
+  framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
+  branch?: string
+  commitHash?: string | null
+  commitMessage?: string | null
+  commitAuthor?: string | null
+  url?: string | null
+  ecsTaskArn?: string | null
+  ecsServiceArn?: string | null
+  ecsTaskDefArn?: string | null
+  ecrImageUri?: string | null
+  albTargetGroupArn?: string | null
+  albListenerRuleArn?: string | null
+  s3Prefix?: string | null
+  errorMessage?: string | null
+  errorCode?: string | null
+  errorStep?: string | null
+  buildDurationMs?: number | null
+  uploadedFileCount?: number | null
+  imageSizeBytes?: number | null
+  lastRequestAt?: Date | string | null
+  sleepCount?: number
+  totalSleepMs?: bigint | number
+  triggeredBy?: string
+  webhookDeliveryId?: string | null
+  queuedAt?: Date | string
+  buildStartedAt?: Date | string | null
+  buildFinishedAt?: Date | string | null
+  deployedAt?: Date | string | null
+  stoppedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type DeploymentUpdateWithoutDeployedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
+  framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1852,15 +2209,17 @@ export type DeploymentUpdateWithoutEnvSnapshotInput = {
   project?: Prisma.ProjectUpdateOneRequiredWithoutDeploymentsNestedInput
   logs?: Prisma.DeploymentLogUpdateManyWithoutDeploymentNestedInput
   stateTransitions?: Prisma.DeploymentStateTransitionUpdateManyWithoutDeploymentNestedInput
+  envSnapshot?: Prisma.DeploymentEnvSnapshotUpdateManyWithoutDeploymentNestedInput
 }
 
-export type DeploymentUncheckedUpdateWithoutEnvSnapshotInput = {
+export type DeploymentUncheckedUpdateWithoutDeployedByInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1893,6 +2252,47 @@ export type DeploymentUncheckedUpdateWithoutEnvSnapshotInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   logs?: Prisma.DeploymentLogUncheckedUpdateManyWithoutDeploymentNestedInput
   stateTransitions?: Prisma.DeploymentStateTransitionUncheckedUpdateManyWithoutDeploymentNestedInput
+  envSnapshot?: Prisma.DeploymentEnvSnapshotUncheckedUpdateManyWithoutDeploymentNestedInput
+}
+
+export type DeploymentUncheckedUpdateManyWithoutDeployedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  projectId?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
+  framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
+  branch?: Prisma.StringFieldUpdateOperationsInput | string
+  commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commitAuthor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecsTaskArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecsServiceArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecsTaskDefArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorStep?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  buildDurationMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  uploadedFileCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  imageSizeBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastRequestAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sleepCount?: Prisma.IntFieldUpdateOperationsInput | number
+  totalSleepMs?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  triggeredBy?: Prisma.StringFieldUpdateOperationsInput | string
+  webhookDeliveryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  queuedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  buildStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  buildFinishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  stoppedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type DeploymentCreateManyProjectInput = {
@@ -1901,10 +2301,12 @@ export type DeploymentCreateManyProjectInput = {
   status?: $Enums.DeploymentStatus
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
+  environment?: $Enums.EnvironmentTarget
   branch?: string
   commitHash?: string | null
   commitMessage?: string | null
   commitAuthor?: string | null
+  deployedById?: string | null
   url?: string | null
   ecsTaskArn?: string | null
   ecsServiceArn?: string | null
@@ -1939,6 +2341,7 @@ export type DeploymentUpdateWithoutProjectInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1969,6 +2372,7 @@ export type DeploymentUpdateWithoutProjectInput = {
   stoppedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deployedBy?: Prisma.UserUpdateOneWithoutDeploymentsTriggeredNestedInput
   logs?: Prisma.DeploymentLogUpdateManyWithoutDeploymentNestedInput
   stateTransitions?: Prisma.DeploymentStateTransitionUpdateManyWithoutDeploymentNestedInput
   envSnapshot?: Prisma.DeploymentEnvSnapshotUpdateManyWithoutDeploymentNestedInput
@@ -1980,10 +2384,12 @@ export type DeploymentUncheckedUpdateWithoutProjectInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitAuthor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deployedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsTaskArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsServiceArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2021,10 +2427,12 @@ export type DeploymentUncheckedUpdateManyWithoutProjectInput = {
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
   branch?: Prisma.StringFieldUpdateOperationsInput | string
   commitHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   commitAuthor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deployedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsTaskArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ecsServiceArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2109,10 +2517,12 @@ export type DeploymentSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   status?: boolean
   type?: boolean
   framework?: boolean
+  environment?: boolean
   branch?: boolean
   commitHash?: boolean
   commitMessage?: boolean
   commitAuthor?: boolean
+  deployedById?: boolean
   url?: boolean
   ecsTaskArn?: boolean
   ecsServiceArn?: boolean
@@ -2140,6 +2550,7 @@ export type DeploymentSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   createdAt?: boolean
   updatedAt?: boolean
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
+  deployedBy?: boolean | Prisma.Deployment$deployedByArgs<ExtArgs>
   logs?: boolean | Prisma.Deployment$logsArgs<ExtArgs>
   stateTransitions?: boolean | Prisma.Deployment$stateTransitionsArgs<ExtArgs>
   envSnapshot?: boolean | Prisma.Deployment$envSnapshotArgs<ExtArgs>
@@ -2153,10 +2564,12 @@ export type DeploymentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   status?: boolean
   type?: boolean
   framework?: boolean
+  environment?: boolean
   branch?: boolean
   commitHash?: boolean
   commitMessage?: boolean
   commitAuthor?: boolean
+  deployedById?: boolean
   url?: boolean
   ecsTaskArn?: boolean
   ecsServiceArn?: boolean
@@ -2184,6 +2597,7 @@ export type DeploymentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   createdAt?: boolean
   updatedAt?: boolean
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
+  deployedBy?: boolean | Prisma.Deployment$deployedByArgs<ExtArgs>
 }, ExtArgs["result"]["deployment"]>
 
 export type DeploymentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -2193,10 +2607,12 @@ export type DeploymentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   status?: boolean
   type?: boolean
   framework?: boolean
+  environment?: boolean
   branch?: boolean
   commitHash?: boolean
   commitMessage?: boolean
   commitAuthor?: boolean
+  deployedById?: boolean
   url?: boolean
   ecsTaskArn?: boolean
   ecsServiceArn?: boolean
@@ -2224,6 +2640,7 @@ export type DeploymentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   createdAt?: boolean
   updatedAt?: boolean
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
+  deployedBy?: boolean | Prisma.Deployment$deployedByArgs<ExtArgs>
 }, ExtArgs["result"]["deployment"]>
 
 export type DeploymentSelectScalar = {
@@ -2233,10 +2650,12 @@ export type DeploymentSelectScalar = {
   status?: boolean
   type?: boolean
   framework?: boolean
+  environment?: boolean
   branch?: boolean
   commitHash?: boolean
   commitMessage?: boolean
   commitAuthor?: boolean
+  deployedById?: boolean
   url?: boolean
   ecsTaskArn?: boolean
   ecsServiceArn?: boolean
@@ -2265,9 +2684,10 @@ export type DeploymentSelectScalar = {
   updatedAt?: boolean
 }
 
-export type DeploymentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "slug" | "status" | "type" | "framework" | "branch" | "commitHash" | "commitMessage" | "commitAuthor" | "url" | "ecsTaskArn" | "ecsServiceArn" | "ecsTaskDefArn" | "ecrImageUri" | "albTargetGroupArn" | "albListenerRuleArn" | "s3Prefix" | "errorMessage" | "errorCode" | "errorStep" | "buildDurationMs" | "uploadedFileCount" | "imageSizeBytes" | "lastRequestAt" | "sleepCount" | "totalSleepMs" | "triggeredBy" | "webhookDeliveryId" | "queuedAt" | "buildStartedAt" | "buildFinishedAt" | "deployedAt" | "stoppedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["deployment"]>
+export type DeploymentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "slug" | "status" | "type" | "framework" | "environment" | "branch" | "commitHash" | "commitMessage" | "commitAuthor" | "deployedById" | "url" | "ecsTaskArn" | "ecsServiceArn" | "ecsTaskDefArn" | "ecrImageUri" | "albTargetGroupArn" | "albListenerRuleArn" | "s3Prefix" | "errorMessage" | "errorCode" | "errorStep" | "buildDurationMs" | "uploadedFileCount" | "imageSizeBytes" | "lastRequestAt" | "sleepCount" | "totalSleepMs" | "triggeredBy" | "webhookDeliveryId" | "queuedAt" | "buildStartedAt" | "buildFinishedAt" | "deployedAt" | "stoppedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["deployment"]>
 export type DeploymentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
+  deployedBy?: boolean | Prisma.Deployment$deployedByArgs<ExtArgs>
   logs?: boolean | Prisma.Deployment$logsArgs<ExtArgs>
   stateTransitions?: boolean | Prisma.Deployment$stateTransitionsArgs<ExtArgs>
   envSnapshot?: boolean | Prisma.Deployment$envSnapshotArgs<ExtArgs>
@@ -2275,15 +2695,18 @@ export type DeploymentInclude<ExtArgs extends runtime.Types.Extensions.InternalA
 }
 export type DeploymentIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
+  deployedBy?: boolean | Prisma.Deployment$deployedByArgs<ExtArgs>
 }
 export type DeploymentIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
+  deployedBy?: boolean | Prisma.Deployment$deployedByArgs<ExtArgs>
 }
 
 export type $DeploymentPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Deployment"
   objects: {
     project: Prisma.$ProjectPayload<ExtArgs>
+    deployedBy: Prisma.$UserPayload<ExtArgs> | null
     logs: Prisma.$DeploymentLogPayload<ExtArgs>[]
     stateTransitions: Prisma.$DeploymentStateTransitionPayload<ExtArgs>[]
     envSnapshot: Prisma.$DeploymentEnvSnapshotPayload<ExtArgs>[]
@@ -2295,10 +2718,12 @@ export type $DeploymentPayload<ExtArgs extends runtime.Types.Extensions.Internal
     status: $Enums.DeploymentStatus
     type: $Enums.DeploymentType | null
     framework: $Enums.Framework | null
+    environment: $Enums.EnvironmentTarget
     branch: string
     commitHash: string | null
     commitMessage: string | null
     commitAuthor: string | null
+    deployedById: string | null
     url: string | null
     ecsTaskArn: string | null
     ecsServiceArn: string | null
@@ -2720,6 +3145,7 @@ readonly fields: DeploymentFieldRefs;
 export interface Prisma__DeploymentClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   project<T extends Prisma.ProjectDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProjectDefaultArgs<ExtArgs>>): Prisma.Prisma__ProjectClient<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  deployedBy<T extends Prisma.Deployment$deployedByArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Deployment$deployedByArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   logs<T extends Prisma.Deployment$logsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Deployment$logsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DeploymentLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   stateTransitions<T extends Prisma.Deployment$stateTransitionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Deployment$stateTransitionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DeploymentStateTransitionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   envSnapshot<T extends Prisma.Deployment$envSnapshotArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Deployment$envSnapshotArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DeploymentEnvSnapshotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -2758,10 +3184,12 @@ export interface DeploymentFieldRefs {
   readonly status: Prisma.FieldRef<"Deployment", 'DeploymentStatus'>
   readonly type: Prisma.FieldRef<"Deployment", 'DeploymentType'>
   readonly framework: Prisma.FieldRef<"Deployment", 'Framework'>
+  readonly environment: Prisma.FieldRef<"Deployment", 'EnvironmentTarget'>
   readonly branch: Prisma.FieldRef<"Deployment", 'String'>
   readonly commitHash: Prisma.FieldRef<"Deployment", 'String'>
   readonly commitMessage: Prisma.FieldRef<"Deployment", 'String'>
   readonly commitAuthor: Prisma.FieldRef<"Deployment", 'String'>
+  readonly deployedById: Prisma.FieldRef<"Deployment", 'String'>
   readonly url: Prisma.FieldRef<"Deployment", 'String'>
   readonly ecsTaskArn: Prisma.FieldRef<"Deployment", 'String'>
   readonly ecsServiceArn: Prisma.FieldRef<"Deployment", 'String'>
@@ -3186,6 +3614,25 @@ export type DeploymentDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.In
    * Limit how many Deployments to delete.
    */
   limit?: number
+}
+
+/**
+ * Deployment.deployedBy
+ */
+export type Deployment$deployedByArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the User
+   */
+  select?: Prisma.UserSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the User
+   */
+  omit?: Prisma.UserOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
 }
 
 /**

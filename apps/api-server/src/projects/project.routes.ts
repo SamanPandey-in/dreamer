@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { validate } from '../middleware/validate.middleware';
 import { projectDeploymentsRouter } from '../deployments';
+import { projectEnvVariablesRouter } from '../env-variables'; // NEW
 import {
   createProjectHandler,
   deleteProjectHandler,
@@ -27,3 +28,4 @@ projectsRouter.delete('/:projectId', validate(projectIdParamSchema), deleteProje
 // handlers for everything under .../deployments; this router only owns
 // where that sub-router gets mounted.
 projectsRouter.use('/:projectId/deployments', projectDeploymentsRouter);
+projectsRouter.use('/:projectId/env-variables', projectEnvVariablesRouter); // NEW

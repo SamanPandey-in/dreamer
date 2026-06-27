@@ -59,7 +59,7 @@ CREATE INDEX idx_deployment_active_dynamic
   WHERE status = 'RUNNING' AND type = 'DYNAMIC';
 
 -- how to run this migration:
--- npx prisma db execute --file "prisma/migrations/202606191358_add_log_fts/migration.sql"
--- npx prisma migrate resolve --applied 202606191358_add_log_fts
+-- npx prisma db execute --file "prisma/migrations/20260626095933_add_log_fts/migration.sql"
+-- npx prisma migrate resolve --applied 20260626095933_add_log_fts
 -- check status
 -- npx prisma migrate status

@@ -291,6 +291,7 @@ export type UserWhereInput = {
   projects?: Prisma.ProjectListRelationFilter
   sessions?: Prisma.UserSessionListRelationFilter
   auditLogs?: Prisma.AuditLogListRelationFilter
+  deploymentsTriggered?: Prisma.DeploymentListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -311,6 +312,7 @@ export type UserOrderByWithRelationInput = {
   projects?: Prisma.ProjectOrderByRelationAggregateInput
   sessions?: Prisma.UserSessionOrderByRelationAggregateInput
   auditLogs?: Prisma.AuditLogOrderByRelationAggregateInput
+  deploymentsTriggered?: Prisma.DeploymentOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -334,6 +336,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   projects?: Prisma.ProjectListRelationFilter
   sessions?: Prisma.UserSessionListRelationFilter
   auditLogs?: Prisma.AuditLogListRelationFilter
+  deploymentsTriggered?: Prisma.DeploymentListRelationFilter
 }, "id" | "email" | "githubId">
 
 export type UserOrderByWithAggregationInput = {
@@ -396,6 +399,7 @@ export type UserCreateInput = {
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
   sessions?: Prisma.UserSessionCreateNestedManyWithoutUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutUserInput
+  deploymentsTriggered?: Prisma.DeploymentCreateNestedManyWithoutDeployedByInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -416,6 +420,7 @@ export type UserUncheckedCreateInput = {
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
   sessions?: Prisma.UserSessionUncheckedCreateNestedManyWithoutUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutUserInput
+  deploymentsTriggered?: Prisma.DeploymentUncheckedCreateNestedManyWithoutDeployedByInput
 }
 
 export type UserUpdateInput = {
@@ -436,6 +441,7 @@ export type UserUpdateInput = {
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
   sessions?: Prisma.UserSessionUpdateManyWithoutUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutUserNestedInput
+  deploymentsTriggered?: Prisma.DeploymentUpdateManyWithoutDeployedByNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -456,6 +462,7 @@ export type UserUncheckedUpdateInput = {
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   sessions?: Prisma.UserSessionUncheckedUpdateManyWithoutUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutUserNestedInput
+  deploymentsTriggered?: Prisma.DeploymentUncheckedUpdateManyWithoutDeployedByNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -634,6 +641,22 @@ export type UserUpdateOneRequiredWithoutProjectsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutProjectsInput, Prisma.UserUpdateWithoutProjectsInput>, Prisma.UserUncheckedUpdateWithoutProjectsInput>
 }
 
+export type UserCreateNestedOneWithoutDeploymentsTriggeredInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutDeploymentsTriggeredInput, Prisma.UserUncheckedCreateWithoutDeploymentsTriggeredInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutDeploymentsTriggeredInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutDeploymentsTriggeredNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutDeploymentsTriggeredInput, Prisma.UserUncheckedCreateWithoutDeploymentsTriggeredInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutDeploymentsTriggeredInput
+  upsert?: Prisma.UserUpsertWithoutDeploymentsTriggeredInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutDeploymentsTriggeredInput, Prisma.UserUpdateWithoutDeploymentsTriggeredInput>, Prisma.UserUncheckedUpdateWithoutDeploymentsTriggeredInput>
+}
+
 export type UserCreateNestedOneWithoutAuditLogsInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutAuditLogsInput, Prisma.UserUncheckedCreateWithoutAuditLogsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutAuditLogsInput
@@ -667,6 +690,7 @@ export type UserCreateWithoutSessionsInput = {
   lastLoginAt?: Date | string | null
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutUserInput
+  deploymentsTriggered?: Prisma.DeploymentCreateNestedManyWithoutDeployedByInput
 }
 
 export type UserUncheckedCreateWithoutSessionsInput = {
@@ -686,6 +710,7 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   lastLoginAt?: Date | string | null
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutUserInput
+  deploymentsTriggered?: Prisma.DeploymentUncheckedCreateNestedManyWithoutDeployedByInput
 }
 
 export type UserCreateOrConnectWithoutSessionsInput = {
@@ -721,6 +746,7 @@ export type UserUpdateWithoutSessionsInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutUserNestedInput
+  deploymentsTriggered?: Prisma.DeploymentUpdateManyWithoutDeployedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSessionsInput = {
@@ -740,6 +766,7 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutUserNestedInput
+  deploymentsTriggered?: Prisma.DeploymentUncheckedUpdateManyWithoutDeployedByNestedInput
 }
 
 export type UserCreateWithoutProjectsInput = {
@@ -759,6 +786,7 @@ export type UserCreateWithoutProjectsInput = {
   lastLoginAt?: Date | string | null
   sessions?: Prisma.UserSessionCreateNestedManyWithoutUserInput
   auditLogs?: Prisma.AuditLogCreateNestedManyWithoutUserInput
+  deploymentsTriggered?: Prisma.DeploymentCreateNestedManyWithoutDeployedByInput
 }
 
 export type UserUncheckedCreateWithoutProjectsInput = {
@@ -778,6 +806,7 @@ export type UserUncheckedCreateWithoutProjectsInput = {
   lastLoginAt?: Date | string | null
   sessions?: Prisma.UserSessionUncheckedCreateNestedManyWithoutUserInput
   auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutUserInput
+  deploymentsTriggered?: Prisma.DeploymentUncheckedCreateNestedManyWithoutDeployedByInput
 }
 
 export type UserCreateOrConnectWithoutProjectsInput = {
@@ -813,6 +842,7 @@ export type UserUpdateWithoutProjectsInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.UserSessionUpdateManyWithoutUserNestedInput
   auditLogs?: Prisma.AuditLogUpdateManyWithoutUserNestedInput
+  deploymentsTriggered?: Prisma.DeploymentUpdateManyWithoutDeployedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutProjectsInput = {
@@ -830,6 +860,103 @@ export type UserUncheckedUpdateWithoutProjectsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sessions?: Prisma.UserSessionUncheckedUpdateManyWithoutUserNestedInput
+  auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutUserNestedInput
+  deploymentsTriggered?: Prisma.DeploymentUncheckedUpdateManyWithoutDeployedByNestedInput
+}
+
+export type UserCreateWithoutDeploymentsTriggeredInput = {
+  id?: string
+  email: string
+  passwordHash?: string | null
+  name: string
+  avatarUrl?: string | null
+  githubId?: number | null
+  githubUsername?: string | null
+  githubToken?: string | null
+  refreshTokenHash?: string | null
+  emailVerified?: boolean
+  isActive?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  lastLoginAt?: Date | string | null
+  projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
+  sessions?: Prisma.UserSessionCreateNestedManyWithoutUserInput
+  auditLogs?: Prisma.AuditLogCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutDeploymentsTriggeredInput = {
+  id?: string
+  email: string
+  passwordHash?: string | null
+  name: string
+  avatarUrl?: string | null
+  githubId?: number | null
+  githubUsername?: string | null
+  githubToken?: string | null
+  refreshTokenHash?: string | null
+  emailVerified?: boolean
+  isActive?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  lastLoginAt?: Date | string | null
+  projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
+  sessions?: Prisma.UserSessionUncheckedCreateNestedManyWithoutUserInput
+  auditLogs?: Prisma.AuditLogUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutDeploymentsTriggeredInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutDeploymentsTriggeredInput, Prisma.UserUncheckedCreateWithoutDeploymentsTriggeredInput>
+}
+
+export type UserUpsertWithoutDeploymentsTriggeredInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutDeploymentsTriggeredInput, Prisma.UserUncheckedUpdateWithoutDeploymentsTriggeredInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutDeploymentsTriggeredInput, Prisma.UserUncheckedCreateWithoutDeploymentsTriggeredInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutDeploymentsTriggeredInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutDeploymentsTriggeredInput, Prisma.UserUncheckedUpdateWithoutDeploymentsTriggeredInput>
+}
+
+export type UserUpdateWithoutDeploymentsTriggeredInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  githubUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshTokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
+  sessions?: Prisma.UserSessionUpdateManyWithoutUserNestedInput
+  auditLogs?: Prisma.AuditLogUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutDeploymentsTriggeredInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  githubUsername?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refreshTokenHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   sessions?: Prisma.UserSessionUncheckedUpdateManyWithoutUserNestedInput
   auditLogs?: Prisma.AuditLogUncheckedUpdateManyWithoutUserNestedInput
 }
@@ -851,6 +978,7 @@ export type UserCreateWithoutAuditLogsInput = {
   lastLoginAt?: Date | string | null
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
   sessions?: Prisma.UserSessionCreateNestedManyWithoutUserInput
+  deploymentsTriggered?: Prisma.DeploymentCreateNestedManyWithoutDeployedByInput
 }
 
 export type UserUncheckedCreateWithoutAuditLogsInput = {
@@ -870,6 +998,7 @@ export type UserUncheckedCreateWithoutAuditLogsInput = {
   lastLoginAt?: Date | string | null
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
   sessions?: Prisma.UserSessionUncheckedCreateNestedManyWithoutUserInput
+  deploymentsTriggered?: Prisma.DeploymentUncheckedCreateNestedManyWithoutDeployedByInput
 }
 
 export type UserCreateOrConnectWithoutAuditLogsInput = {
@@ -905,6 +1034,7 @@ export type UserUpdateWithoutAuditLogsInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
   sessions?: Prisma.UserSessionUpdateManyWithoutUserNestedInput
+  deploymentsTriggered?: Prisma.DeploymentUpdateManyWithoutDeployedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAuditLogsInput = {
@@ -924,6 +1054,7 @@ export type UserUncheckedUpdateWithoutAuditLogsInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   sessions?: Prisma.UserSessionUncheckedUpdateManyWithoutUserNestedInput
+  deploymentsTriggered?: Prisma.DeploymentUncheckedUpdateManyWithoutDeployedByNestedInput
 }
 
 
@@ -935,12 +1066,14 @@ export type UserCountOutputType = {
   projects: number
   sessions: number
   auditLogs: number
+  deploymentsTriggered: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   projects?: boolean | UserCountOutputTypeCountProjectsArgs
   sessions?: boolean | UserCountOutputTypeCountSessionsArgs
   auditLogs?: boolean | UserCountOutputTypeCountAuditLogsArgs
+  deploymentsTriggered?: boolean | UserCountOutputTypeCountDeploymentsTriggeredArgs
 }
 
 /**
@@ -974,6 +1107,13 @@ export type UserCountOutputTypeCountAuditLogsArgs<ExtArgs extends runtime.Types.
   where?: Prisma.AuditLogWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountDeploymentsTriggeredArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.DeploymentWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -993,6 +1133,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   auditLogs?: boolean | Prisma.User$auditLogsArgs<ExtArgs>
+  deploymentsTriggered?: boolean | Prisma.User$deploymentsTriggeredArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1052,6 +1193,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   auditLogs?: boolean | Prisma.User$auditLogsArgs<ExtArgs>
+  deploymentsTriggered?: boolean | Prisma.User$deploymentsTriggeredArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1063,6 +1205,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     projects: Prisma.$ProjectPayload<ExtArgs>[]
     sessions: Prisma.$UserSessionPayload<ExtArgs>[]
     auditLogs: Prisma.$AuditLogPayload<ExtArgs>[]
+    deploymentsTriggered: Prisma.$DeploymentPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1476,6 +1619,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   projects<T extends Prisma.User$projectsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$projectsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   sessions<T extends Prisma.User$sessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UserSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   auditLogs<T extends Prisma.User$auditLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$auditLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuditLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  deploymentsTriggered<T extends Prisma.User$deploymentsTriggeredArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$deploymentsTriggeredArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DeploymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1981,6 +2125,30 @@ export type User$auditLogsArgs<ExtArgs extends runtime.Types.Extensions.Internal
   take?: number
   skip?: number
   distinct?: Prisma.AuditLogScalarFieldEnum | Prisma.AuditLogScalarFieldEnum[]
+}
+
+/**
+ * User.deploymentsTriggered
+ */
+export type User$deploymentsTriggeredArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Deployment
+   */
+  select?: Prisma.DeploymentSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Deployment
+   */
+  omit?: Prisma.DeploymentOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DeploymentInclude<ExtArgs> | null
+  where?: Prisma.DeploymentWhereInput
+  orderBy?: Prisma.DeploymentOrderByWithRelationInput | Prisma.DeploymentOrderByWithRelationInput[]
+  cursor?: Prisma.DeploymentWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DeploymentScalarFieldEnum | Prisma.DeploymentScalarFieldEnum[]
 }
 
 /**

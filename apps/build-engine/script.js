@@ -3,8 +3,8 @@ const path = require('path')
 const fs = require('fs')
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
 const mime = require('mime-types')
-const { publishLog, publishStatus, publisher } = require('./redis')
-const { writeNetrcIfNeeded, scrubNetrc, runClone } = require('./clone-repo')
+const { publishLog, publishStatus, publishCommitInfo, publisher } = require('./redis')
+const { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommitInfo } = require('./clone-repo')
 
 const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'ap-south-1',
@@ -15,7 +15,7 @@ const s3Client = new S3Client({
 })
 
 const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID
-const DEPLOYMENT_SLUG = process.env.DEPLOYMENT_SLUG
+const PROJECT_SLUG = process.env.PROJECT_SLUG
 const GIT_REPOSITORY_URL = process.env.GIT_REPOSITORY_URL
 const BRANCH = process.env.BRANCH || 'main'
 const S3_BUCKET = process.env.S3_BUCKET || 'dreamer-outputs'
@@ -65,8 +65,21 @@ async function init() {
         writeNetrcIfNeeded()
         publishLog(`Cloning ${GIT_REPOSITORY_URL} (branch: ${BRANCH})`, 'SYSTEM', 'platform')
         await runClone()
+
+        // NEW — if this build is a rollback (COMMIT_HASH set), pin the
+        // checkout to that exact commit BEFORE scrubbing credentials and
+        // BEFORE reading commit info, so getCommitInfo() below reports the
+        // pinned commit, not the branch's current HEAD.
+        await runCheckoutIfPinned()
         scrubNetrc() // before npm touches a single dependency — see the comment on scrubNetrc()
 
+        // NEW — best-effort; a null result just means the commit fields
+        // stay null on this deployment, same as they already do for every
+        // deployment created before this change.
+        const commitInfo = await getCommitInfo()
+        if (commitInfo) {
+            publishCommitInfo({ commitHash: commitInfo.hash, commitMessage: commitInfo.message, commitAuthor: commitInfo.author })
+        }
         // 1. Wait for the build to completely finish
         await runBuildCommand(outDirPath)
 
@@ -93,15 +106,15 @@ async function init() {
             console.log('uploading', filePath)
             publishLog(`uploading ${file}`, 'INFO', 'platform')
 
-            // __outputs/{DEPLOYMENT_SLUG}/... — keyed by the DEPLOYMENT's
-            // slug now, not the project's. This is what Deployment.s3Prefix
-            // in schema.prisma documents ("__outputs/{slug}/") and it's why
-            // apps/reverse-proxy needs NO changes at all: it already proxies
-            // subdomain -> __outputs/{subdomain}, and the subdomain a user
-            // visits IS this deployment's slug.
+            // __outputs/{PROJECT_SLUG}/... — keyed by the PROJECT's slug,
+            // not this deployment's own random one. Every deployment of the
+            // same project writes to, and overwrites, the same prefix — on
+            // purpose. apps/reverse-proxy needs NO changes: it already
+            // proxies subdomain -> __outputs/{subdomain}, and the subdomain
+            // a user visits IS the project's slug.
             const command = new PutObjectCommand({
                 Bucket: S3_BUCKET,
-                Key: `__outputs/${DEPLOYMENT_SLUG}/${file}`,
+                Key: `__outputs/${PROJECT_SLUG}/${file}`,
                 Body: fs.createReadStream(filePath),
                 ContentType: mime.lookup(filePath) || 'application/octet-stream'
             })
@@ -111,9 +124,12 @@ async function init() {
             publishLog(`uploaded ${file}`, 'INFO', 'platform')
         }
 
-        const url = `https://${DEPLOYMENT_SLUG}.${BASE_DOMAIN}`
+        const url = `https://${PROJECT_SLUG}.${BASE_DOMAIN}`
         publishLog(`Done — ${uploadedCount} files uploaded`, 'SYSTEM')
-        publishStatus('RUNNING', { url })
+        // CHANGED — uploadedCount was computed and logged, but never sent
+        // here, so Deployment.uploadedFileCount stayed null forever. This is
+        // the one-line fix the Build Summary card (Part 7) depends on.
+        publishStatus('RUNNING', { url, uploadedFileCount: uploadedCount })
         console.log('Done...')
     } catch (error) {
         console.error('Fatal execution error:', error.message)

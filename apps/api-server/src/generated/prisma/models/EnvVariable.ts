@@ -54,6 +54,7 @@ export type EnvVariableCountAggregateOutputType = {
   key: number
   value: number
   iv: number
+  environments: number
   isSecret: number
   description: number
   createdAt: number
@@ -92,6 +93,7 @@ export type EnvVariableCountAggregateInputType = {
   key?: true
   value?: true
   iv?: true
+  environments?: true
   isSecret?: true
   description?: true
   createdAt?: true
@@ -177,6 +179,7 @@ export type EnvVariableGroupByOutputType = {
   key: string
   value: string
   iv: string
+  environments: $Enums.EnvironmentTarget[]
   isSecret: boolean
   description: string | null
   createdAt: Date
@@ -210,6 +213,7 @@ export type EnvVariableWhereInput = {
   key?: Prisma.StringFilter<"EnvVariable"> | string
   value?: Prisma.StringFilter<"EnvVariable"> | string
   iv?: Prisma.StringFilter<"EnvVariable"> | string
+  environments?: Prisma.EnumEnvironmentTargetNullableListFilter<"EnvVariable">
   isSecret?: Prisma.BoolFilter<"EnvVariable"> | boolean
   description?: Prisma.StringNullableFilter<"EnvVariable"> | string | null
   createdAt?: Prisma.DateTimeFilter<"EnvVariable"> | Date | string
@@ -223,6 +227,7 @@ export type EnvVariableOrderByWithRelationInput = {
   key?: Prisma.SortOrder
   value?: Prisma.SortOrder
   iv?: Prisma.SortOrder
+  environments?: Prisma.SortOrder
   isSecret?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -240,6 +245,7 @@ export type EnvVariableWhereUniqueInput = Prisma.AtLeast<{
   key?: Prisma.StringFilter<"EnvVariable"> | string
   value?: Prisma.StringFilter<"EnvVariable"> | string
   iv?: Prisma.StringFilter<"EnvVariable"> | string
+  environments?: Prisma.EnumEnvironmentTargetNullableListFilter<"EnvVariable">
   isSecret?: Prisma.BoolFilter<"EnvVariable"> | boolean
   description?: Prisma.StringNullableFilter<"EnvVariable"> | string | null
   createdAt?: Prisma.DateTimeFilter<"EnvVariable"> | Date | string
@@ -253,6 +259,7 @@ export type EnvVariableOrderByWithAggregationInput = {
   key?: Prisma.SortOrder
   value?: Prisma.SortOrder
   iv?: Prisma.SortOrder
+  environments?: Prisma.SortOrder
   isSecret?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -271,6 +278,7 @@ export type EnvVariableScalarWhereWithAggregatesInput = {
   key?: Prisma.StringWithAggregatesFilter<"EnvVariable"> | string
   value?: Prisma.StringWithAggregatesFilter<"EnvVariable"> | string
   iv?: Prisma.StringWithAggregatesFilter<"EnvVariable"> | string
+  environments?: Prisma.EnumEnvironmentTargetNullableListFilter<"EnvVariable">
   isSecret?: Prisma.BoolWithAggregatesFilter<"EnvVariable"> | boolean
   description?: Prisma.StringNullableWithAggregatesFilter<"EnvVariable"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"EnvVariable"> | Date | string
@@ -282,6 +290,7 @@ export type EnvVariableCreateInput = {
   key: string
   value: string
   iv: string
+  environments?: Prisma.EnvVariableCreateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: boolean
   description?: string | null
   createdAt?: Date | string
@@ -295,6 +304,7 @@ export type EnvVariableUncheckedCreateInput = {
   key: string
   value: string
   iv: string
+  environments?: Prisma.EnvVariableCreateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: boolean
   description?: string | null
   createdAt?: Date | string
@@ -306,6 +316,7 @@ export type EnvVariableUpdateInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.StringFieldUpdateOperationsInput | string
   iv?: Prisma.StringFieldUpdateOperationsInput | string
+  environments?: Prisma.EnvVariableUpdateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: Prisma.BoolFieldUpdateOperationsInput | boolean
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -319,6 +330,7 @@ export type EnvVariableUncheckedUpdateInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.StringFieldUpdateOperationsInput | string
   iv?: Prisma.StringFieldUpdateOperationsInput | string
+  environments?: Prisma.EnvVariableUpdateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: Prisma.BoolFieldUpdateOperationsInput | boolean
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -331,6 +343,7 @@ export type EnvVariableCreateManyInput = {
   key: string
   value: string
   iv: string
+  environments?: Prisma.EnvVariableCreateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: boolean
   description?: string | null
   createdAt?: Date | string
@@ -342,6 +355,7 @@ export type EnvVariableUpdateManyMutationInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.StringFieldUpdateOperationsInput | string
   iv?: Prisma.StringFieldUpdateOperationsInput | string
+  environments?: Prisma.EnvVariableUpdateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: Prisma.BoolFieldUpdateOperationsInput | boolean
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -354,6 +368,7 @@ export type EnvVariableUncheckedUpdateManyInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.StringFieldUpdateOperationsInput | string
   iv?: Prisma.StringFieldUpdateOperationsInput | string
+  environments?: Prisma.EnvVariableUpdateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: Prisma.BoolFieldUpdateOperationsInput | boolean
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -370,6 +385,14 @@ export type EnvVariableOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type EnumEnvironmentTargetNullableListFilter<$PrismaModel = never> = {
+  equals?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel> | null
+  has?: $Enums.EnvironmentTarget | Prisma.EnumEnvironmentTargetFieldRefInput<$PrismaModel> | null
+  hasEvery?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  hasSome?: $Enums.EnvironmentTarget[] | Prisma.ListEnumEnvironmentTargetFieldRefInput<$PrismaModel>
+  isEmpty?: boolean
+}
+
 export type EnvVariableProjectIdKeyCompoundUniqueInput = {
   projectId: string
   key: string
@@ -381,6 +404,7 @@ export type EnvVariableCountOrderByAggregateInput = {
   key?: Prisma.SortOrder
   value?: Prisma.SortOrder
   iv?: Prisma.SortOrder
+  environments?: Prisma.SortOrder
   isSecret?: Prisma.SortOrder
   description?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -453,11 +477,21 @@ export type EnvVariableUncheckedUpdateManyWithoutProjectNestedInput = {
   deleteMany?: Prisma.EnvVariableScalarWhereInput | Prisma.EnvVariableScalarWhereInput[]
 }
 
+export type EnvVariableCreateenvironmentsInput = {
+  set: $Enums.EnvironmentTarget[]
+}
+
+export type EnvVariableUpdateenvironmentsInput = {
+  set?: $Enums.EnvironmentTarget[]
+  push?: $Enums.EnvironmentTarget | $Enums.EnvironmentTarget[]
+}
+
 export type EnvVariableCreateWithoutProjectInput = {
   id?: string
   key: string
   value: string
   iv: string
+  environments?: Prisma.EnvVariableCreateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: boolean
   description?: string | null
   createdAt?: Date | string
@@ -469,6 +503,7 @@ export type EnvVariableUncheckedCreateWithoutProjectInput = {
   key: string
   value: string
   iv: string
+  environments?: Prisma.EnvVariableCreateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: boolean
   description?: string | null
   createdAt?: Date | string
@@ -510,6 +545,7 @@ export type EnvVariableScalarWhereInput = {
   key?: Prisma.StringFilter<"EnvVariable"> | string
   value?: Prisma.StringFilter<"EnvVariable"> | string
   iv?: Prisma.StringFilter<"EnvVariable"> | string
+  environments?: Prisma.EnumEnvironmentTargetNullableListFilter<"EnvVariable">
   isSecret?: Prisma.BoolFilter<"EnvVariable"> | boolean
   description?: Prisma.StringNullableFilter<"EnvVariable"> | string | null
   createdAt?: Prisma.DateTimeFilter<"EnvVariable"> | Date | string
@@ -521,6 +557,7 @@ export type EnvVariableCreateManyProjectInput = {
   key: string
   value: string
   iv: string
+  environments?: Prisma.EnvVariableCreateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: boolean
   description?: string | null
   createdAt?: Date | string
@@ -532,6 +569,7 @@ export type EnvVariableUpdateWithoutProjectInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.StringFieldUpdateOperationsInput | string
   iv?: Prisma.StringFieldUpdateOperationsInput | string
+  environments?: Prisma.EnvVariableUpdateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: Prisma.BoolFieldUpdateOperationsInput | boolean
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -543,6 +581,7 @@ export type EnvVariableUncheckedUpdateWithoutProjectInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.StringFieldUpdateOperationsInput | string
   iv?: Prisma.StringFieldUpdateOperationsInput | string
+  environments?: Prisma.EnvVariableUpdateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: Prisma.BoolFieldUpdateOperationsInput | boolean
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -554,6 +593,7 @@ export type EnvVariableUncheckedUpdateManyWithoutProjectInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.StringFieldUpdateOperationsInput | string
   iv?: Prisma.StringFieldUpdateOperationsInput | string
+  environments?: Prisma.EnvVariableUpdateenvironmentsInput | $Enums.EnvironmentTarget[]
   isSecret?: Prisma.BoolFieldUpdateOperationsInput | boolean
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -568,6 +608,7 @@ export type EnvVariableSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   key?: boolean
   value?: boolean
   iv?: boolean
+  environments?: boolean
   isSecret?: boolean
   description?: boolean
   createdAt?: boolean
@@ -581,6 +622,7 @@ export type EnvVariableSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   key?: boolean
   value?: boolean
   iv?: boolean
+  environments?: boolean
   isSecret?: boolean
   description?: boolean
   createdAt?: boolean
@@ -594,6 +636,7 @@ export type EnvVariableSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   key?: boolean
   value?: boolean
   iv?: boolean
+  environments?: boolean
   isSecret?: boolean
   description?: boolean
   createdAt?: boolean
@@ -607,13 +650,14 @@ export type EnvVariableSelectScalar = {
   key?: boolean
   value?: boolean
   iv?: boolean
+  environments?: boolean
   isSecret?: boolean
   description?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type EnvVariableOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "key" | "value" | "iv" | "isSecret" | "description" | "createdAt" | "updatedAt", ExtArgs["result"]["envVariable"]>
+export type EnvVariableOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "key" | "value" | "iv" | "environments" | "isSecret" | "description" | "createdAt" | "updatedAt", ExtArgs["result"]["envVariable"]>
 export type EnvVariableInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
 }
@@ -635,6 +679,7 @@ export type $EnvVariablePayload<ExtArgs extends runtime.Types.Extensions.Interna
     key: string
     value: string
     iv: string
+    environments: $Enums.EnvironmentTarget[]
     isSecret: boolean
     description: string | null
     createdAt: Date
@@ -1068,6 +1113,7 @@ export interface EnvVariableFieldRefs {
   readonly key: Prisma.FieldRef<"EnvVariable", 'String'>
   readonly value: Prisma.FieldRef<"EnvVariable", 'String'>
   readonly iv: Prisma.FieldRef<"EnvVariable", 'String'>
+  readonly environments: Prisma.FieldRef<"EnvVariable", 'EnvironmentTarget[]'>
   readonly isSecret: Prisma.FieldRef<"EnvVariable", 'Boolean'>
   readonly description: Prisma.FieldRef<"EnvVariable", 'String'>
   readonly createdAt: Prisma.FieldRef<"EnvVariable", 'DateTime'>

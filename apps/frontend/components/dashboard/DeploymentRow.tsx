@@ -7,7 +7,7 @@ import { StatusBadge } from "./StatusBadge";
 export function DeploymentRow({ projectId, deployment }: { projectId: string; deployment: Deployment }) {
   return (
     <Link
-      href={`/dashboard/projects/${projectId}/deployments/${deployment.id}`}
+      href={`/project/${projectId}/deployments/${deployment.id}`}
       className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-zinc-900/60 transition-colors border border-transparent hover:border-zinc-800"
     >
       <div className="flex items-center gap-3 min-w-0">

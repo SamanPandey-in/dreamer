@@ -35,7 +35,6 @@ import { useRouter } from "next/navigation";
 const GodRays = dynamic(
   () =>
     import("@paper-design/shaders-react").then((mod) => {
-      // @ts-ignore
       return mod.GodRays;
     }),
   { ssr: false }

@@ -15,6 +15,9 @@ export type DeploymentStatus =
 
 export type LogLevel = "INFO" | "WARN" | "ERROR" | "DEBUG" | "SYSTEM";
 
+// Mirrors EnvironmentTarget from the API's generated Prisma enums.
+export type EnvironmentTarget = "PRODUCTION" | "PREVIEW" | "DEVELOPMENT";
+
 // Mirrors PublicProject from the API's src/projects/project.types.ts.
 export interface Project {
   id: string;
@@ -26,8 +29,13 @@ export interface Project {
   defaultBranch: string;
   isPrivate: boolean;
   activeDeploymentId: string | null;
-  lastDeployedAt: string | null; // dates cross JSON as ISO strings, not Date instances
+  lastDeployedAt: string | null;
   createdAt: string;
+  buildCommand: string | null;
+  installCommand: string | null;
+  outputDirectory: string | null;
+  rootDirectory: string | null;
+  autoDeployEnabled: boolean;
 }
 
 // Mirrors LatestDeploymentSummary from project.types.ts.
@@ -64,6 +72,10 @@ export interface Deployment {
   errorCode: string | null;
   errorStep: string | null;
   buildDurationMs: number | null;
+  uploadedFileCount: number | null;
+  imageSizeBytes: number | null;
+  environment: EnvironmentTarget;
+  deployedById: string | null;
   triggeredBy: string;
   queuedAt: string;
   buildStartedAt: string | null;
@@ -86,10 +98,7 @@ export interface DeploymentDetail extends Deployment {
   stateTransitions: StateTransition[];
 }
 
-// Mirrors PublicLogLine. id is a string here too — the API already
-// converts the Postgres bigint before it ever reaches JSON; see the comment
-// on PublicLogLine in the backend's deployment.types.ts for why that
-// conversion has to happen server-side, not here.
+// Mirrors PublicLogLine.
 export interface LogLine {
   id: string;
   level: LogLevel;
@@ -99,5 +108,25 @@ export interface LogLine {
   timestamp: string;
 }
 
+// Mirrors PublicEnvVariable from the API's src/env-variables/env-variables.types.ts.
+export interface EnvVariable {
+  id: string;
+  projectId: string;
+  key: string;
+  value: string | null;
+  maskedValue: string;
+  isSecret: boolean;
+  environments: EnvironmentTarget[];
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const ACTIVE_STATUSES: DeploymentStatus[] = ["QUEUED", "BUILDING", "UPLOADING", "STARTING"];
 export const TERMINAL_STATUSES: DeploymentStatus[] = ["RUNNING", "STOPPED", "FAILED", "CANCELLED"];
+
+// Mirrors deployment.service.ts's NON_STOPPABLE_STATUSES exactly.
+export const NON_STOPPABLE_STATUSES: DeploymentStatus[] = ["STOPPED", "FAILED", "CANCELLED"];
+
+// Mirrors deployment.service.ts's ROLLBACK_TARGET_STATUSES.
+export const ROLLBACK_TARGET_STATUSES: DeploymentStatus[] = ["RUNNING", "STOPPED"];

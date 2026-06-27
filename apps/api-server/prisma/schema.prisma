@@ -58,6 +58,15 @@ enum WebhookEvent {
   RELEASE
 }
 
+// ★ NEW — which env-var scope(s) a value applies to, and which single scope a deployment
+// belongs to. DEVELOPMENT only ever applies to env vars (local dev never produces a
+// Deployment row) — see EnvVariable.environments vs. Deployment.environment below.
+enum EnvironmentTarget {
+  PRODUCTION
+  PREVIEW
+  DEVELOPMENT
+}
+
 
 // USERS
 
@@ -85,9 +94,10 @@ model User {
   lastLoginAt      DateTime? @db.Timestamptz
 
   // Relations
-  projects         Project[]
-  sessions         UserSession[]
-  auditLogs        AuditLog[]
+  projects             Project[]
+  sessions             UserSession[]
+  auditLogs            AuditLog[]
+  deploymentsTriggered Deployment[]   // ★ NEW — inverse side of Deployment.deployedBy
 
   @@index([email])
   @@index([githubId])
@@ -137,6 +147,15 @@ model Project {
   // GitHub webhook (set when user connects GitHub)
   webhookId        Int?      // GitHub's webhook ID — needed to delete webhook on disconnect
   webhookSecret    String?   // HMAC secret for validating push events (AES-256 encrypted)
+  autoDeployEnabled Boolean  @default(true)   // ★ NEW — Settings page "Git" toggle. No-op until webhook auto-deploy ships (see Part 5).
+
+  // Build configuration — ★ NEW. All optional: null means "use the auto-detected default."
+  // build-engine doesn't read these yet (Part 5 flags this); they're stored now so the
+  // Settings page has somewhere real to save to.
+  buildCommand     String?   @db.VarChar(500)
+  installCommand   String?   @db.VarChar(500)
+  outputDirectory  String?   @db.VarChar(255)
+  rootDirectory    String?   @db.VarChar(255)
 
   // Computed / cached fields (denormalized for dashboard query performance)
   activeDeploymentId  String?  @db.Uuid   // FK set after a deployment reaches RUNNING
@@ -175,12 +194,19 @@ model Deployment {
   status           DeploymentStatus  @default(QUEUED)
   type             DeploymentType?   // set after framework detection
   framework        Framework?        // set after framework detection
+  environment      EnvironmentTarget @default(PRODUCTION)   // ★ NEW — PRODUCTION or PREVIEW only; enforced in deployment.service.ts, not the DB (see §1 table above)
 
   // Source
   branch           String            @default("main") @db.VarChar(255)
   commitHash       String?           @db.VarChar(40)   // full SHA
   commitMessage    String?           @db.VarChar(500)
   commitAuthor     String?           @db.VarChar(255)
+
+  // Who actually triggered this (★ NEW) — distinct from `triggeredBy` below, which describes
+  // the MECHANISM ("manual" | "api" | "rollback" | future "webhook"). deployedBy is the ACTOR:
+  // null for anything that wasn't a logged-in user clicking a button (e.g. a future webhook push).
+  deployedById     String?           @db.Uuid
+  deployedBy       User?             @relation(fields: [deployedById], references: [id], onDelete: SetNull)
 
   // Output
   url              String?           // public URL once RUNNING
@@ -210,7 +236,7 @@ model Deployment {
   totalSleepMs     BigInt            @default(0)        // total accumulated sleep time
 
   // Trigger info
-  triggeredBy      String            @default("manual") // "manual" | "webhook" | "api"
+  triggeredBy      String            @default("manual") // "manual" | "webhook" | "api" | "rollback"
   webhookDeliveryId String?          @db.Uuid
 
   // Timestamps for each state transition
@@ -241,7 +267,7 @@ model Deployment {
 // and for building a timeline view in the dashboard.
 
 model DeploymentStateTransition {
-  id             String            @id @default(uuid()) @db.Uuid
+  id             String            @id @default(uuid())  @db.Uuid
   deploymentId   String            @db.Uuid
   deployment     Deployment        @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
   
@@ -296,6 +322,11 @@ model EnvVariable {
   key          String   @db.VarChar(255)
   value        String   @db.Text        // AES-256-GCM encrypted blob (base64)
   iv           String   @db.VarChar(32) // Initialization vector for AES-GCM (per value)
+
+  // ★ NEW — which environment(s) this value resolves for. Defaults to all three so existing
+  // rows created before this migration (none exist yet in your case, but in general) don't
+  // silently disappear from every tab the moment the column appears.
+  environments EnvironmentTarget[] @default([PRODUCTION, PREVIEW, DEVELOPMENT])
   
   isSecret     Boolean  @default(true)   // false = shown in UI, true = masked
   description  String?  @db.VarChar(500)

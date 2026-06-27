@@ -46,6 +46,11 @@ export type ProjectMinAggregateOutputType = {
   isPrivate: boolean | null
   webhookId: number | null
   webhookSecret: string | null
+  autoDeployEnabled: boolean | null
+  buildCommand: string | null
+  installCommand: string | null
+  outputDirectory: string | null
+  rootDirectory: string | null
   activeDeploymentId: string | null
   lastDeployedAt: Date | null
   deletedAt: Date | null
@@ -65,6 +70,11 @@ export type ProjectMaxAggregateOutputType = {
   isPrivate: boolean | null
   webhookId: number | null
   webhookSecret: string | null
+  autoDeployEnabled: boolean | null
+  buildCommand: string | null
+  installCommand: string | null
+  outputDirectory: string | null
+  rootDirectory: string | null
   activeDeploymentId: string | null
   lastDeployedAt: Date | null
   deletedAt: Date | null
@@ -84,6 +94,11 @@ export type ProjectCountAggregateOutputType = {
   isPrivate: number
   webhookId: number
   webhookSecret: number
+  autoDeployEnabled: number
+  buildCommand: number
+  installCommand: number
+  outputDirectory: number
+  rootDirectory: number
   activeDeploymentId: number
   lastDeployedAt: number
   deletedAt: number
@@ -113,6 +128,11 @@ export type ProjectMinAggregateInputType = {
   isPrivate?: true
   webhookId?: true
   webhookSecret?: true
+  autoDeployEnabled?: true
+  buildCommand?: true
+  installCommand?: true
+  outputDirectory?: true
+  rootDirectory?: true
   activeDeploymentId?: true
   lastDeployedAt?: true
   deletedAt?: true
@@ -132,6 +152,11 @@ export type ProjectMaxAggregateInputType = {
   isPrivate?: true
   webhookId?: true
   webhookSecret?: true
+  autoDeployEnabled?: true
+  buildCommand?: true
+  installCommand?: true
+  outputDirectory?: true
+  rootDirectory?: true
   activeDeploymentId?: true
   lastDeployedAt?: true
   deletedAt?: true
@@ -151,6 +176,11 @@ export type ProjectCountAggregateInputType = {
   isPrivate?: true
   webhookId?: true
   webhookSecret?: true
+  autoDeployEnabled?: true
+  buildCommand?: true
+  installCommand?: true
+  outputDirectory?: true
+  rootDirectory?: true
   activeDeploymentId?: true
   lastDeployedAt?: true
   deletedAt?: true
@@ -257,6 +287,11 @@ export type ProjectGroupByOutputType = {
   isPrivate: boolean
   webhookId: number | null
   webhookSecret: string | null
+  autoDeployEnabled: boolean
+  buildCommand: string | null
+  installCommand: string | null
+  outputDirectory: string | null
+  rootDirectory: string | null
   activeDeploymentId: string | null
   lastDeployedAt: Date | null
   deletedAt: Date | null
@@ -299,6 +334,11 @@ export type ProjectWhereInput = {
   isPrivate?: Prisma.BoolFilter<"Project"> | boolean
   webhookId?: Prisma.IntNullableFilter<"Project"> | number | null
   webhookSecret?: Prisma.StringNullableFilter<"Project"> | string | null
+  autoDeployEnabled?: Prisma.BoolFilter<"Project"> | boolean
+  buildCommand?: Prisma.StringNullableFilter<"Project"> | string | null
+  installCommand?: Prisma.StringNullableFilter<"Project"> | string | null
+  outputDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
+  rootDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
   activeDeploymentId?: Prisma.UuidNullableFilter<"Project"> | string | null
   lastDeployedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
@@ -323,6 +363,11 @@ export type ProjectOrderByWithRelationInput = {
   isPrivate?: Prisma.SortOrder
   webhookId?: Prisma.SortOrderInput | Prisma.SortOrder
   webhookSecret?: Prisma.SortOrderInput | Prisma.SortOrder
+  autoDeployEnabled?: Prisma.SortOrder
+  buildCommand?: Prisma.SortOrderInput | Prisma.SortOrder
+  installCommand?: Prisma.SortOrderInput | Prisma.SortOrder
+  outputDirectory?: Prisma.SortOrderInput | Prisma.SortOrder
+  rootDirectory?: Prisma.SortOrderInput | Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrderInput | Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -350,6 +395,11 @@ export type ProjectWhereUniqueInput = Prisma.AtLeast<{
   isPrivate?: Prisma.BoolFilter<"Project"> | boolean
   webhookId?: Prisma.IntNullableFilter<"Project"> | number | null
   webhookSecret?: Prisma.StringNullableFilter<"Project"> | string | null
+  autoDeployEnabled?: Prisma.BoolFilter<"Project"> | boolean
+  buildCommand?: Prisma.StringNullableFilter<"Project"> | string | null
+  installCommand?: Prisma.StringNullableFilter<"Project"> | string | null
+  outputDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
+  rootDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
   activeDeploymentId?: Prisma.UuidNullableFilter<"Project"> | string | null
   lastDeployedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
@@ -374,6 +424,11 @@ export type ProjectOrderByWithAggregationInput = {
   isPrivate?: Prisma.SortOrder
   webhookId?: Prisma.SortOrderInput | Prisma.SortOrder
   webhookSecret?: Prisma.SortOrderInput | Prisma.SortOrder
+  autoDeployEnabled?: Prisma.SortOrder
+  buildCommand?: Prisma.SortOrderInput | Prisma.SortOrder
+  installCommand?: Prisma.SortOrderInput | Prisma.SortOrder
+  outputDirectory?: Prisma.SortOrderInput | Prisma.SortOrder
+  rootDirectory?: Prisma.SortOrderInput | Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrderInput | Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -401,6 +456,11 @@ export type ProjectScalarWhereWithAggregatesInput = {
   isPrivate?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
   webhookId?: Prisma.IntNullableWithAggregatesFilter<"Project"> | number | null
   webhookSecret?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  autoDeployEnabled?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
+  buildCommand?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  installCommand?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  outputDirectory?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  rootDirectory?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   activeDeploymentId?: Prisma.UuidNullableWithAggregatesFilter<"Project"> | string | null
   lastDeployedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Project"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Project"> | Date | string | null
@@ -419,6 +479,11 @@ export type ProjectCreateInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -443,6 +508,11 @@ export type ProjectUncheckedCreateInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -465,6 +535,11 @@ export type ProjectUpdateInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -489,6 +564,11 @@ export type ProjectUncheckedUpdateInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -512,6 +592,11 @@ export type ProjectCreateManyInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -530,6 +615,11 @@ export type ProjectUpdateManyMutationInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -549,6 +639,11 @@ export type ProjectUncheckedUpdateManyInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -578,6 +673,11 @@ export type ProjectCountOrderByAggregateInput = {
   isPrivate?: Prisma.SortOrder
   webhookId?: Prisma.SortOrder
   webhookSecret?: Prisma.SortOrder
+  autoDeployEnabled?: Prisma.SortOrder
+  buildCommand?: Prisma.SortOrder
+  installCommand?: Prisma.SortOrder
+  outputDirectory?: Prisma.SortOrder
+  rootDirectory?: Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -601,6 +701,11 @@ export type ProjectMaxOrderByAggregateInput = {
   isPrivate?: Prisma.SortOrder
   webhookId?: Prisma.SortOrder
   webhookSecret?: Prisma.SortOrder
+  autoDeployEnabled?: Prisma.SortOrder
+  buildCommand?: Prisma.SortOrder
+  installCommand?: Prisma.SortOrder
+  outputDirectory?: Prisma.SortOrder
+  rootDirectory?: Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -620,6 +725,11 @@ export type ProjectMinOrderByAggregateInput = {
   isPrivate?: Prisma.SortOrder
   webhookId?: Prisma.SortOrder
   webhookSecret?: Prisma.SortOrder
+  autoDeployEnabled?: Prisma.SortOrder
+  buildCommand?: Prisma.SortOrder
+  installCommand?: Prisma.SortOrder
+  outputDirectory?: Prisma.SortOrder
+  rootDirectory?: Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -745,6 +855,11 @@ export type ProjectCreateWithoutUserInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -767,6 +882,11 @@ export type ProjectUncheckedCreateWithoutUserInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -819,6 +939,11 @@ export type ProjectScalarWhereInput = {
   isPrivate?: Prisma.BoolFilter<"Project"> | boolean
   webhookId?: Prisma.IntNullableFilter<"Project"> | number | null
   webhookSecret?: Prisma.StringNullableFilter<"Project"> | string | null
+  autoDeployEnabled?: Prisma.BoolFilter<"Project"> | boolean
+  buildCommand?: Prisma.StringNullableFilter<"Project"> | string | null
+  installCommand?: Prisma.StringNullableFilter<"Project"> | string | null
+  outputDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
+  rootDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
   activeDeploymentId?: Prisma.UuidNullableFilter<"Project"> | string | null
   lastDeployedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
@@ -837,6 +962,11 @@ export type ProjectCreateWithoutDeploymentsInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -860,6 +990,11 @@ export type ProjectUncheckedCreateWithoutDeploymentsInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -897,6 +1032,11 @@ export type ProjectUpdateWithoutDeploymentsInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -920,6 +1060,11 @@ export type ProjectUncheckedUpdateWithoutDeploymentsInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -941,6 +1086,11 @@ export type ProjectCreateWithoutEnvVariablesInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -964,6 +1114,11 @@ export type ProjectUncheckedCreateWithoutEnvVariablesInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1001,6 +1156,11 @@ export type ProjectUpdateWithoutEnvVariablesInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1024,6 +1184,11 @@ export type ProjectUncheckedUpdateWithoutEnvVariablesInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1045,6 +1210,11 @@ export type ProjectCreateWithoutCustomDomainsInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1068,6 +1238,11 @@ export type ProjectUncheckedCreateWithoutCustomDomainsInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1105,6 +1280,11 @@ export type ProjectUpdateWithoutCustomDomainsInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1128,6 +1308,11 @@ export type ProjectUncheckedUpdateWithoutCustomDomainsInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1149,6 +1334,11 @@ export type ProjectCreateWithoutWebhookDeliveriesInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1172,6 +1362,11 @@ export type ProjectUncheckedCreateWithoutWebhookDeliveriesInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1209,6 +1404,11 @@ export type ProjectUpdateWithoutWebhookDeliveriesInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1232,6 +1432,11 @@ export type ProjectUncheckedUpdateWithoutWebhookDeliveriesInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1253,6 +1458,11 @@ export type ProjectCreateManyUserInput = {
   isPrivate?: boolean
   webhookId?: number | null
   webhookSecret?: string | null
+  autoDeployEnabled?: boolean
+  buildCommand?: string | null
+  installCommand?: string | null
+  outputDirectory?: string | null
+  rootDirectory?: string | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1271,6 +1481,11 @@ export type ProjectUpdateWithoutUserInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1293,6 +1508,11 @@ export type ProjectUncheckedUpdateWithoutUserInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1315,6 +1535,11 @@ export type ProjectUncheckedUpdateManyWithoutUserInput = {
   isPrivate?: Prisma.BoolFieldUpdateOperationsInput | boolean
   webhookId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   webhookSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  autoDeployEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  buildCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1392,6 +1617,11 @@ export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   isPrivate?: boolean
   webhookId?: boolean
   webhookSecret?: boolean
+  autoDeployEnabled?: boolean
+  buildCommand?: boolean
+  installCommand?: boolean
+  outputDirectory?: boolean
+  rootDirectory?: boolean
   activeDeploymentId?: boolean
   lastDeployedAt?: boolean
   deletedAt?: boolean
@@ -1417,6 +1647,11 @@ export type ProjectSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   isPrivate?: boolean
   webhookId?: boolean
   webhookSecret?: boolean
+  autoDeployEnabled?: boolean
+  buildCommand?: boolean
+  installCommand?: boolean
+  outputDirectory?: boolean
+  rootDirectory?: boolean
   activeDeploymentId?: boolean
   lastDeployedAt?: boolean
   deletedAt?: boolean
@@ -1437,6 +1672,11 @@ export type ProjectSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   isPrivate?: boolean
   webhookId?: boolean
   webhookSecret?: boolean
+  autoDeployEnabled?: boolean
+  buildCommand?: boolean
+  installCommand?: boolean
+  outputDirectory?: boolean
+  rootDirectory?: boolean
   activeDeploymentId?: boolean
   lastDeployedAt?: boolean
   deletedAt?: boolean
@@ -1457,6 +1697,11 @@ export type ProjectSelectScalar = {
   isPrivate?: boolean
   webhookId?: boolean
   webhookSecret?: boolean
+  autoDeployEnabled?: boolean
+  buildCommand?: boolean
+  installCommand?: boolean
+  outputDirectory?: boolean
+  rootDirectory?: boolean
   activeDeploymentId?: boolean
   lastDeployedAt?: boolean
   deletedAt?: boolean
@@ -1464,7 +1709,7 @@ export type ProjectSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "name" | "slug" | "description" | "repoUrl" | "repoFullName" | "defaultBranch" | "isPrivate" | "webhookId" | "webhookSecret" | "activeDeploymentId" | "lastDeployedAt" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
+export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "name" | "slug" | "description" | "repoUrl" | "repoFullName" | "defaultBranch" | "isPrivate" | "webhookId" | "webhookSecret" | "autoDeployEnabled" | "buildCommand" | "installCommand" | "outputDirectory" | "rootDirectory" | "activeDeploymentId" | "lastDeployedAt" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
 export type ProjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   deployments?: boolean | Prisma.Project$deploymentsArgs<ExtArgs>
@@ -1501,6 +1746,11 @@ export type $ProjectPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     isPrivate: boolean
     webhookId: number | null
     webhookSecret: string | null
+    autoDeployEnabled: boolean
+    buildCommand: string | null
+    installCommand: string | null
+    outputDirectory: string | null
+    rootDirectory: string | null
     activeDeploymentId: string | null
     lastDeployedAt: Date | null
     deletedAt: Date | null
@@ -1945,6 +2195,11 @@ export interface ProjectFieldRefs {
   readonly isPrivate: Prisma.FieldRef<"Project", 'Boolean'>
   readonly webhookId: Prisma.FieldRef<"Project", 'Int'>
   readonly webhookSecret: Prisma.FieldRef<"Project", 'String'>
+  readonly autoDeployEnabled: Prisma.FieldRef<"Project", 'Boolean'>
+  readonly buildCommand: Prisma.FieldRef<"Project", 'String'>
+  readonly installCommand: Prisma.FieldRef<"Project", 'String'>
+  readonly outputDirectory: Prisma.FieldRef<"Project", 'String'>
+  readonly rootDirectory: Prisma.FieldRef<"Project", 'String'>
   readonly activeDeploymentId: Prisma.FieldRef<"Project", 'String'>
   readonly lastDeployedAt: Prisma.FieldRef<"Project", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"Project", 'DateTime'>

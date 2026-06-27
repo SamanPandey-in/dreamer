@@ -1,26 +1,13 @@
 import Redis from 'ioredis';
 import type { Server } from 'socket.io';
-import { appendLogLine, transitionDeploymentStatus } from '../deployments/deployment.service';
+import { appendLogLine, recordCommitInfo, transitionDeploymentStatus } from '../deployments/deployment.service';
 import { env } from '../lib/env';
 import { isDeploymentEvent } from './realtime.types';
 import { roomFor } from './socket.server';
 
 const CHANNEL_PATTERN = 'deployment:*';
 
-/**
- * Bridges build-engine's Redis pub/sub messages to (a) Postgres, so logs and
- * status survive a page reload or a finished build, and (b) every connected
- * dashboard client watching that deployment, via Socket.IO. This is the
- * ONLY thing in api-server that calls
- * deploymentService.{appendLogLine,transitionDeploymentStatus} on behalf of
- * something outside an HTTP request — keeping that in one file is what
- * makes "where do status updates actually come from?" a one-file answer.
- */
 export async function startLogRelay(io: Server): Promise<void> {
-  // A DEDICATED connection. Once an ioredis client calls (p)subscribe it can
-  // no longer run ordinary commands (appendLogLine's INCR, for instance) —
-  // this can never be the same client lib/redis.ts hands out for everyday
-  // use.
   const subscriber = new Redis(env.REDIS_URL);
   await subscriber.psubscribe(CHANNEL_PATTERN);
 
@@ -44,6 +31,12 @@ export async function startLogRelay(io: Server): Promise<void> {
       if (event.type === 'log') {
         const log = await appendLogLine(deploymentId, event);
         io.to(roomFor(deploymentId)).emit('log', log);
+      } else if (event.type === 'commit_info') {
+        //  NEW — metadata only, no status change, nothing to emit to
+        // connected sockets for it (the deployment detail page re-fetches
+        // on mount; there's no live UI element keyed off commit info today
+        // that would need a push).
+        await recordCommitInfo(deploymentId, event);
       } else {
         const updated = await transitionDeploymentStatus(deploymentId, event.status, {
           reason: event.reason,
@@ -51,15 +44,13 @@ export async function startLogRelay(io: Server): Promise<void> {
           errorCode: event.errorCode,
           errorMessage: event.errorMessage,
           errorStep: event.errorStep,
+          uploadedFileCount: event.uploadedFileCount, //  NEW
         });
         if (updated) {
           io.to(roomFor(deploymentId)).emit('status', { status: updated.status, url: updated.url });
         }
       }
     } catch (err) {
-      // A malformed or late-arriving event must never crash the relay —
-      // every OTHER in-flight deployment's logs depend on this exact same
-      // subscriber connection staying alive.
       console.error('[LOG_RELAY] Failed to process event for deployment', deploymentId, err);
     }
   });

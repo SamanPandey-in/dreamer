@@ -58,7 +58,12 @@ export function Providers({ children }: { children: ReactNode }) {
   // fresh access token — this is what keeps someone logged in across a
   // page reload without ever putting a token in localStorage.
   useEffect(() => {
-    refreshSession().finally(() => setLoading(false));
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refreshSession calls setUser synchronously inside async body; deferring causes login flash
+    refreshSession().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [refreshSession]);
 
   const login = useCallback(async (email: string, password: string) => {

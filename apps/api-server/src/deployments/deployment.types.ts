@@ -4,18 +4,25 @@ import type { Deployment, DeploymentLog, DeploymentStateTransition } from '../ge
 export const createDeploymentSchema = z.object({
   params: z.object({ projectId: z.uuid() }),
   body: z.object({
-    // Defaults to the project's own defaultBranch — resolved in the service
-    // layer, since the schema has no access to the project row to default
-    // against.
     branch: z.string().min(1).max(255).trim().optional(),
   }),
 });
+
+const DEPLOYMENT_STATUS_VALUES = [
+  'QUEUED', 'BUILDING', 'UPLOADING', 'STARTING', 'RUNNING',
+  'SLEEPING', 'WAKING', 'STOPPED', 'FAILED', 'CANCELLED', 'ERROR',
+] as const;
 
 export const listDeploymentsQuerySchema = z.object({
   params: z.object({ projectId: z.uuid() }),
   query: z.object({
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
+    branch: z.string().trim().min(1).optional(),
+    status: z.enum(DEPLOYMENT_STATUS_VALUES).optional(),
+    environment: z.enum(['PRODUCTION', 'PREVIEW']).optional(),
+    dateFrom: z.coerce.date().optional(),
+    dateTo: z.coerce.date().optional(),
   }),
 });
 
@@ -26,18 +33,14 @@ export const deploymentIdParamSchema = z.object({
 export const listDeploymentLogsSchema = z.object({
   params: z.object({ deploymentId: z.uuid() }),
   query: z.object({
-    // Cursor by sequence number, not offset/limit — logs are an append-only,
-    // strictly ordered stream; "give me everything after sequence N" stays
-    // correct even while a build is actively writing new lines underneath
-    // you. An offset would shift mid-poll.
     after: z.coerce.number().int().min(0).default(0),
     limit: z.coerce.number().int().min(1).max(1000).default(500),
   }),
 });
 
 export type CreateDeploymentInput = z.infer<typeof createDeploymentSchema>['body'];
+export type ListDeploymentsQuery = z.infer<typeof listDeploymentsQuerySchema>['query'];
 
-/** Shape returned to the client — never the AWS ARNs, the S3 prefix, or anything else AWS-shaped. */
 export interface PublicDeployment {
   id: string;
   projectId: string;
@@ -45,15 +48,19 @@ export interface PublicDeployment {
   status: Deployment['status'];
   type: Deployment['type'];
   framework: Deployment['framework'];
+  environment: Deployment['environment'];
   branch: string;
   commitHash: string | null;
   commitMessage: string | null;
   commitAuthor: string | null;
+  deployedById: string | null;
   url: string | null;
   errorMessage: string | null;
   errorCode: string | null;
   errorStep: string | null;
   buildDurationMs: number | null;
+  uploadedFileCount: number | null;
+  imageSizeBytes: number | null;
   triggeredBy: string;
   queuedAt: Date;
   buildStartedAt: Date | null;
@@ -71,15 +78,6 @@ export interface PublicStateTransition {
   createdAt: Date;
 }
 
-/**
- * DeploymentLog.id is a Postgres BIGSERIAL → Prisma types it as a JS
- * `bigint`. `JSON.stringify({ id: 5n })` throws — `TypeError: Do not know how
- * to serialize a BigInt`. Every log line that crosses the HTTP or socket
- * boundary goes through this DTO (id pre-converted to a string), never the
- * raw Prisma row. This is the single most common production bug with
- * BigInt primary keys in a Node API — worth knowing by name, not just
- * working around once.
- */
 export interface PublicLogLine {
   id: string;
   level: DeploymentLog['level'];

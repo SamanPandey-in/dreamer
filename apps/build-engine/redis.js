@@ -17,8 +17,17 @@ function publishStatus(status, extra = {}) {
     publisher.publish(CHANNEL, JSON.stringify({ type: 'status', status, ...extra }))
 }
 
+// NEW — a distinct message type, not folded into a status event, because
+// it isn't one: api-server's log-relay.ts (Part 2 §2 below) routes this to
+// deployment.service.ts's recordCommitInfo(), which touches three metadata
+// columns and zero status columns.
+function publishCommitInfo(commitInfo) {
+    publisher.publish(CHANNEL, JSON.stringify({ type: 'commit_info', ...commitInfo }))
+}
+
 module.exports = {
     publishLog,
     publishStatus,
+    publishCommitInfo,
     publisher
 }

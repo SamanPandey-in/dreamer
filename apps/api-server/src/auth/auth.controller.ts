@@ -80,6 +80,32 @@ export async function meHandler(req: Request, res: Response) {
   res.status(200).json({ user });
 }
 
+// Sessions & password management
+
+function extractSessionIdFromRefreshCookie(req: Request): string | undefined {
+  const raw = req.cookies?.[REFRESH_COOKIE_NAME];
+  if (!raw) return undefined;
+  const dotIndex = raw.indexOf('.');
+  return dotIndex > 0 ? raw.slice(0, dotIndex) : undefined;
+}
+
+export async function listSessionsHandler(req: Request, res: Response) {
+  const currentSessionId = extractSessionIdFromRefreshCookie(req);
+  const sessions = await authService.listSessions(req.user!.id, currentSessionId);
+  res.status(200).json({ sessions });
+}
+
+export async function revokeSessionHandler(req: Request, res: Response) {
+  const sessionId = req.params.sessionId as string;
+  await authService.revokeSessionByIdForUser(req.user!.id, sessionId, sessionMeta(req));
+  res.status(204).send();
+}
+
+export async function changePasswordHandler(req: Request, res: Response) {
+  await authService.changePassword(req.user!.id, req.body, sessionMeta(req));
+  res.status(204).send();
+}
+
 // GitHub OAuth
 
 /** GET /api/auth/github — redirects the browser to GitHub's consent screen. */

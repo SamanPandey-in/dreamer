@@ -13,11 +13,14 @@ CREATE TYPE "LogLevel" AS ENUM ('INFO', 'WARN', 'ERROR', 'DEBUG', 'SYSTEM');
 -- CreateEnum
 CREATE TYPE "WebhookEvent" AS ENUM ('PUSH', 'PULL_REQUEST', 'RELEASE');
 
+-- CreateEnum
+CREATE TYPE "EnvironmentTarget" AS ENUM ('PRODUCTION', 'PREVIEW', 'DEVELOPMENT');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" UUID NOT NULL,
     "email" VARCHAR(320) NOT NULL,
-    "passwordHash" VARCHAR(255) NOT NULL,
+    "passwordHash" VARCHAR(255),
     "name" VARCHAR(255) NOT NULL,
     "avatarUrl" TEXT,
     "githubId" INTEGER,
@@ -60,6 +63,11 @@ CREATE TABLE "Project" (
     "isPrivate" BOOLEAN NOT NULL DEFAULT false,
     "webhookId" INTEGER,
     "webhookSecret" TEXT,
+    "autoDeployEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "buildCommand" VARCHAR(500),
+    "installCommand" VARCHAR(500),
+    "outputDirectory" VARCHAR(255),
+    "rootDirectory" VARCHAR(255),
     "activeDeploymentId" UUID,
     "lastDeployedAt" TIMESTAMPTZ,
     "deletedAt" TIMESTAMPTZ,
@@ -77,10 +85,12 @@ CREATE TABLE "Deployment" (
     "status" "DeploymentStatus" NOT NULL DEFAULT 'QUEUED',
     "type" "DeploymentType",
     "framework" "Framework",
+    "environment" "EnvironmentTarget" NOT NULL DEFAULT 'PRODUCTION',
     "branch" VARCHAR(255) NOT NULL DEFAULT 'main',
     "commitHash" VARCHAR(40),
     "commitMessage" VARCHAR(500),
     "commitAuthor" VARCHAR(255),
+    "deployedById" UUID,
     "url" TEXT,
     "ecsTaskArn" TEXT,
     "ecsServiceArn" TEXT,
@@ -145,6 +155,7 @@ CREATE TABLE "EnvVariable" (
     "key" VARCHAR(255) NOT NULL,
     "value" TEXT NOT NULL,
     "iv" VARCHAR(32) NOT NULL,
+    "environments" "EnvironmentTarget"[] DEFAULT ARRAY['PRODUCTION', 'PREVIEW', 'DEVELOPMENT']::"EnvironmentTarget"[],
     "isSecret" BOOLEAN NOT NULL DEFAULT true,
     "description" VARCHAR(500),
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -309,6 +320,9 @@ ALTER TABLE "Project" ADD CONSTRAINT "Project_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "Deployment" ADD CONSTRAINT "Deployment_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Deployment" ADD CONSTRAINT "Deployment_deployedById_fkey" FOREIGN KEY ("deployedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "DeploymentStateTransition" ADD CONSTRAINT "DeploymentStateTransition_deploymentId_fkey" FOREIGN KEY ("deploymentId") REFERENCES "Deployment"("id") ON DELETE CASCADE ON UPDATE CASCADE;

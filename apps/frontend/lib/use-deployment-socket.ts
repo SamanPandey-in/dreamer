@@ -30,8 +30,11 @@ export function useDeploymentSocket(deploymentId: string, { enabled, onLog, onSt
   // hook's effect dependency array down to just [deploymentId, enabled].
   const onLogRef = useRef(onLog);
   const onStatusRef = useRef(onStatus);
-  onLogRef.current = onLog;
-  onStatusRef.current = onStatus;
+
+  useEffect(() => {
+    onLogRef.current = onLog;
+    onStatusRef.current = onStatus;
+  });
 
   useEffect(() => {
     if (!enabled) return;

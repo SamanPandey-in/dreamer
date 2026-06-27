@@ -1,36 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ExternalLink, GitBranch, Rocket } from "lucide-react";
-import { createDeployment, getProject, listDeployments } from "@/lib/dashboard-api";
-import type { Deployment, Project } from "@/lib/dashboard-types";
+import { useRouter } from "next/navigation";
+import { GitBranch, Rocket } from "lucide-react";
+import { createDeployment, listDeployments } from "@/lib/dashboard-api";
+import { Button } from "@/components/ui/Button";
+import type { Deployment } from "@/lib/dashboard-types";
+import { useProject } from "@/lib/project-context";
 import { DeploymentRow } from "@/components/dashboard/DeploymentRow";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 
 export default function ProjectOverviewPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { project } = useProject();
   const router = useRouter();
 
-  const [project, setProject] = useState<Project | null>(null);
   const [deployments, setDeployments] = useState<Deployment[] | null>(null);
   const [deploying, setDeploying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getProject(projectId), listDeployments(projectId, { limit: 10 })])
-      .then(([projectData, { deployments }]) => {
-        setProject(projectData);
-        setDeployments(deployments);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load project"));
-  }, [projectId]);
+    listDeployments(project.id, { limit: 10 })
+      .then(({ deployments }) => setDeployments(deployments))
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load deployments"));
+  }, [project.id]);
 
   async function handleDeploy() {
     setDeploying(true);
     try {
-      const deployment = await createDeployment(projectId);
-      router.push(`/dashboard/projects/${projectId}/deployments/${deployment.id}`);
+      const deployment = await createDeployment(project.id);
+      router.push(`/project/${project.id}/deployments/${deployment.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start deployment");
       setDeploying(false);
@@ -41,7 +39,7 @@ export default function ProjectOverviewPage() {
     return <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">{error}</p>;
   }
 
-  if (!project || !deployments) {
+  if (!deployments) {
     return <div className="h-64 rounded-2xl border border-zinc-800 bg-zinc-950/40 animate-pulse" />;
   }
 
@@ -49,26 +47,12 @@ export default function ProjectOverviewPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-bold">{project.name}</h1>
-        <button
-          onClick={handleDeploy}
-          disabled={deploying}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-medium shadow-lg shadow-blue-500/20 transition-all disabled:opacity-60"
-        >
+      <div className="flex items-center justify-end mb-4">
+        <Button variant="primary" onClick={handleDeploy} loading={deploying}>
           <Rocket className="w-3.5 h-3.5" />
           {deploying ? "Queuing..." : "Redeploy"}
-        </button>
+        </Button>
       </div>
-      <a
-        href={project.repoUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 mb-8 font-mono"
-      >
-        {project.repoFullName ?? project.repoUrl}
-        <ExternalLink className="w-3 h-3" />
-      </a>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

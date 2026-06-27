@@ -6,6 +6,11 @@ const { publishLog, publishStatus } = require('./redis')
 
 const GIT_REPOSITORY_URL = process.env.GIT_REPOSITORY_URL
 const BRANCH = process.env.BRANCH || 'main'
+//  NEW — set only for a rollback (api-server's EcsDeploymentEngine passes this
+// through from BuildJob.commitHash). When present, runCheckoutIfPinned() below
+// checks the clone out to this exact commit instead of leaving it at the
+// branch's current HEAD.
+const COMMIT_HASH = process.env.COMMIT_HASH
 const NETRC_PATH = path.join(os.homedir(), '.netrc')
 
 /**
@@ -69,4 +74,52 @@ function runClone() {
     })
 }
 
-module.exports = { writeNetrcIfNeeded, scrubNetrc, runClone }
+/**
+ * NEW. `--single-branch` (no `--depth`) still fetches the FULL history of
+ * that one branch — so any commit that was ever reachable from the branch's
+ * tip at clone time is checkoutable, no extra fetch needed. This breaks only
+ * if the target commit was later removed from the branch's history entirely
+ * (a force-push/rebase) — the rejected promise's message says so explicitly,
+ * rather than leaving someone to guess why a rollback to a "valid-looking"
+ * commit failed.
+ */
+function runCheckoutIfPinned() {
+    if (!COMMIT_HASH) return Promise.resolve()
+
+    return new Promise((resolve, reject) => {
+        const p = exec(`git -C "${targetPath}" checkout "${COMMIT_HASH}"`)
+        p.stderr.on('data', (data) => publishLog(data.toString(), 'WARN', 'platform'))
+
+        p.on('close', (code) => {
+            if (code === 0) {
+                resolve()
+            } else {
+                reject(new Error(
+                    `Could not check out commit ${COMMIT_HASH} on branch "${BRANCH}" — it may no longer be reachable on this branch (e.g. a force-push or rebase since this rollback target was originally deployed)`
+                ))
+            }
+        })
+    })
+}
+
+/**
+ * NEW. Best-effort by design — if `git log` somehow fails (corrupted
+ * shallow state, empty repo), a missing commit hash should never fail the
+ * whole build over a metadata nicety. `%x1f` (the ASCII unit separator) is
+ * the delimiter, not `:` or `|`, specifically because a real commit message
+ * can legally contain either of those.
+ */
+function getCommitInfo() {
+    return new Promise((resolve) => {
+        const p = exec(`git -C "${targetPath}" log -1 --format="%H%x1f%s%x1f%an"`)
+        let out = ''
+        p.stdout.on('data', (data) => (out += data.toString()))
+        p.on('close', (code) => {
+            if (code !== 0) return resolve(null)
+            const [hash, message, author] = out.trim().split('\x1f')
+            resolve(hash ? { hash, message, author } : null)
+        })
+    })
+}
+
+module.exports = { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommitInfo }

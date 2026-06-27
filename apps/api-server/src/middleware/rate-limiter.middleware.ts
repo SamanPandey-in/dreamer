@@ -1,4 +1,3 @@
-// src/middleware/rate-limiter.middleware.ts
 import rateLimit from 'express-rate-limit';
 
 /** Factory so every route can tune its own window/max independently. */
@@ -17,3 +16,9 @@ function createRateLimiter(windowMinutes: number, max: number) {
 export const loginRateLimiter = createRateLimiter(15, 10); // 10 attempts / 15 min / IP
 export const registerRateLimiter = createRateLimiter(60, 5); // 5 signups / hour / IP
 export const refreshRateLimiter = createRateLimiter(15, 30); // refresh fires often — give it room
+
+//  NEW — reveal returns a real plaintext secret, not just a yes/no. 20 per
+// 15 minutes per IP is generous enough for someone clicking through several
+// vars on the env page in one sitting, tight enough to blunt a scripted
+// "reveal everything on this project" sweep run against a stolen session.
+export const revealEnvVariableRateLimiter = createRateLimiter(15, 20);
