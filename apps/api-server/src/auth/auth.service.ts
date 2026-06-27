@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { encryptForStorage } from '../lib/crypto';
-import { ConflictError, ForbiddenError, UnauthorizedError } from '../lib/errors';
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnauthorizedError } from '../lib/errors';
 import {
   hashPassword,
   verifyPassword,
@@ -9,10 +9,12 @@ import {
   rotateSession,
   revokeSession,
   revokeAllSessions,
+  listSessionsForUser,
+  revokeSessionById,
   type SessionMeta,
 } from './auth.tokens';
 import type { GithubProfile } from './github.service';
-import type { LoginInput, PublicUser, RegisterInput } from './auth.types';
+import type { ChangePasswordInput, LoginInput, PublicUser, RegisterInput } from './auth.types';
 import type { Prisma, User } from '../generated/prisma/client';
 
 // A real bcrypt hash of a string nobody will ever type as a password.
@@ -127,6 +129,42 @@ export async function getMe(userId: string): Promise<PublicUser> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new UnauthorizedError('User no longer exists', 'USER_NOT_FOUND');
   return toPublicUser(user);
+}
+
+// Sessions & password management
+
+export async function listSessions(userId: string, currentSessionId?: string) {
+  const sessions = await listSessionsForUser(userId);
+  return sessions.map((s) => ({
+    ...s,
+    isCurrent: currentSessionId ? s.id === currentSessionId : false,
+  }));
+}
+
+export async function revokeSessionByIdForUser(userId: string, sessionId: string, meta: SessionMeta) {
+  const deleted = await revokeSessionById(userId, sessionId);
+  if (!deleted) throw new NotFoundError('Session not found', 'SESSION_NOT_FOUND');
+  await audit(userId, 'user.session_revoked', meta, { sessionId });
+}
+
+export async function changePassword(userId: string, input: ChangePasswordInput, meta: SessionMeta) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new UnauthorizedError('User no longer exists', 'USER_NOT_FOUND');
+
+  // If user has an existing password, the current password must be provided and correct
+  if (user.passwordHash) {
+    if (!input.currentPassword) {
+      throw new BadRequestError('Current password is required', 'CURRENT_PASSWORD_REQUIRED');
+    }
+    const isValid = await verifyPassword(input.currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedError('Current password is incorrect', 'INVALID_PASSWORD');
+    }
+  }
+
+  const passwordHash = await hashPassword(input.newPassword);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  await audit(userId, 'user.password_changed', meta);
 }
 
 // GitHub OAuth

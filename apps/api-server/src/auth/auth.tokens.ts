@@ -126,3 +126,18 @@ export async function revokeSession(rawToken: string): Promise<void> {
 export async function revokeAllSessions(userId: string): Promise<void> {
   await prisma.userSession.deleteMany({ where: { userId } });
 }
+
+/** Lists all active sessions for a user. */
+export async function listSessionsForUser(userId: string) {
+  return prisma.userSession.findMany({
+    where: { userId, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, userAgent: true, ipAddress: true, lastUsedAt: true, createdAt: true, expiresAt: true },
+  });
+}
+
+/** Deletes a specific session by ID (only if it belongs to the given user). */
+export async function revokeSessionById(userId: string, sessionId: string): Promise<boolean> {
+  const result = await prisma.userSession.deleteMany({ where: { id: sessionId, userId } });
+  return result.count > 0;
+}

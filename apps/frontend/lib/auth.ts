@@ -86,3 +86,46 @@ export async function logoutAll(): Promise<void> {
 export function githubLoginUrl(): string {
   return `${API_BASE_URL}/api/auth/github`;
 }
+
+// Mirrors PublicSession from the API's src/auth/auth.types.ts.
+export interface AuthSession {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  lastUsedAt: string;
+  createdAt: string;
+  expiresAt: string;
+  isCurrent: boolean;
+}
+
+export async function listSessions(): Promise<AuthSession[]> {
+  const res = await apiFetch("/api/auth/sessions");
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error ?? "Failed to load sessions.");
+  return data.sessions;
+}
+
+export async function revokeSession(sessionId: string): Promise<void> {
+  const res = await apiFetch(`/api/auth/sessions/${sessionId}`, { method: "DELETE" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "Failed to revoke session.");
+  }
+}
+
+export interface ChangePasswordInput {
+  currentPassword?: string;
+  newPassword: string;
+}
+
+export async function changePassword(input: ChangePasswordInput): Promise<void> {
+  const res = await apiFetch("/api/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "Failed to change password.");
+  }
+}

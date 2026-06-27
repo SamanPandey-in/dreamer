@@ -37,3 +37,25 @@ export interface AccessTokenPayload {
   iat: number;
   exp: number;
 }
+
+export interface PublicSession {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  lastUsedAt: Date;
+  createdAt: Date;
+  expiresAt: Date;
+  isCurrent: boolean;
+}
+
+export const changePasswordSchema = z.object({
+  body: z.object({
+    currentPassword: z.string().optional(),
+    newPassword: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(72, 'Password must be at most 72 characters'),
+  }),
+});
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>['body'];
