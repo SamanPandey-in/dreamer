@@ -3,7 +3,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRouter, requireAuth } from './auth';
 import { deploymentsRouter } from './deployments';
-import { envVariablesRouter } from './env-variables'; // NEW
+import { envVariablesRouter } from './env-variables';
+import { githubRepoRouter } from './integrations';
 import { errorHandlerMiddleware } from './middleware/error-handler.middleware';
 import { projectsRouter } from './projects';
 import { env } from './lib/env';
@@ -31,7 +32,8 @@ app.use('/api/auth', authRouter);
 // routers, since there's no per-route exception to handle.
 app.use('/api/projects', requireAuth, projectsRouter);
 app.use('/api/deployments', requireAuth, deploymentsRouter);
-app.use('/api/env-variables', requireAuth, envVariablesRouter); // ★ NEW
+app.use('/api/env-variables', requireAuth, envVariablesRouter);
+app.use('/api/github', requireAuth, githubRepoRouter);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
