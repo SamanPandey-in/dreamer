@@ -1318,6 +1318,8 @@ export const ProjectScalarFieldEnum = {
   installCommand: 'installCommand',
   outputDirectory: 'outputDirectory',
   rootDirectory: 'rootDirectory',
+  detectedFramework: 'detectedFramework',
+  detectedDeploymentType: 'detectedDeploymentType',
   activeDeploymentId: 'activeDeploymentId',
   lastDeployedAt: 'lastDeployedAt',
   deletedAt: 'deletedAt',
@@ -1573,16 +1575,16 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
 
 
 /**
- * Reference to a field of type 'DeploymentStatus'
+ * Reference to a field of type 'Framework'
  */
-export type EnumDeploymentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DeploymentStatus'>
+export type EnumFrameworkFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Framework'>
     
 
 
 /**
- * Reference to a field of type 'DeploymentStatus[]'
+ * Reference to a field of type 'Framework[]'
  */
-export type ListEnumDeploymentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DeploymentStatus[]'>
+export type ListEnumFrameworkFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Framework[]'>
     
 
 
@@ -1601,16 +1603,16 @@ export type ListEnumDeploymentTypeFieldRefInput<$PrismaModel> = FieldRefInputTyp
 
 
 /**
- * Reference to a field of type 'Framework'
+ * Reference to a field of type 'DeploymentStatus'
  */
-export type EnumFrameworkFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Framework'>
+export type EnumDeploymentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DeploymentStatus'>
     
 
 
 /**
- * Reference to a field of type 'Framework[]'
+ * Reference to a field of type 'DeploymentStatus[]'
  */
-export type ListEnumFrameworkFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Framework[]'>
+export type ListEnumDeploymentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DeploymentStatus[]'>
     
 
 
