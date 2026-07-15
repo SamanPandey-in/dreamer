@@ -3,17 +3,37 @@ import type {
   Deployment,
   DeploymentDetail,
   DeploymentStatus,
+  DetectedBuildConfig, // NEW
   EnvVariable,
   EnvironmentTarget,
+  FrameworkPresetId, // NEW
   LogLine,
   Project,
   ProjectWithLatestDeployment,
+  PublicFrameworkPreset, // NEW
+  RepoEntry, // NEW
+  UserRepoSummary, // NEW
 } from "./dashboard-types";
+
+// NEW — carries the API's machine-readable error code (see
+// error-handler.middleware.ts's { error, code } response shape) as a
+// property on the thrown Error, rather than only the human-readable
+// message. Every existing catch site that does
+// `err instanceof Error ? err.message : ...` keeps working unchanged
+// (ApiError IS an Error); only new code that wants to branch on the
+// specific failure (the wizard's GITHUB_NOT_CONNECTED handling, e.g.)
+// needs to know this subclass exists.
+export class ApiError extends Error {
+  constructor(message: string, public readonly code: string | undefined) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 async function parseJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(data?.error ?? "Something went wrong. Please try again.");
+    throw new ApiError(data?.error ?? "Something went wrong. Please try again.", data?.code);
   }
   return data as T;
 }
@@ -32,6 +52,14 @@ export interface CreateProjectInput {
   defaultBranch?: string;
   description?: string;
   isPrivate?: boolean;
+  // NEW — set by the new-project wizard after the root-directory and
+  // build-config steps. See createProjectSchema on the API for the
+  // authoritative shape this mirrors.
+  rootDirectory?: string;
+  buildCommand?: string;
+  installCommand?: string;
+  outputDirectory?: string;
+  frameworkPresetId?: FrameworkPresetId;
 }
 
 export async function createProject(input: CreateProjectInput): Promise<Project> {
@@ -77,6 +105,66 @@ export async function deleteProject(projectId: string): Promise<void> {
     const data = await res.json().catch(() => null);
     throw new Error(data?.error ?? "Failed to delete project. Please try again.");
   }
+}
+
+// New-project wizard
+
+/** Lists the authenticated user's own GitHub repos — the wizard's "Import Git Repository" step (1). */
+export async function listUserRepos(): Promise<UserRepoSummary[]> {
+  const res = await apiFetch("/api/github/repos");
+  const data = await parseJson<{ repos: UserRepoSummary[] }>(res);
+  return data.repos;
+}
+
+/**
+ * Lists one directory level of a GitHub repo — used by the wizard's
+ * root-directory picker, called once per expanded folder rather than
+ * recursively, mirroring how the API's listRepoDirectory itself only
+ * fetches one level at a time.
+ */
+export async function listGithubRepoContents(
+  repoFullName: string,
+  branch: string,
+  path = ""
+): Promise<RepoEntry[]> {
+  const params = new URLSearchParams({ repoFullName, branch, path });
+  const res = await apiFetch(`/api/github/repo-contents?${params}`);
+  const data = await parseJson<{ entries: RepoEntry[] }>(res);
+  return data.entries;
+}
+
+/**
+ * Lists every framework preset and its default install/build/output
+ * commands — fetched once when the wizard mounts, used both to populate
+ * the "Application Preset" dropdown's options and to re-fill the build
+ * config fields when the user manually picks a different preset than
+ * what /detect returned (a local, instant UI action — no need to re-hit
+ * GitHub for that).
+ */
+export async function listFrameworkPresets(): Promise<PublicFrameworkPreset[]> {
+  const res = await apiFetch("/api/build-config/presets");
+  const data = await parseJson<{ presets: PublicFrameworkPreset[] }>(res);
+  return data.presets;
+}
+
+/**
+ * Resolves the framework/build-config detection for a chosen root
+ * directory — called right after the user confirms that step in the
+ * wizard. See build-config.service.ts on the API for what this actually
+ * inspects (config files, package.json dependencies, lockfiles).
+ */
+export async function detectBuildConfig(
+  repoFullName: string,
+  branch: string,
+  rootDirectory: string
+): Promise<DetectedBuildConfig> {
+  const res = await apiFetch("/api/build-config/detect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ repoFullName, branch, rootDirectory }),
+  });
+  const data = await parseJson<{ detected: DetectedBuildConfig }>(res);
+  return data.detected;
 }
 
 // Deployments

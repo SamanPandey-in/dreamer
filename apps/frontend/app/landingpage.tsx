@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -13,7 +12,6 @@ import {
   Zap,
   Database,
   Lock,
-  Shield,
   Cpu,
   Layers,
   Activity,
@@ -24,9 +22,7 @@ import {
   Search,
   Menu,
   X,
-  Cloud,
-  Settings,
-  AlertTriangle
+  Cloud
 } from "lucide-react";
 import { GithubIcon as Github } from "../components/icons";
 import { useAuth } from "./providers";

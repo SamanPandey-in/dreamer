@@ -18,6 +18,22 @@ export type LogLevel = "INFO" | "WARN" | "ERROR" | "DEBUG" | "SYSTEM";
 // Mirrors EnvironmentTarget from the API's generated Prisma enums.
 export type EnvironmentTarget = "PRODUCTION" | "PREVIEW" | "DEVELOPMENT";
 
+// Mirrors Framework from the API's generated Prisma enums.
+export type Framework =
+  | "REACT_CRA"
+  | "REACT_VITE"
+  | "VUE"
+  | "SVELTE"
+  | "NEXT_STATIC"
+  | "NEXT_SSR"
+  | "EXPRESS"
+  | "FASTIFY"
+  | "HONO"
+  | "STATIC_HTML"
+  | "UNKNOWN";
+
+export type DeploymentType = "STATIC" | "DYNAMIC";
+
 // Mirrors PublicProject from the API's src/projects/project.types.ts.
 export interface Project {
   id: string;
@@ -35,6 +51,10 @@ export interface Project {
   installCommand: string | null;
   outputDirectory: string | null;
   rootDirectory: string | null;
+  // NEW — read-only labels of what the new-project wizard detected at
+  // creation time. See the build-config detection guide.
+  detectedFramework: Framework | null;
+  detectedDeploymentType: DeploymentType | null;
   autoDeployEnabled: boolean;
 }
 
@@ -130,3 +150,65 @@ export const NON_STOPPABLE_STATUSES: DeploymentStatus[] = ["STOPPED", "FAILED", 
 
 // Mirrors deployment.service.ts's ROLLBACK_TARGET_STATUSES.
 export const ROLLBACK_TARGET_STATUSES: DeploymentStatus[] = ["RUNNING", "STOPPED"];
+
+// ---------------------------------------------------------------------------
+// New-project wizard types
+// ---------------------------------------------------------------------------
+
+// Mirrors RepoEntry from the API's src/integrations/github-repo.service.ts.
+export interface RepoEntry {
+  name: string;
+  path: string;
+  type: "file" | "dir";
+}
+
+// Mirrors UserRepoSummary from the API's src/integrations/github-repo.service.ts.
+export interface UserRepoSummary {
+  fullName: string;
+  name: string;
+  defaultBranch: string;
+  isPrivate: boolean;
+  updatedAt: string;
+}
+
+// Mirrors FrameworkPresetId from the API's src/build-config/framework-presets.ts.
+// Kept as a plain string union here (not imported — the frontend has no
+// access to the API's TS source) so adding a new preset on the backend
+// only breaks this file's type-checking if the frontend genuinely needs to
+// know about it (e.g. to render a distinct icon), rather than silently
+// becoming "any string is valid" the way an un-typed string would.
+export type FrameworkPresetId =
+  | "nextjs-static"
+  | "nextjs-ssr"
+  | "vite"
+  | "cra"
+  | "angular"
+  | "gatsby"
+  | "sveltekit"
+  | "astro"
+  | "nuxt"
+  | "vue-cli"
+  | "static";
+
+// Mirrors DetectedBuildConfig from the API's src/build-config/build-config.types.ts.
+export interface DetectedBuildConfig {
+  framework: {
+    id: FrameworkPresetId;
+    label: string;
+    deploymentType: DeploymentType;
+    requiresUnsupportedRuntime: boolean;
+  };
+  matchedOn: string | null;
+  installCommand: string;
+  buildCommand: string;
+  outputDirectory: string;
+}
+
+// Mirrors PublicFrameworkPreset from the API's src/build-config/framework-presets.ts.
+export interface PublicFrameworkPreset {
+  id: FrameworkPresetId;
+  label: string;
+  installCommand: string;
+  buildCommand: string;
+  outputDirectory: string;
+}

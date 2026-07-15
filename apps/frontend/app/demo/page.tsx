@@ -126,7 +126,7 @@ export default function Demo() {
       socket.emit("unsubscribe", selectedDeployment.id);
       subscribedDeploymentRef.current = null;
     };
-  }, [selectedDeployment?.id]);
+  }, [selectedDeployment]);
 
   const handleCreateDeployment = async () => {
     if (!selectedProjectId) return;
