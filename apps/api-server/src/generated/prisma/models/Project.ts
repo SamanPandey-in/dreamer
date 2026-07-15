@@ -51,6 +51,8 @@ export type ProjectMinAggregateOutputType = {
   installCommand: string | null
   outputDirectory: string | null
   rootDirectory: string | null
+  detectedFramework: $Enums.Framework | null
+  detectedDeploymentType: $Enums.DeploymentType | null
   activeDeploymentId: string | null
   lastDeployedAt: Date | null
   deletedAt: Date | null
@@ -75,6 +77,8 @@ export type ProjectMaxAggregateOutputType = {
   installCommand: string | null
   outputDirectory: string | null
   rootDirectory: string | null
+  detectedFramework: $Enums.Framework | null
+  detectedDeploymentType: $Enums.DeploymentType | null
   activeDeploymentId: string | null
   lastDeployedAt: Date | null
   deletedAt: Date | null
@@ -99,6 +103,8 @@ export type ProjectCountAggregateOutputType = {
   installCommand: number
   outputDirectory: number
   rootDirectory: number
+  detectedFramework: number
+  detectedDeploymentType: number
   activeDeploymentId: number
   lastDeployedAt: number
   deletedAt: number
@@ -133,6 +139,8 @@ export type ProjectMinAggregateInputType = {
   installCommand?: true
   outputDirectory?: true
   rootDirectory?: true
+  detectedFramework?: true
+  detectedDeploymentType?: true
   activeDeploymentId?: true
   lastDeployedAt?: true
   deletedAt?: true
@@ -157,6 +165,8 @@ export type ProjectMaxAggregateInputType = {
   installCommand?: true
   outputDirectory?: true
   rootDirectory?: true
+  detectedFramework?: true
+  detectedDeploymentType?: true
   activeDeploymentId?: true
   lastDeployedAt?: true
   deletedAt?: true
@@ -181,6 +191,8 @@ export type ProjectCountAggregateInputType = {
   installCommand?: true
   outputDirectory?: true
   rootDirectory?: true
+  detectedFramework?: true
+  detectedDeploymentType?: true
   activeDeploymentId?: true
   lastDeployedAt?: true
   deletedAt?: true
@@ -292,6 +304,8 @@ export type ProjectGroupByOutputType = {
   installCommand: string | null
   outputDirectory: string | null
   rootDirectory: string | null
+  detectedFramework: $Enums.Framework | null
+  detectedDeploymentType: $Enums.DeploymentType | null
   activeDeploymentId: string | null
   lastDeployedAt: Date | null
   deletedAt: Date | null
@@ -339,6 +353,8 @@ export type ProjectWhereInput = {
   installCommand?: Prisma.StringNullableFilter<"Project"> | string | null
   outputDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
   rootDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
+  detectedFramework?: Prisma.EnumFrameworkNullableFilter<"Project"> | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.EnumDeploymentTypeNullableFilter<"Project"> | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.UuidNullableFilter<"Project"> | string | null
   lastDeployedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
@@ -368,6 +384,8 @@ export type ProjectOrderByWithRelationInput = {
   installCommand?: Prisma.SortOrderInput | Prisma.SortOrder
   outputDirectory?: Prisma.SortOrderInput | Prisma.SortOrder
   rootDirectory?: Prisma.SortOrderInput | Prisma.SortOrder
+  detectedFramework?: Prisma.SortOrderInput | Prisma.SortOrder
+  detectedDeploymentType?: Prisma.SortOrderInput | Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrderInput | Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -400,6 +418,8 @@ export type ProjectWhereUniqueInput = Prisma.AtLeast<{
   installCommand?: Prisma.StringNullableFilter<"Project"> | string | null
   outputDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
   rootDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
+  detectedFramework?: Prisma.EnumFrameworkNullableFilter<"Project"> | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.EnumDeploymentTypeNullableFilter<"Project"> | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.UuidNullableFilter<"Project"> | string | null
   lastDeployedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
@@ -429,6 +449,8 @@ export type ProjectOrderByWithAggregationInput = {
   installCommand?: Prisma.SortOrderInput | Prisma.SortOrder
   outputDirectory?: Prisma.SortOrderInput | Prisma.SortOrder
   rootDirectory?: Prisma.SortOrderInput | Prisma.SortOrder
+  detectedFramework?: Prisma.SortOrderInput | Prisma.SortOrder
+  detectedDeploymentType?: Prisma.SortOrderInput | Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrderInput | Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -461,6 +483,8 @@ export type ProjectScalarWhereWithAggregatesInput = {
   installCommand?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   outputDirectory?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   rootDirectory?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  detectedFramework?: Prisma.EnumFrameworkNullableWithAggregatesFilter<"Project"> | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.EnumDeploymentTypeNullableWithAggregatesFilter<"Project"> | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.UuidNullableWithAggregatesFilter<"Project"> | string | null
   lastDeployedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Project"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Project"> | Date | string | null
@@ -484,6 +508,8 @@ export type ProjectCreateInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -513,6 +539,8 @@ export type ProjectUncheckedCreateInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -540,6 +568,8 @@ export type ProjectUpdateInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -569,6 +599,8 @@ export type ProjectUncheckedUpdateInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -597,6 +629,8 @@ export type ProjectCreateManyInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -620,6 +654,8 @@ export type ProjectUpdateManyMutationInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -644,6 +680,8 @@ export type ProjectUncheckedUpdateManyInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -678,6 +716,8 @@ export type ProjectCountOrderByAggregateInput = {
   installCommand?: Prisma.SortOrder
   outputDirectory?: Prisma.SortOrder
   rootDirectory?: Prisma.SortOrder
+  detectedFramework?: Prisma.SortOrder
+  detectedDeploymentType?: Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -706,6 +746,8 @@ export type ProjectMaxOrderByAggregateInput = {
   installCommand?: Prisma.SortOrder
   outputDirectory?: Prisma.SortOrder
   rootDirectory?: Prisma.SortOrder
+  detectedFramework?: Prisma.SortOrder
+  detectedDeploymentType?: Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -730,6 +772,8 @@ export type ProjectMinOrderByAggregateInput = {
   installCommand?: Prisma.SortOrder
   outputDirectory?: Prisma.SortOrder
   rootDirectory?: Prisma.SortOrder
+  detectedFramework?: Prisma.SortOrder
+  detectedDeploymentType?: Prisma.SortOrder
   activeDeploymentId?: Prisma.SortOrder
   lastDeployedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -786,6 +830,14 @@ export type ProjectUncheckedUpdateManyWithoutUserNestedInput = {
   update?: Prisma.ProjectUpdateWithWhereUniqueWithoutUserInput | Prisma.ProjectUpdateWithWhereUniqueWithoutUserInput[]
   updateMany?: Prisma.ProjectUpdateManyWithWhereWithoutUserInput | Prisma.ProjectUpdateManyWithWhereWithoutUserInput[]
   deleteMany?: Prisma.ProjectScalarWhereInput | Prisma.ProjectScalarWhereInput[]
+}
+
+export type NullableEnumFrameworkFieldUpdateOperationsInput = {
+  set?: $Enums.Framework | null
+}
+
+export type NullableEnumDeploymentTypeFieldUpdateOperationsInput = {
+  set?: $Enums.DeploymentType | null
 }
 
 export type ProjectCreateNestedOneWithoutDeploymentsInput = {
@@ -860,6 +912,8 @@ export type ProjectCreateWithoutUserInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -887,6 +941,8 @@ export type ProjectUncheckedCreateWithoutUserInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -944,6 +1000,8 @@ export type ProjectScalarWhereInput = {
   installCommand?: Prisma.StringNullableFilter<"Project"> | string | null
   outputDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
   rootDirectory?: Prisma.StringNullableFilter<"Project"> | string | null
+  detectedFramework?: Prisma.EnumFrameworkNullableFilter<"Project"> | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.EnumDeploymentTypeNullableFilter<"Project"> | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.UuidNullableFilter<"Project"> | string | null
   lastDeployedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Project"> | Date | string | null
@@ -967,6 +1025,8 @@ export type ProjectCreateWithoutDeploymentsInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -995,6 +1055,8 @@ export type ProjectUncheckedCreateWithoutDeploymentsInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1037,6 +1099,8 @@ export type ProjectUpdateWithoutDeploymentsInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1065,6 +1129,8 @@ export type ProjectUncheckedUpdateWithoutDeploymentsInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1091,6 +1157,8 @@ export type ProjectCreateWithoutEnvVariablesInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1119,6 +1187,8 @@ export type ProjectUncheckedCreateWithoutEnvVariablesInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1161,6 +1231,8 @@ export type ProjectUpdateWithoutEnvVariablesInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1189,6 +1261,8 @@ export type ProjectUncheckedUpdateWithoutEnvVariablesInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1215,6 +1289,8 @@ export type ProjectCreateWithoutCustomDomainsInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1243,6 +1319,8 @@ export type ProjectUncheckedCreateWithoutCustomDomainsInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1285,6 +1363,8 @@ export type ProjectUpdateWithoutCustomDomainsInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1313,6 +1393,8 @@ export type ProjectUncheckedUpdateWithoutCustomDomainsInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1339,6 +1421,8 @@ export type ProjectCreateWithoutWebhookDeliveriesInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1367,6 +1451,8 @@ export type ProjectUncheckedCreateWithoutWebhookDeliveriesInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1409,6 +1495,8 @@ export type ProjectUpdateWithoutWebhookDeliveriesInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1437,6 +1525,8 @@ export type ProjectUncheckedUpdateWithoutWebhookDeliveriesInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1463,6 +1553,8 @@ export type ProjectCreateManyUserInput = {
   installCommand?: string | null
   outputDirectory?: string | null
   rootDirectory?: string | null
+  detectedFramework?: $Enums.Framework | null
+  detectedDeploymentType?: $Enums.DeploymentType | null
   activeDeploymentId?: string | null
   lastDeployedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1486,6 +1578,8 @@ export type ProjectUpdateWithoutUserInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1513,6 +1607,8 @@ export type ProjectUncheckedUpdateWithoutUserInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1540,6 +1636,8 @@ export type ProjectUncheckedUpdateManyWithoutUserInput = {
   installCommand?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outputDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rootDirectory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  detectedFramework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
+  detectedDeploymentType?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   activeDeploymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastDeployedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1622,6 +1720,8 @@ export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   installCommand?: boolean
   outputDirectory?: boolean
   rootDirectory?: boolean
+  detectedFramework?: boolean
+  detectedDeploymentType?: boolean
   activeDeploymentId?: boolean
   lastDeployedAt?: boolean
   deletedAt?: boolean
@@ -1652,6 +1752,8 @@ export type ProjectSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   installCommand?: boolean
   outputDirectory?: boolean
   rootDirectory?: boolean
+  detectedFramework?: boolean
+  detectedDeploymentType?: boolean
   activeDeploymentId?: boolean
   lastDeployedAt?: boolean
   deletedAt?: boolean
@@ -1677,6 +1779,8 @@ export type ProjectSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   installCommand?: boolean
   outputDirectory?: boolean
   rootDirectory?: boolean
+  detectedFramework?: boolean
+  detectedDeploymentType?: boolean
   activeDeploymentId?: boolean
   lastDeployedAt?: boolean
   deletedAt?: boolean
@@ -1702,6 +1806,8 @@ export type ProjectSelectScalar = {
   installCommand?: boolean
   outputDirectory?: boolean
   rootDirectory?: boolean
+  detectedFramework?: boolean
+  detectedDeploymentType?: boolean
   activeDeploymentId?: boolean
   lastDeployedAt?: boolean
   deletedAt?: boolean
@@ -1709,7 +1815,7 @@ export type ProjectSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "name" | "slug" | "description" | "repoUrl" | "repoFullName" | "defaultBranch" | "isPrivate" | "webhookId" | "webhookSecret" | "autoDeployEnabled" | "buildCommand" | "installCommand" | "outputDirectory" | "rootDirectory" | "activeDeploymentId" | "lastDeployedAt" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
+export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "name" | "slug" | "description" | "repoUrl" | "repoFullName" | "defaultBranch" | "isPrivate" | "webhookId" | "webhookSecret" | "autoDeployEnabled" | "buildCommand" | "installCommand" | "outputDirectory" | "rootDirectory" | "detectedFramework" | "detectedDeploymentType" | "activeDeploymentId" | "lastDeployedAt" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
 export type ProjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   deployments?: boolean | Prisma.Project$deploymentsArgs<ExtArgs>
@@ -1751,6 +1857,8 @@ export type $ProjectPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     installCommand: string | null
     outputDirectory: string | null
     rootDirectory: string | null
+    detectedFramework: $Enums.Framework | null
+    detectedDeploymentType: $Enums.DeploymentType | null
     activeDeploymentId: string | null
     lastDeployedAt: Date | null
     deletedAt: Date | null
@@ -2200,6 +2308,8 @@ export interface ProjectFieldRefs {
   readonly installCommand: Prisma.FieldRef<"Project", 'String'>
   readonly outputDirectory: Prisma.FieldRef<"Project", 'String'>
   readonly rootDirectory: Prisma.FieldRef<"Project", 'String'>
+  readonly detectedFramework: Prisma.FieldRef<"Project", 'Framework'>
+  readonly detectedDeploymentType: Prisma.FieldRef<"Project", 'DeploymentType'>
   readonly activeDeploymentId: Prisma.FieldRef<"Project", 'String'>
   readonly lastDeployedAt: Prisma.FieldRef<"Project", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"Project", 'DateTime'>

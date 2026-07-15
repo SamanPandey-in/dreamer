@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { audit, type AuditMeta } from '../lib/audit';
 import { deleteS3Prefix } from '../lib/s3-client';
 import { ConflictError, NotFoundError } from '../lib/errors';
+import { getPresetById } from '../build-config/framework-presets';
 import type {
   CreateProjectInput,
   LatestDeploymentSummary,
@@ -52,6 +53,8 @@ function toPublicProject(project: Project): PublicProject {
     installCommand: project.installCommand,
     outputDirectory: project.outputDirectory,
     rootDirectory: project.rootDirectory,
+    detectedFramework: project.detectedFramework,
+    detectedDeploymentType: project.detectedDeploymentType,
     autoDeployEnabled: project.autoDeployEnabled,
     createdAt: project.createdAt,
   };
@@ -138,6 +141,13 @@ export async function createProject(
 ): Promise<PublicProject> {
   const slug = await generateUniqueProjectSlug(input.name);
 
+  // The wizard always sends a frameworkPresetId (even "static" for "we
+  // couldn't detect anything") — this only stays undefined for a
+  // hypothetical future non-wizard creation path, where UNKNOWN/STATIC is
+  // the same safe default createDeploymentInternal already falls back to
+  // for every project created before this feature existed.
+  const preset = input.frameworkPresetId ? getPresetById(input.frameworkPresetId) : null;
+
   const project = await prisma.project.create({
     data: {
       userId,
@@ -148,6 +158,17 @@ export async function createProject(
       repoFullName: parseRepoFullName(input.repoUrl),
       defaultBranch: input.defaultBranch ?? 'main',
       isPrivate: input.isPrivate ?? false,
+      // NEW — set by the new-project wizard's framework-detection step (see
+      // build-config/). Stored as a SNAPSHOT of whatever the user confirmed
+      // at creation time, not a live pointer back to the detector — if
+      // detection logic improves later, already-created projects keep the
+      // config they were actually built with until someone edits Settings.
+      rootDirectory: input.rootDirectory,
+      buildCommand: input.buildCommand,
+      installCommand: input.installCommand,
+      outputDirectory: input.outputDirectory,
+      detectedFramework: preset?.frameworkEnum ?? 'UNKNOWN',
+      detectedDeploymentType: preset?.deploymentType ?? 'STATIC',
     },
   });
 

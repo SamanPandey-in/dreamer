@@ -131,6 +131,8 @@ export const ProjectScalarFieldEnum = {
   installCommand: 'installCommand',
   outputDirectory: 'outputDirectory',
   rootDirectory: 'rootDirectory',
+  detectedFramework: 'detectedFramework',
+  detectedDeploymentType: 'detectedDeploymentType',
   activeDeploymentId: 'activeDeploymentId',
   lastDeployedAt: 'lastDeployedAt',
   deletedAt: 'deletedAt',

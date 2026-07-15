@@ -36,6 +36,24 @@ export interface BuildJob {
   /**  NEW — set only by rollbackDeployment. Pins the build to this exact commit instead of the branch's current HEAD; see clone-repo.js's runCheckoutIfPinned. */
   commitHash?: string;
   gitAccessToken?: string;
+  // NEW — resolved build config from the Project row (see project.service.ts
+  // and build-config/). null on any field means "build-engine should fall
+  // back to its own default" — see script.js's INSTALL_COMMAND/BUILD_COMMAND/
+  // OUTPUT_DIRECTORY fallbacks, which exist specifically so a project created
+  // before this feature shipped (every column null) keeps building exactly
+  // as it did before, with zero migration needed on the Project table itself.
+  rootDirectory: string | null;
+  installCommand: string | null;
+  buildCommand: string | null;
+  outputDirectory: string | null;
+  /**
+   * NEW — decrypted project env vars scoped to this deployment's environment
+   * (PRODUCTION or PREVIEW), resolved by deployment.service.ts right before
+   * calling launchBuildTask. Forwarded into the ECS task's own environment
+   * array below, available to the build/runtime exactly like a `.env` file
+   * would be on a normal local build.
+   */
+  userEnvVars: Array<{ name: string; value: string }>;
 }
 
 export interface EngineHandle {
@@ -77,6 +95,24 @@ export class EcsDeploymentEngine implements DeploymentEngine {
               // runCheckoutIfPinned() is a no-op for every build except a rollback.
               ...(job.commitHash ? [{ name: 'COMMIT_HASH', value: job.commitHash }] : []),
               ...(job.gitAccessToken ? [{ name: 'GIT_ACCESS_TOKEN', value: job.gitAccessToken }] : []),
+              // NEW — resolved build config. Always sent (never conditional)
+              // so build-engine's own env var fallback (`process.env.X || 'default'`)
+              // is the single source of truth for "what happens when a
+              // project has no config set" — sending an empty string here
+              // and `||`-ing it away in script.js is simpler to reason about
+              // than two different layers each independently deciding what
+              // the default should be.
+              { name: 'ROOT_DIRECTORY', value: job.rootDirectory ?? '' },
+              { name: 'INSTALL_COMMAND', value: job.installCommand ?? '' },
+              { name: 'BUILD_COMMAND', value: job.buildCommand ?? '' },
+              { name: 'OUTPUT_DIRECTORY', value: job.outputDirectory ?? '' },
+              // NEW — the project's own env vars for this deployment's
+              // environment, decrypted by deployment.service.ts immediately
+              // before this call. Spread last so a reserved-prefix collision
+              // is structurally impossible to reach this point at all — see
+              // env-variables.types.ts's RESERVED_ENV_KEY_PREFIXES, enforced
+              // at creation time, not here.
+              ...job.userEnvVars.map((v) => ({ name: v.name, value: v.value })),
             ],
           },
         ],

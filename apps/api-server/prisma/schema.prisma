@@ -149,13 +149,29 @@ model Project {
   webhookSecret    String?   // HMAC secret for validating push events (AES-256 encrypted)
   autoDeployEnabled Boolean  @default(true)   // ★ NEW — Settings page "Git" toggle. No-op until webhook auto-deploy ships (see Part 5).
 
-  // Build configuration — ★ NEW. All optional: null means "use the auto-detected default."
-  // build-engine doesn't read these yet (Part 5 flags this); they're stored now so the
-  // Settings page has somewhere real to save to.
+  // Build configuration. All optional: null means "use build-engine's own
+  // hardcoded fallback" (see apps/build-engine/script.js) — this is what
+  // keeps a project created before this feature shipped building exactly
+  // as it did before, with no backfill migration required.
+  //
+  // Populated by the new-project wizard's framework-detection step
+  // (apps/api-server/src/build-config/) at creation time, and editable
+  // afterwards from the project Settings page. build-engine's script.js
+  // reads these (via deployment-engine.ts's ECS containerOverrides) on
+  // every build — see deployment.service.ts's createDeploymentInternal.
   buildCommand     String?   @db.VarChar(500)
   installCommand   String?   @db.VarChar(500)
   outputDirectory  String?   @db.VarChar(255)
   rootDirectory    String?   @db.VarChar(255)
+
+  // What the wizard's detector resolved this project to, at creation time —
+  // stored on the PROJECT (not just stamped onto each Deployment row) so a
+  // redeploy doesn't need to re-run detection just to know what to label
+  // itself, and so the Settings page can show "Detected: Vite" without a
+  // network round trip back to GitHub. Copied onto every new Deployment row
+  // (see deployment.service.ts) at the moment it's created.
+  detectedFramework      Framework?       @default(UNKNOWN)
+  detectedDeploymentType DeploymentType?  @default(STATIC)
 
   // Computed / cached fields (denormalized for dashboard query performance)
   activeDeploymentId  String?  @db.Uuid   // FK set after a deployment reaches RUNNING
@@ -298,7 +314,7 @@ model DeploymentLog {
   
   // Full-text search index (built in migration, not in Prisma schema)
   // See migration note below.
-  
+  ts_message   Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, message)"))
   sequence       Int        // monotonically increasing within a deployment (for ordered SSE replay)
   source         String?    @db.VarChar(50)   // "build" | "npm" | "s3" | "platform" | "container"
   

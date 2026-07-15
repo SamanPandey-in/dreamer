@@ -2,8 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRouter, requireAuth } from './auth';
+import { buildConfigRouter } from './build-config';
 import { deploymentsRouter } from './deployments';
-import { envVariablesRouter } from './env-variables'; // NEW
+import { envVariablesRouter } from './env-variables';
+import { githubRepoRouter } from './integrations';
 import { errorHandlerMiddleware } from './middleware/error-handler.middleware';
 import { projectsRouter } from './projects';
 import { env } from './lib/env';
@@ -24,14 +26,16 @@ app.use(cookieParser());
 
 app.use('/api/auth', authRouter);
 
-// Everything under /api/projects and /api/deployments requires a logged-in
+// Everything under /api/projects and /api/deployments etc. requires a logged-in
 // user — unlike /api/auth (where /register, /login, /github are
 // intentionally public), nothing here ever is. requireAuth is applied ONCE,
 // at the mount point, rather than route-by-route inside projects/deployments
 // routers, since there's no per-route exception to handle.
 app.use('/api/projects', requireAuth, projectsRouter);
 app.use('/api/deployments', requireAuth, deploymentsRouter);
-app.use('/api/env-variables', requireAuth, envVariablesRouter); // ★ NEW
+app.use('/api/env-variables', requireAuth, envVariablesRouter);
+app.use('/api/build-config', requireAuth, buildConfigRouter);
+app.use('/api/github', requireAuth, githubRepoRouter);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 

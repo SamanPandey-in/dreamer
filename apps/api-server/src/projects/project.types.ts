@@ -1,4 +1,15 @@
 import { z } from 'zod';
+import { FRAMEWORK_PRESETS, type FrameworkPresetId } from '../build-config';
+import type { DeploymentType, Framework } from '../generated/prisma/client';
+
+// Validated against the actual preset table (build-config/framework-presets.ts)
+// rather than a hand-duplicated z.enum([...]) list — adding a new preset id
+// there automatically becomes a valid value here, with no second place to
+// remember to update. Cast (not just typed) as the literal tuple so
+// z.enum's inferred type is the real FrameworkPresetId union, not a widened
+// `string` — this is what lets project.service.ts pass the parsed value
+// straight into getPresetById() without an unsafe cast of its own.
+const FRAMEWORK_PRESET_IDS = Object.keys(FRAMEWORK_PRESETS) as [FrameworkPresetId, ...FrameworkPresetId[]];
 
 export const createProjectSchema = z.object({
   body: z.object({
@@ -11,6 +22,22 @@ export const createProjectSchema = z.object({
     defaultBranch: z.string().min(1).max(255).trim().optional(),
     description: z.string().max(500).trim().optional(),
     isPrivate: z.boolean().optional(),
+    // NEW — set by the new-project wizard after framework detection (and any
+    // user edits on top of it). All optional: a request that omits them
+    // (e.g. an older API client, or a future non-wizard creation path)
+    // still creates a project — script.js's own env var fallbacks
+    // (INSTALL_COMMAND defaulting to 'npm install', etc.) cover the rest.
+    rootDirectory: z.string().max(255).trim().optional(),
+    buildCommand: z.string().max(500).trim().optional(),
+    installCommand: z.string().max(500).trim().optional(),
+    outputDirectory: z.string().max(255).trim().optional(),
+    // NEW — which FrameworkPreset the wizard resolved to (either auto-
+    // detected, or picked manually from the Application Preset dropdown).
+    // Translated to the Prisma Framework/DeploymentType enum pair in
+    // project.service.ts via getPresetById — this field carries the preset
+    // ID, never the raw Prisma enum value, so the wizard never needs to
+    // know the DB's enum naming (NEXT_STATIC vs NEXT_SSR, etc.) at all.
+    frameworkPresetId: z.enum(FRAMEWORK_PRESET_IDS).optional(),
   }),
 });
 
@@ -51,6 +78,11 @@ export interface PublicProject {
   installCommand: string | null;
   outputDirectory: string | null;
   rootDirectory: string | null;
+  // NEW — read-only labels of what the wizard detected at creation time.
+  // Editing build/install/output commands from Settings never changes these
+  // — they describe what was detected, not the current effective config.
+  detectedFramework: Framework | null;
+  detectedDeploymentType: DeploymentType | null;
   autoDeployEnabled: boolean;
   createdAt: Date;
 }

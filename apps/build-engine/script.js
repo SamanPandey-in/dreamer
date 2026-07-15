@@ -4,7 +4,7 @@ const fs = require('fs')
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
 const mime = require('mime-types')
 const { publishLog, publishStatus, publishCommitInfo, publisher } = require('./redis')
-const { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommitInfo } = require('./clone-repo')
+const { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommitInfo, getBuildContextPath } = require('./clone-repo')
 
 const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'ap-south-1',
@@ -21,10 +21,32 @@ const BRANCH = process.env.BRANCH || 'main'
 const S3_BUCKET = process.env.S3_BUCKET || 'dreamer-outputs'
 const BASE_DOMAIN = process.env.BASE_DOMAIN || 'singularitydev.xyz'
 
-// Helper function to run the build sequentially
-function runBuildCommand(dirPath) {
+// NEW — resolved project build config, forwarded by deployment-engine.ts's
+// EcsDeploymentEngine from the Project row (project.service.ts). Each falls
+// back to exactly what this file hardcoded before this change, so a project
+// created before this feature shipped (every one of these env vars absent)
+// builds identically to how it always did — no migration, no behavior
+// change, for existing projects that have never touched their build
+// settings.
+const INSTALL_COMMAND = (process.env.INSTALL_COMMAND || 'npm ci --legacy-peer-deps').replace(/^["']|["']$/g, '')
+const BUILD_COMMAND = (process.env.BUILD_COMMAND || 'npm run build').replace(/^["']|["']$/g, '')
+const OUTPUT_DIRECTORY = (process.env.OUTPUT_DIRECTORY || 'dist').replace(/^["']|["']$/g, '')
+
+/**
+ * Runs install and build as two separate sequential steps (not one chained
+ * `&&` shell command) specifically so a failure can be attributed to
+ * INSTALL vs BUILD — Deployment.errorStep exists precisely to answer "which
+ * step failed: install | build | upload | start" (see schema.prisma), and
+ * collapsing both into a single exec() makes that column impossible to
+ * populate correctly. Each still runs through a shell (needed since
+ * INSTALL_COMMAND/BUILD_COMMAND are themselves arbitrary shell command
+ * strings — "npm run build", "pnpm install --frozen-lockfile", etc.), with
+ * `cwd` doing the directory change instead of a string-interpolated `cd` —
+ * safer once dirPath can contain a user-influenced root-directory segment.
+ */
+function runShellCommand(command, cwd) {
     return new Promise((resolve, reject) => {
-        const p = exec(`cd ${dirPath} && npm ci --legacy-peer-deps && npm run build`)
+        const p = exec(command, { cwd })
 
         p.stdout.on('data', function (data) {
             console.log(data.toString())
@@ -44,7 +66,7 @@ function runBuildCommand(dirPath) {
             if (code === 0) {
                 resolve()
             } else {
-                reject(new Error(`Build process exited with code ${code}`))
+                reject(new Error(`Command "${command}" exited with code ${code}`))
             }
         })
     })
@@ -54,8 +76,6 @@ async function init() {
     console.log('Executing script.js')
     publishLog('Build started', 'SYSTEM')
     publishStatus('BUILDING')
-
-    const outDirPath = path.join(__dirname, 'output')
 
     try {
         // 0. Clone — now INSIDE this try/catch, unlike the original
@@ -80,17 +100,50 @@ async function init() {
         if (commitInfo) {
             publishCommitInfo({ commitHash: commitInfo.hash, commitMessage: commitInfo.message, commitAuthor: commitInfo.author })
         }
-        // 1. Wait for the build to completely finish
-        await runBuildCommand(outDirPath)
+
+        // NEW — resolves to the cloned repo root, or a subdirectory of it
+        // for a monorepo project (Project.rootDirectory). Throws (caught
+        // below, reported as errorStep: 'build') if ROOT_DIRECTORY would
+        // resolve outside the clone — see the guard in clone-repo.js.
+        const buildContextPath = getBuildContextPath()
+
+        // 1. Install dependencies.
+        publishLog(`Installing dependencies: ${INSTALL_COMMAND}`, 'SYSTEM', 'platform')
+        try {
+            await runShellCommand(INSTALL_COMMAND, buildContextPath)
+        } catch (installError) {
+            installError.step = 'install'
+            throw installError
+        }
+
+        // 2. Run the build.
+        publishLog(`Building: ${BUILD_COMMAND}`, 'SYSTEM', 'platform')
+        try {
+            await runShellCommand(BUILD_COMMAND, buildContextPath)
+        } catch (buildError) {
+            buildError.step = 'build'
+            throw buildError
+        }
 
         console.log('Build Complete')
         publishLog('Build complete', 'SYSTEM')
 
-        const distFolderPath = path.join(__dirname, 'output', 'dist')
+        // CHANGED — was a hardcoded path.join(__dirname, 'output', 'dist').
+        // Now resolved relative to the actual build context (so a monorepo
+        // project's output directory is read relative to its OWN
+        // sub-folder, not the repo root) and using the project's configured
+        // OUTPUT_DIRECTORY instead of an assumption that every framework
+        // calls its output folder "dist".
+        const distFolderPath = path.join(buildContextPath, OUTPUT_DIRECTORY)
 
-        // Safety check to ensure the framework actually built a 'dist' folder
+        // Safety check to ensure the framework actually built the expected output folder.
         if (!fs.existsSync(distFolderPath)) {
-            throw new Error(`Build finished but expected output directory 'dist' was not found at ${distFolderPath}`)
+            const notFoundError = new Error(
+                `Build finished but expected output directory "${OUTPUT_DIRECTORY}" was not found at ${distFolderPath} — ` +
+                `check that the project's Output Directory setting matches what "${BUILD_COMMAND}" actually produces`
+            )
+            notFoundError.step = 'build'
+            throw notFoundError
         }
 
         publishStatus('UPLOADING')
@@ -134,7 +187,14 @@ async function init() {
     } catch (error) {
         console.error('Fatal execution error:', error.message)
         publishLog(`Fatal error: ${error.message}`, 'ERROR', 'platform')
-        publishStatus('FAILED', { errorMessage: error.message, errorCode: 'BUILD_FAILED', errorStep: 'build' })
+        // CHANGED — errorStep now reflects which phase actually failed
+        // (install vs build vs upload) instead of being hardcoded to
+        // 'build' for every failure. installError/buildError above attach
+        // `.step` before rethrowing; an upload failure (thrown directly
+        // inside the for-loop, no .step attached) and anything thrown
+        // before either step ran both correctly fall back to 'build' as
+        // the most accurate remaining guess.
+        publishStatus('FAILED', { errorMessage: error.message, errorCode: 'BUILD_FAILED', errorStep: error.step || 'build' })
         process.exitCode = 1
     } finally {
         // Guarantees cleanup even if the clone itself is what threw — the

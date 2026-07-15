@@ -11,6 +11,12 @@ const BRANCH = process.env.BRANCH || 'main'
 // checks the clone out to this exact commit instead of leaving it at the
 // branch's current HEAD.
 const COMMIT_HASH = process.env.COMMIT_HASH
+// NEW — the subdirectory within the cloned repo that actually contains this
+// project's package.json (set by the new-project wizard's root-directory
+// picker; stored on Project.rootDirectory). Empty string means "repo root,"
+// matching how the API server's build-config wizard represents it too — see
+// build-config.types.ts's detectBuildConfigSchema.
+const ROOT_DIRECTORY = (process.env.ROOT_DIRECTORY || '').replace(/^["']|["']$/g, '')
 const NETRC_PATH = path.join(os.homedir(), '.netrc')
 
 /**
@@ -49,6 +55,12 @@ function scrubNetrc() {
 const targetPath = '/home/app/output'
 
 function runClone() {
+    if (!GIT_REPOSITORY_URL) {
+        return Promise.reject(new Error(
+            'GIT_REPOSITORY_URL is not set — pass it as an env var (e.g. docker run -e GIT_REPOSITORY_URL=<url> ...)'
+        ))
+    }
+
     return new Promise((resolve, reject) => {
         const p = exec(`git clone --branch "${BRANCH}" --single-branch "${GIT_REPOSITORY_URL}" "${targetPath}"`)
 
@@ -122,4 +134,35 @@ function getCommitInfo() {
     })
 }
 
-module.exports = { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommitInfo }
+/**
+ * NEW. Resolves the directory script.js should actually run install/build
+ * commands in — `targetPath` itself for an ordinary repo, or a subdirectory
+ * of it for a monorepo project whose root directory was set in the wizard
+ * (see project.service.ts's rootDirectory, threaded through
+ * deployment-engine.ts as the ROOT_DIRECTORY env var).
+ *
+ * `path.join` + the explicit prefix check below is the path-traversal
+ * guard: ROOT_DIRECTORY ultimately originates from a value a project owner
+ * typed into the Settings page (or the wizard) — `path.join(targetPath,
+ * '../../etc')` is exactly the kind of input `path.join` will happily
+ * resolve outside `targetPath` if asked to, and this container briefly
+ * holds a live GitHub token on disk (see writeNetrcIfNeeded above) for
+ * part of its run. Refusing to resolve outside targetPath at all, rather
+ * than trying to sanitize the string first, is the simpler and more
+ * robust guarantee — there is no input that makes an out-of-bounds path
+ * acceptable here.
+ */
+function getBuildContextPath() {
+    if (!ROOT_DIRECTORY) return targetPath
+
+    const resolved = path.join(targetPath, ROOT_DIRECTORY)
+    const normalizedTarget = path.normalize(targetPath + path.sep)
+
+    if (!path.normalize(resolved + path.sep).startsWith(normalizedTarget)) {
+        throw new Error(`Invalid root directory "${ROOT_DIRECTORY}" — resolves outside the cloned repository`)
+    }
+
+    return resolved
+}
+
+module.exports = { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommitInfo, getBuildContextPath }
