@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createEnvVariable, createProject } from "@/lib/dashboard-api";
+import { createDeployment, createEnvVariable, createProject } from "@/lib/dashboard-api";
 import type { UserRepoSummary } from "@/lib/dashboard-types";
 import { RepoPicker } from "@/components/new-project/RepoPicker";
 import { RootDirectoryPicker } from "@/components/new-project/RootDirectoryPicker";
@@ -68,11 +68,11 @@ export default function NewProjectPage() {
         });
       }
 
-      // 3. Land on the project overview — NOT a deployment detail page.
-      // createProject alone doesn't trigger a deployment (that's a
-      // separate POST the project page's own "Deploy" action already
-      // handles) — see project.controller.ts's createProjectHandler.
-      router.push(`/project/${project.id}`);
+      // 3. Kick off the first deployment immediately and land on its
+      // detail page so the build logs stream in just like the previous
+      // wizard flow did before the regression.
+      const deployment = await createDeployment(project.id);
+      router.push(`/project/${project.id}/deployments/${deployment.id}`);
     } catch (err) {
       setDeployError(err instanceof Error ? err.message : "Failed to create project. Please try again.");
       setDeploying(false);
