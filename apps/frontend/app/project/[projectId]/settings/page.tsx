@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
-import { deleteProject, updateProject } from "@/lib/dashboard-api";
+import { Pencil, Trash2 } from "lucide-react";
+import { createDeployment, deleteProject, updateProject } from "@/lib/dashboard-api";
 import { Button } from "@/components/ui/Button";
 import { useProject } from "@/lib/project-context";
 import { ConfirmModal } from "@/components/dashboard/ConfirmModal";
@@ -35,6 +35,37 @@ export default function ProjectSettingsPage() {
   const [savingBuild, setSavingBuild] = useState(false);
   const [savedBuild, setSavedBuild] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
+  const [buildEditing, setBuildEditing] = useState(false);
+  const [showRedeployPopup, setShowRedeployPopup] = useState(false);
+  const [redeploying, setRedeploying] = useState(false);
+  const redeployTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [buildSnapshot, setBuildSnapshot] = useState({
+    buildCommand: project.buildCommand ?? "",
+    installCommand: project.installCommand ?? "",
+    outputDirectory: project.outputDirectory ?? "",
+    rootDirectory: project.rootDirectory ?? "",
+  });
+
+  const buildHasChanges =
+    buildCommand !== buildSnapshot.buildCommand ||
+    installCommand !== buildSnapshot.installCommand ||
+    outputDirectory !== buildSnapshot.outputDirectory ||
+    rootDirectory !== buildSnapshot.rootDirectory;
+
+  const dismissRedeployPopup = useCallback(() => {
+    if (redeployTimerRef.current) {
+      clearTimeout(redeployTimerRef.current);
+      redeployTimerRef.current = null;
+    }
+    setShowRedeployPopup(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (redeployTimerRef.current) clearTimeout(redeployTimerRef.current);
+    };
+  }, []);
 
   // Git
   const [defaultBranch, setDefaultBranch] = useState(project.defaultBranch);
@@ -74,12 +105,38 @@ export default function ProjectSettingsPage() {
         rootDirectory: rootDirectory || undefined,
       });
       await refreshProject();
+      setBuildSnapshot({
+        buildCommand,
+        installCommand,
+        outputDirectory,
+        rootDirectory,
+      });
+      setBuildEditing(false);
       setSavedBuild(true);
       setTimeout(() => setSavedBuild(false), 2000);
+
+      setShowRedeployPopup(true);
+      if (redeployTimerRef.current) clearTimeout(redeployTimerRef.current);
+      redeployTimerRef.current = setTimeout(() => {
+        setShowRedeployPopup(false);
+        redeployTimerRef.current = null;
+      }, 10000);
     } catch (err) {
       setBuildError(err instanceof Error ? err.message : "Failed to save. Please try again.");
     } finally {
       setSavingBuild(false);
+    }
+  }
+
+  async function handleRedeploy() {
+    dismissRedeployPopup();
+    setRedeploying(true);
+    try {
+      const deployment = await createDeployment(project.id);
+      router.push(`/project/${project.id}/deployments/${deployment.id}`);
+    } catch {
+      setBuildError("Failed to start redeploy. Please try again.");
+      setRedeploying(false);
     }
   }
 
@@ -144,18 +201,12 @@ export default function ProjectSettingsPage() {
         className="bg-zinc-950/80 rounded-2xl border border-zinc-800 p-5 flex flex-col gap-4"
       >
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
-              Build &amp; Development Settings
-            </h2>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-medium uppercase tracking-wide">
-              Under development
-            </span>
-          </div>
+          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+            Build &amp; Development Settings
+          </h2>
           <p className="text-xs text-zinc-500 mb-3">
-            These fields are saved to the database, but the build pipeline doesn&apos;t read them yet — every build still
-            runs <code className="font-mono">npm ci &amp;&amp; npm run build</code> against the
-            repo root.
+            These values are passed to the build pipeline as environment variables and override the
+            defaults for install command, build command, output directory, and root directory.
           </p>
         </div>
 
@@ -166,7 +217,8 @@ export default function ProjectSettingsPage() {
               value={buildCommand}
               onChange={(e) => setBuildCommand(e.target.value)}
               placeholder="npm run build"
-              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
+              readOnly={!buildEditing}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors read-only:opacity-60 read-only:cursor-not-allowed"
             />
           </div>
           <div>
@@ -175,7 +227,8 @@ export default function ProjectSettingsPage() {
               value={installCommand}
               onChange={(e) => setInstallCommand(e.target.value)}
               placeholder="npm ci"
-              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
+              readOnly={!buildEditing}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors read-only:opacity-60 read-only:cursor-not-allowed"
             />
           </div>
           <div>
@@ -184,7 +237,8 @@ export default function ProjectSettingsPage() {
               value={outputDirectory}
               onChange={(e) => setOutputDirectory(e.target.value)}
               placeholder="dist"
-              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
+              readOnly={!buildEditing}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors read-only:opacity-60 read-only:cursor-not-allowed"
             />
           </div>
           <div>
@@ -193,15 +247,43 @@ export default function ProjectSettingsPage() {
               value={rootDirectory}
               onChange={(e) => setRootDirectory(e.target.value)}
               placeholder="."
-              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
+              readOnly={!buildEditing}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors read-only:opacity-60 read-only:cursor-not-allowed"
             />
           </div>
         </div>
 
         {buildError && <p className="text-sm text-red-400">{buildError}</p>}
 
-        <div className="flex justify-end">
-          <SaveButton saving={savingBuild} saved={savedBuild} />
+        <div className="flex justify-end gap-2">
+          {buildEditing ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setBuildEditing(false);
+                setBuildCommand(buildSnapshot.buildCommand);
+                setInstallCommand(buildSnapshot.installCommand);
+                setOutputDirectory(buildSnapshot.outputDirectory);
+                setRootDirectory(buildSnapshot.rootDirectory);
+              }}
+            >
+              Cancel
+            </Button>
+          ) : (
+            <Button type="button" variant="ghost" onClick={() => setBuildEditing(true)}>
+              <Pencil className="w-3.5 h-3.5" />
+              Edit
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            type="submit"
+            loading={savingBuild}
+            disabled={!buildEditing || !buildHasChanges}
+          >
+            {savingBuild ? "Saving..." : savedBuild ? "Saved" : "Save"}
+          </Button>
         </div>
       </form>
 
@@ -264,9 +346,31 @@ export default function ProjectSettingsPage() {
           description="This deletes the project and takes down its live deployment immediately. This can't be undone."
           confirmLabel="Delete project"
           destructive
+          confirmationPhrase={`permanently delete ${project.name}`}
           onConfirm={handleDelete}
           onClose={() => setConfirmingDelete(false)}
         />
+      )}
+
+      {showRedeployPopup && (
+        <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-4 flex flex-col gap-3 w-80">
+            <p className="text-sm text-zinc-200">Want to redeploy with the updated settings?</p>
+            <div className="flex gap-2">
+              <Button
+                variant="primary"
+                loading={redeploying}
+                onClick={handleRedeploy}
+                className="flex-1"
+              >
+                Redeploy
+              </Button>
+              <Button variant="ghost" onClick={dismissRedeployPopup} className="flex-1">
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
