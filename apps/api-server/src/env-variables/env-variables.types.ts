@@ -4,14 +4,40 @@ import type { EnvironmentTarget } from '../generated/prisma/client';
 const ENV_KEY_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const ENVIRONMENT_TARGETS = ['PRODUCTION', 'PREVIEW', 'DEVELOPMENT'] as const;
 
+/**
+ * Names the build-engine ECS task always receives from the platform itself
+ * (deployment-engine.ts's containerOverrides.environment) — see the build
+ * config guide's Part 5 risk note. A user-defined env var sharing one of
+ * these names would land in the same ECS `environment` array as the
+ * platform's own value for it, and ECS's own array-merge behavior on
+ * duplicate names is not a contract worth relying on. Rejecting the
+ * collision at creation time is far cheaper to reason about than debugging
+ * "why did my build get a stale AWS_REGION" after the fact.
+ *
+ * Prefixes, not exact names, because GIT_ACCESS_TOKEN today could become
+ * GIT_ACCESS_TOKEN_V2 tomorrow — blocking the whole namespace the platform
+ * operates in is more durable than maintaining an exact-match list by hand.
+ */
+const RESERVED_ENV_KEY_PREFIXES = ['AWS_', 'GIT_', 'REDIS_', 'DEPLOYMENT_', 'PROJECT_', 'ROOT_DIRECTORY', 'INSTALL_COMMAND', 'BUILD_COMMAND', 'OUTPUT_DIRECTORY', 'COMMIT_HASH', 'BRANCH'];
+
+function isReservedEnvKey(key: string): boolean {
+  const upper = key.toUpperCase();
+  return RESERVED_ENV_KEY_PREFIXES.some((prefix) => upper.startsWith(prefix) || upper === prefix);
+}
+
+const envKeySchema = z
+  .string()
+  .min(1)
+  .max(255)
+  .regex(ENV_KEY_REGEX, 'Must look like an environment variable name — letters, numbers, and underscores, and cannot start with a number')
+  .refine((key) => !isReservedEnvKey(key), {
+    message: 'This name is reserved by the platform and cannot be used for a project environment variable',
+  });
+
 export const createEnvVariableSchema = z.object({
   params: z.object({ projectId: z.uuid() }),
   body: z.object({
-    key: z
-      .string()
-      .min(1)
-      .max(255)
-      .regex(ENV_KEY_REGEX, 'Must look like an environment variable name — letters, numbers, and underscores, and cannot start with a number'),
+    key: envKeySchema,
     value: z.string().max(65536),
     environments: z.array(z.enum(ENVIRONMENT_TARGETS)).min(1, 'Select at least one environment'),
     isSecret: z.boolean().optional().default(true),

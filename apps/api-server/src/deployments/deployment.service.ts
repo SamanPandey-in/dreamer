@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
 import { audit, type AuditMeta } from '../lib/audit';
 import { BadRequestError, ConflictError, NotFoundError } from '../lib/errors';
-import { decryptFromStorage } from '../lib/crypto';
+import { decryptFromColumn, decryptFromStorage } from '../lib/crypto';
 import { deleteS3Prefix } from '../lib/s3-client';
 import { assertProjectOwnership } from '../projects/project.service'; // concrete file, not the barrel — see §0.5
 import { deploymentEngine } from './deployment-engine';
@@ -13,7 +13,7 @@ import type {
   PublicDeployment,
   PublicLogLine,
 } from './deployment.types';
-import type { Deployment, DeploymentLog, DeploymentStatus, Prisma } from '../generated/prisma/client';
+import type { Deployment, DeploymentLog, DeploymentStatus, EnvironmentTarget, Prisma } from '../generated/prisma/client';
 
 const SLUG_MAX_ATTEMPTS = 5;
 
@@ -107,6 +107,35 @@ export async function assertDeploymentOwnership(deploymentId: string, userId: st
 }
 
 /**
+ * Fetches every EnvVariable scoped to `environment` for a project and
+ * decrypts each one — the one place outside env-variables.service.ts that
+ * ever decrypts a real secret value, and it does so for exactly the reason
+ * env-variables.service.ts's own revealEnvVariable() does: the build
+ * actually needs the plaintext, not the masked placeholder. Unlike reveal(),
+ * this is never user-triggered and never returns the value to any client —
+ * it goes straight into the ECS task's container environment
+ * (deployment-engine.ts) and nowhere else.
+ *
+ * RESERVED_ENV_KEY_PREFIXES (env-variables.types.ts) already rejects a
+ * colliding key at CREATE time, so by the time a row reaches this query
+ * it's guaranteed safe to merge into the same environment array as the
+ * platform's own AWS, GIT, and build-config vars.
+ */
+async function resolveProjectEnvVarsForEnvironment(
+  projectId: string,
+  environment: EnvironmentTarget
+): Promise<Array<{ name: string; value: string }>> {
+  const envVars = await prisma.envVariable.findMany({
+    where: { projectId, environments: { has: environment } },
+  });
+
+  return envVars.map((envVar) => ({
+    name: envVar.key,
+    value: decryptFromColumn({ value: envVar.value, iv: envVar.iv }),
+  }));
+}
+
+/**
  *  NEW (refactor). The shared body of "create a Deployment row and launch
  * it" — both createDeployment (public API: branch only) and
  * rollbackDeployment (internal: branch + a pinned commitHash) call this, so
@@ -143,6 +172,13 @@ async function createDeploymentInternal(
   const slug = await generateUniqueDeploymentSlug();
   const environment: 'PRODUCTION' | 'PREVIEW' = branch === project.defaultBranch ? 'PRODUCTION' : 'PREVIEW';
 
+  // NEW — resolved once per deploy, not per build-engine invocation. Reading
+  // env vars here (rather than inside deployment-engine.ts) keeps
+  // EcsDeploymentEngine free of any direct Prisma/crypto dependency — it
+  // stays a pure "take a BuildJob, talk to ECS" abstraction, which is also
+  // exactly what made it swappable behind the DeploymentEngine interface in
+  // the first place.
+  const userEnvVars = await resolveProjectEnvVarsForEnvironment(projectId, environment);
   const deployment = await prisma.$transaction(async (tx) => {
     const created = await tx.deployment.create({
       data: {
@@ -155,6 +191,14 @@ async function createDeploymentInternal(
         status: 'QUEUED',
         s3Prefix: `__outputs/${project.slug}/`,
         commitHash: opts.commitHash,
+        // NEW — copied from the project's own detection result (set once,
+        // at project-creation time, by the wizard — see project.service.ts's
+        // createProject) rather than re-detected on every deploy. A redeploy
+        // of an existing project doesn't re-fetch package.json from GitHub
+        // just to label itself; it inherits what the project was already
+        // determined to be.
+        type: project.detectedDeploymentType,
+        framework: project.detectedFramework,
       },
     });
 
@@ -182,6 +226,17 @@ async function createDeploymentInternal(
       branch,
       commitHash: opts.commitHash,
       gitAccessToken,
+      // NEW — the project's resolved build config, read straight off the
+      // row assertProjectOwnership already fetched above. null on any
+      // field is a legitimate, common case (a project whose config was
+      // never set, or never edited from Settings) — deployment-engine.ts
+      // forwards null through as an empty string, and build-engine's
+      // script.js falls back to its own hardcoded default for that field.
+      rootDirectory: project.rootDirectory,
+      installCommand: project.installCommand,
+      buildCommand: project.buildCommand,
+      outputDirectory: project.outputDirectory,
+      userEnvVars,
     });
 
     const updated = await prisma.deployment.update({
