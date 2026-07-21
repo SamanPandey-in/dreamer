@@ -13,7 +13,7 @@ const envSchema = z.object({
   FRONTEND_URL: z.url(),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  DATABASE_CA_CERT: z.string().min(1, 'DATABASE_CA_CERT is required (the PEM contents of your Postgres CA certificate)'),
+  DATABASE_CA_CERT: z.string().min(1, 'DATABASE_CA_CERT is required (the PEM contents of your Postgres CA certificate)').optional(),
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
 
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
@@ -43,6 +43,22 @@ const envSchema = z.object({
   // Optional, like the other AWS_*/ECS_* fields above — a setup that hasn't
   // wired up AWS at all shouldn't fail to boot over a feature it isn't using.
   S3_BUCKET: z.string().optional(),
+
+  // NEW - DYNAMIC (SSR) apps. All optional, same reasoning as ECS_* above: a
+  // setup that never deploys a Next.js SSR project shouldn't be forced to
+  // configure Lambda just to boot. See lib/lambda-client.ts and
+  // deployment-engine.ts's deployDynamicApp().
+  //
+  // One shared ECR repo for every dynamic app's image, e.g.
+  // 123456789012.dkr.ecr.ap-south-1.amazonaws.com/dreamer-dynamic-apps -
+  // build-engine's Kaniko step pushes here, tagged `{repo}:{projectSlug}`.
+  ECR_REPOSITORY_URI: z.string().optional(),
+  // The IAM role every deployed Lambda function assumes at runtime - needs
+  // only AWSLambdaBasicExecutionRole (CloudWatch Logs) unless a user's app
+  // itself calls other AWS services, which this platform has no way to know
+  // about, so it isn't granted here.
+  LAMBDA_EXECUTION_ROLE_ARN: z.string().optional(),
+  LAMBDA_ARCHITECTURE: z.enum(['x86_64', 'arm64']).default('x86_64'),
 });
 
 function loadEnv() {
