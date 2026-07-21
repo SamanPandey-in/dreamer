@@ -228,12 +228,15 @@ model Deployment {
   url              String?           // public URL once RUNNING
   
   // AWS resource references (needed for stop/sleep/wake/scale operations)
-  ecsTaskArn       String?           // for STATIC builds (RunTask — ephemeral)
-  ecsServiceArn    String?           // for DYNAMIC apps (CreateService — persistent)
-  ecsTaskDefArn    String?           // the registered task definition ARN
-  ecrImageUri      String?           // ECR image URI for dynamic apps
-  albTargetGroupArn String?          // per-deployment ALB target group
-  albListenerRuleArn String?         // per-deployment ALB listener rule
+  ecsTaskArn       String?           // build task, BOTH types — the Fargate RunTask that ran clone+install+build (and, for DYNAMIC, the Kaniko image push). Exits on its own once the build finishes; this ARN is only live during BUILDING.
+  ecsServiceArn    String?           // UNUSED — superseded by the Lambda-based DYNAMIC runtime below. Left in place rather than dropped, since dropping a column is a one-way migration and nothing reads this today; see lambdaFunctionArn for the runtime this schema actually implements.
+  ecsTaskDefArn    String?           // UNUSED — same as ecsServiceArn above.
+  ecrImageUri      String?           // ECR image URI for DYNAMIC apps — set once the build task's Kaniko step pushes the image, read by deployDynamicApp() to create/update the Lambda function's code.
+  albTargetGroupArn String?          // UNUSED — an ALB-per-deployment target group was the original design; DYNAMIC apps run on Lambda Function URLs instead, which need no load balancer. See docs/How-I-built-it.md.
+  albListenerRuleArn String?         // UNUSED — same as albTargetGroupArn above.
+  lambdaFunctionArn  String?         // DYNAMIC only — the deployed Lambda function's ARN.
+  lambdaFunctionName String?         // DYNAMIC only — physical function name, `dreamer-{project.slug}`. One function per PROJECT (not per deployment) — a redeploy updates this same function's code, same "latest deploy wins" model STATIC's shared s3Prefix already uses.
+  lambdaFunctionUrl  String?         // DYNAMIC only — the https://xxxx.lambda-url.{region}.on.aws/ endpoint AWS hands back. This is reverse-proxy's actual proxy target for this deployment; NOT the same as the public `url` field below (that's the {slug}.{BASE_DOMAIN} address end users type in).
   s3Prefix         String?           // for static: "__outputs/{slug}/"
 
   // Error tracking

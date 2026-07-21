@@ -9,17 +9,7 @@ import { env } from './env';
 // fixed earlier in the PolyGlot iterations) exhausts Postgres connections
 // under load.
 // const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
-// DATABASE_URL no longer carries `sslcert=<path>` — that told Prisma to
-// read a CA cert from a FILE ON DISK, which doesn't exist in any
-// container/PaaS deploy unless committed to the repo (and yours is
-// gitignored, on purpose — it's fine where it lives now: an env var).
-const adapter = new PrismaPg({
-  connectionString: env.DATABASE_URL,
-  ...(env.NODE_ENV === 'production'
-    ? { ssl: { rejectUnauthorized: false } }
-    : { ssl: { ca: env.DATABASE_CA_CERT, rejectUnauthorized: true } }
-  )
-});
+const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
 
 export const prisma = new PrismaClient({
   adapter,

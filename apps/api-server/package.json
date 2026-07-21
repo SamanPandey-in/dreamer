@@ -10,7 +10,8 @@
     "build": "tsc",
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:execute": "prisma db execute --file prisma/unsupported.sql"
   },
   "dependencies": {
     "@aws-sdk/client-ecs": "^3.1071.0",

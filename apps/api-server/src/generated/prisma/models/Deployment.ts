@@ -62,6 +62,9 @@ export type DeploymentMinAggregateOutputType = {
   ecrImageUri: string | null
   albTargetGroupArn: string | null
   albListenerRuleArn: string | null
+  lambdaFunctionArn: string | null
+  lambdaFunctionName: string | null
+  lambdaFunctionUrl: string | null
   s3Prefix: string | null
   errorMessage: string | null
   errorCode: string | null
@@ -103,6 +106,9 @@ export type DeploymentMaxAggregateOutputType = {
   ecrImageUri: string | null
   albTargetGroupArn: string | null
   albListenerRuleArn: string | null
+  lambdaFunctionArn: string | null
+  lambdaFunctionName: string | null
+  lambdaFunctionUrl: string | null
   s3Prefix: string | null
   errorMessage: string | null
   errorCode: string | null
@@ -144,6 +150,9 @@ export type DeploymentCountAggregateOutputType = {
   ecrImageUri: number
   albTargetGroupArn: number
   albListenerRuleArn: number
+  lambdaFunctionArn: number
+  lambdaFunctionName: number
+  lambdaFunctionUrl: number
   s3Prefix: number
   errorMessage: number
   errorCode: number
@@ -203,6 +212,9 @@ export type DeploymentMinAggregateInputType = {
   ecrImageUri?: true
   albTargetGroupArn?: true
   albListenerRuleArn?: true
+  lambdaFunctionArn?: true
+  lambdaFunctionName?: true
+  lambdaFunctionUrl?: true
   s3Prefix?: true
   errorMessage?: true
   errorCode?: true
@@ -244,6 +256,9 @@ export type DeploymentMaxAggregateInputType = {
   ecrImageUri?: true
   albTargetGroupArn?: true
   albListenerRuleArn?: true
+  lambdaFunctionArn?: true
+  lambdaFunctionName?: true
+  lambdaFunctionUrl?: true
   s3Prefix?: true
   errorMessage?: true
   errorCode?: true
@@ -285,6 +300,9 @@ export type DeploymentCountAggregateInputType = {
   ecrImageUri?: true
   albTargetGroupArn?: true
   albListenerRuleArn?: true
+  lambdaFunctionArn?: true
+  lambdaFunctionName?: true
+  lambdaFunctionUrl?: true
   s3Prefix?: true
   errorMessage?: true
   errorCode?: true
@@ -413,6 +431,9 @@ export type DeploymentGroupByOutputType = {
   ecrImageUri: string | null
   albTargetGroupArn: string | null
   albListenerRuleArn: string | null
+  lambdaFunctionArn: string | null
+  lambdaFunctionName: string | null
+  lambdaFunctionUrl: string | null
   s3Prefix: string | null
   errorMessage: string | null
   errorCode: string | null
@@ -477,6 +498,9 @@ export type DeploymentWhereInput = {
   ecrImageUri?: Prisma.StringNullableFilter<"Deployment"> | string | null
   albTargetGroupArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
   albListenerRuleArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  lambdaFunctionArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  lambdaFunctionName?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  lambdaFunctionUrl?: Prisma.StringNullableFilter<"Deployment"> | string | null
   s3Prefix?: Prisma.StringNullableFilter<"Deployment"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"Deployment"> | string | null
   errorCode?: Prisma.StringNullableFilter<"Deployment"> | string | null
@@ -523,6 +547,9 @@ export type DeploymentOrderByWithRelationInput = {
   ecrImageUri?: Prisma.SortOrderInput | Prisma.SortOrder
   albTargetGroupArn?: Prisma.SortOrderInput | Prisma.SortOrder
   albListenerRuleArn?: Prisma.SortOrderInput | Prisma.SortOrder
+  lambdaFunctionArn?: Prisma.SortOrderInput | Prisma.SortOrder
+  lambdaFunctionName?: Prisma.SortOrderInput | Prisma.SortOrder
+  lambdaFunctionUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   s3Prefix?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCode?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -572,6 +599,9 @@ export type DeploymentWhereUniqueInput = Prisma.AtLeast<{
   ecrImageUri?: Prisma.StringNullableFilter<"Deployment"> | string | null
   albTargetGroupArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
   albListenerRuleArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  lambdaFunctionArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  lambdaFunctionName?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  lambdaFunctionUrl?: Prisma.StringNullableFilter<"Deployment"> | string | null
   s3Prefix?: Prisma.StringNullableFilter<"Deployment"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"Deployment"> | string | null
   errorCode?: Prisma.StringNullableFilter<"Deployment"> | string | null
@@ -618,6 +648,9 @@ export type DeploymentOrderByWithAggregationInput = {
   ecrImageUri?: Prisma.SortOrderInput | Prisma.SortOrder
   albTargetGroupArn?: Prisma.SortOrderInput | Prisma.SortOrder
   albListenerRuleArn?: Prisma.SortOrderInput | Prisma.SortOrder
+  lambdaFunctionArn?: Prisma.SortOrderInput | Prisma.SortOrder
+  lambdaFunctionName?: Prisma.SortOrderInput | Prisma.SortOrder
+  lambdaFunctionUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   s3Prefix?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCode?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -667,6 +700,9 @@ export type DeploymentScalarWhereWithAggregatesInput = {
   ecrImageUri?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
   albTargetGroupArn?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
   albListenerRuleArn?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
+  lambdaFunctionArn?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
+  lambdaFunctionName?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
+  lambdaFunctionUrl?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
   s3Prefix?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
   errorMessage?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
   errorCode?: Prisma.StringNullableWithAggregatesFilter<"Deployment"> | string | null
@@ -706,6 +742,9 @@ export type DeploymentCreateInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -752,6 +791,9 @@ export type DeploymentUncheckedCreateInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -794,6 +836,9 @@ export type DeploymentUpdateInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -840,6 +885,9 @@ export type DeploymentUncheckedUpdateInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -884,6 +932,9 @@ export type DeploymentCreateManyInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -923,6 +974,9 @@ export type DeploymentUpdateManyMutationInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -964,6 +1018,9 @@ export type DeploymentUncheckedUpdateManyInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1015,6 +1072,9 @@ export type DeploymentCountOrderByAggregateInput = {
   ecrImageUri?: Prisma.SortOrder
   albTargetGroupArn?: Prisma.SortOrder
   albListenerRuleArn?: Prisma.SortOrder
+  lambdaFunctionArn?: Prisma.SortOrder
+  lambdaFunctionName?: Prisma.SortOrder
+  lambdaFunctionUrl?: Prisma.SortOrder
   s3Prefix?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   errorCode?: Prisma.SortOrder
@@ -1064,6 +1124,9 @@ export type DeploymentMaxOrderByAggregateInput = {
   ecrImageUri?: Prisma.SortOrder
   albTargetGroupArn?: Prisma.SortOrder
   albListenerRuleArn?: Prisma.SortOrder
+  lambdaFunctionArn?: Prisma.SortOrder
+  lambdaFunctionName?: Prisma.SortOrder
+  lambdaFunctionUrl?: Prisma.SortOrder
   s3Prefix?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   errorCode?: Prisma.SortOrder
@@ -1105,6 +1168,9 @@ export type DeploymentMinOrderByAggregateInput = {
   ecrImageUri?: Prisma.SortOrder
   albTargetGroupArn?: Prisma.SortOrder
   albListenerRuleArn?: Prisma.SortOrder
+  lambdaFunctionArn?: Prisma.SortOrder
+  lambdaFunctionName?: Prisma.SortOrder
+  lambdaFunctionUrl?: Prisma.SortOrder
   s3Prefix?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   errorCode?: Prisma.SortOrder
@@ -1227,14 +1293,6 @@ export type EnumDeploymentStatusFieldUpdateOperationsInput = {
   set?: $Enums.DeploymentStatus
 }
 
-export type NullableEnumDeploymentTypeFieldUpdateOperationsInput = {
-  set?: $Enums.DeploymentType | null
-}
-
-export type NullableEnumFrameworkFieldUpdateOperationsInput = {
-  set?: $Enums.Framework | null
-}
-
 export type EnumEnvironmentTargetFieldUpdateOperationsInput = {
   set?: $Enums.EnvironmentTarget
 }
@@ -1315,6 +1373,9 @@ export type DeploymentCreateWithoutDeployedByInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -1359,6 +1420,9 @@ export type DeploymentUncheckedCreateWithoutDeployedByInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -1432,6 +1496,9 @@ export type DeploymentScalarWhereInput = {
   ecrImageUri?: Prisma.StringNullableFilter<"Deployment"> | string | null
   albTargetGroupArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
   albListenerRuleArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  lambdaFunctionArn?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  lambdaFunctionName?: Prisma.StringNullableFilter<"Deployment"> | string | null
+  lambdaFunctionUrl?: Prisma.StringNullableFilter<"Deployment"> | string | null
   s3Prefix?: Prisma.StringNullableFilter<"Deployment"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"Deployment"> | string | null
   errorCode?: Prisma.StringNullableFilter<"Deployment"> | string | null
@@ -1471,6 +1538,9 @@ export type DeploymentCreateWithoutProjectInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -1515,6 +1585,9 @@ export type DeploymentUncheckedCreateWithoutProjectInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -1583,6 +1656,9 @@ export type DeploymentCreateWithoutStateTransitionsInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -1628,6 +1704,9 @@ export type DeploymentUncheckedCreateWithoutStateTransitionsInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -1685,6 +1764,9 @@ export type DeploymentUpdateWithoutStateTransitionsInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1730,6 +1812,9 @@ export type DeploymentUncheckedUpdateWithoutStateTransitionsInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1771,6 +1856,9 @@ export type DeploymentCreateWithoutLogsInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -1816,6 +1904,9 @@ export type DeploymentUncheckedCreateWithoutLogsInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -1873,6 +1964,9 @@ export type DeploymentUpdateWithoutLogsInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1918,6 +2012,9 @@ export type DeploymentUncheckedUpdateWithoutLogsInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1959,6 +2056,9 @@ export type DeploymentCreateWithoutEnvSnapshotInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -2004,6 +2104,9 @@ export type DeploymentUncheckedCreateWithoutEnvSnapshotInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -2061,6 +2164,9 @@ export type DeploymentUpdateWithoutEnvSnapshotInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2106,6 +2212,9 @@ export type DeploymentUncheckedUpdateWithoutEnvSnapshotInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2148,6 +2257,9 @@ export type DeploymentCreateManyDeployedByInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -2187,6 +2299,9 @@ export type DeploymentUpdateWithoutDeployedByInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2231,6 +2346,9 @@ export type DeploymentUncheckedUpdateWithoutDeployedByInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2274,6 +2392,9 @@ export type DeploymentUncheckedUpdateManyWithoutDeployedByInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2314,6 +2435,9 @@ export type DeploymentCreateManyProjectInput = {
   ecrImageUri?: string | null
   albTargetGroupArn?: string | null
   albListenerRuleArn?: string | null
+  lambdaFunctionArn?: string | null
+  lambdaFunctionName?: string | null
+  lambdaFunctionUrl?: string | null
   s3Prefix?: string | null
   errorMessage?: string | null
   errorCode?: string | null
@@ -2353,6 +2477,9 @@ export type DeploymentUpdateWithoutProjectInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2397,6 +2524,9 @@ export type DeploymentUncheckedUpdateWithoutProjectInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2440,6 +2570,9 @@ export type DeploymentUncheckedUpdateManyWithoutProjectInput = {
   ecrImageUri?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albTargetGroupArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albListenerRuleArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionArn?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lambdaFunctionUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   s3Prefix?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2530,6 +2663,9 @@ export type DeploymentSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   ecrImageUri?: boolean
   albTargetGroupArn?: boolean
   albListenerRuleArn?: boolean
+  lambdaFunctionArn?: boolean
+  lambdaFunctionName?: boolean
+  lambdaFunctionUrl?: boolean
   s3Prefix?: boolean
   errorMessage?: boolean
   errorCode?: boolean
@@ -2577,6 +2713,9 @@ export type DeploymentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   ecrImageUri?: boolean
   albTargetGroupArn?: boolean
   albListenerRuleArn?: boolean
+  lambdaFunctionArn?: boolean
+  lambdaFunctionName?: boolean
+  lambdaFunctionUrl?: boolean
   s3Prefix?: boolean
   errorMessage?: boolean
   errorCode?: boolean
@@ -2620,6 +2759,9 @@ export type DeploymentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   ecrImageUri?: boolean
   albTargetGroupArn?: boolean
   albListenerRuleArn?: boolean
+  lambdaFunctionArn?: boolean
+  lambdaFunctionName?: boolean
+  lambdaFunctionUrl?: boolean
   s3Prefix?: boolean
   errorMessage?: boolean
   errorCode?: boolean
@@ -2663,6 +2805,9 @@ export type DeploymentSelectScalar = {
   ecrImageUri?: boolean
   albTargetGroupArn?: boolean
   albListenerRuleArn?: boolean
+  lambdaFunctionArn?: boolean
+  lambdaFunctionName?: boolean
+  lambdaFunctionUrl?: boolean
   s3Prefix?: boolean
   errorMessage?: boolean
   errorCode?: boolean
@@ -2684,7 +2829,7 @@ export type DeploymentSelectScalar = {
   updatedAt?: boolean
 }
 
-export type DeploymentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "slug" | "status" | "type" | "framework" | "environment" | "branch" | "commitHash" | "commitMessage" | "commitAuthor" | "deployedById" | "url" | "ecsTaskArn" | "ecsServiceArn" | "ecsTaskDefArn" | "ecrImageUri" | "albTargetGroupArn" | "albListenerRuleArn" | "s3Prefix" | "errorMessage" | "errorCode" | "errorStep" | "buildDurationMs" | "uploadedFileCount" | "imageSizeBytes" | "lastRequestAt" | "sleepCount" | "totalSleepMs" | "triggeredBy" | "webhookDeliveryId" | "queuedAt" | "buildStartedAt" | "buildFinishedAt" | "deployedAt" | "stoppedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["deployment"]>
+export type DeploymentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "slug" | "status" | "type" | "framework" | "environment" | "branch" | "commitHash" | "commitMessage" | "commitAuthor" | "deployedById" | "url" | "ecsTaskArn" | "ecsServiceArn" | "ecsTaskDefArn" | "ecrImageUri" | "albTargetGroupArn" | "albListenerRuleArn" | "lambdaFunctionArn" | "lambdaFunctionName" | "lambdaFunctionUrl" | "s3Prefix" | "errorMessage" | "errorCode" | "errorStep" | "buildDurationMs" | "uploadedFileCount" | "imageSizeBytes" | "lastRequestAt" | "sleepCount" | "totalSleepMs" | "triggeredBy" | "webhookDeliveryId" | "queuedAt" | "buildStartedAt" | "buildFinishedAt" | "deployedAt" | "stoppedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["deployment"]>
 export type DeploymentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   deployedBy?: boolean | Prisma.Deployment$deployedByArgs<ExtArgs>
@@ -2731,6 +2876,9 @@ export type $DeploymentPayload<ExtArgs extends runtime.Types.Extensions.Internal
     ecrImageUri: string | null
     albTargetGroupArn: string | null
     albListenerRuleArn: string | null
+    lambdaFunctionArn: string | null
+    lambdaFunctionName: string | null
+    lambdaFunctionUrl: string | null
     s3Prefix: string | null
     errorMessage: string | null
     errorCode: string | null
@@ -3197,6 +3345,9 @@ export interface DeploymentFieldRefs {
   readonly ecrImageUri: Prisma.FieldRef<"Deployment", 'String'>
   readonly albTargetGroupArn: Prisma.FieldRef<"Deployment", 'String'>
   readonly albListenerRuleArn: Prisma.FieldRef<"Deployment", 'String'>
+  readonly lambdaFunctionArn: Prisma.FieldRef<"Deployment", 'String'>
+  readonly lambdaFunctionName: Prisma.FieldRef<"Deployment", 'String'>
+  readonly lambdaFunctionUrl: Prisma.FieldRef<"Deployment", 'String'>
   readonly s3Prefix: Prisma.FieldRef<"Deployment", 'String'>
   readonly errorMessage: Prisma.FieldRef<"Deployment", 'String'>
   readonly errorCode: Prisma.FieldRef<"Deployment", 'String'>
