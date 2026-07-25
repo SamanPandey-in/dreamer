@@ -1,6 +1,6 @@
 import Redis from 'ioredis';
 import type { Server } from 'socket.io';
-import { appendLogLine, recordCommitInfo, transitionDeploymentStatus } from '../deployments/deployment.service';
+import { appendLogLine, handleImageReady, recordCommitInfo, transitionDeploymentStatus } from '../deployments/deployment.service';
 import { env } from '../lib/env';
 import { isDeploymentEvent } from './realtime.types';
 import { roomFor } from './socket.server';
@@ -37,6 +37,19 @@ export async function startLogRelay(io: Server): Promise<void> {
         // on mount; there's no live UI element keyed off commit info today
         // that would need a push).
         await recordCommitInfo(deploymentId, event);
+      } else if (event.type === 'image_ready') {
+        //  NEW — the DYNAMIC hand-off point. Unlike every other branch
+        // here, this one can take 10–60s (Lambda CreateFunction + waiting
+        // for State: Active) — deliberately awaited anyway rather than
+        // fired-and-forgotten, so a failure inside it still reaches the
+        // `catch` below and gets logged, instead of vanishing silently.
+        // handleImageReady itself is responsible for emitting the
+        // resulting status transition (STARTING -> RUNNING or FAILED) to
+        // connected sockets — see its own call to transitionDeploymentStatus.
+        const updated = await handleImageReady(deploymentId, event);
+        if (updated) {
+          io.to(roomFor(deploymentId)).emit('status', { status: updated.status, url: updated.url });
+        }
       } else {
         const updated = await transitionDeploymentStatus(deploymentId, event.status, {
           reason: event.reason,

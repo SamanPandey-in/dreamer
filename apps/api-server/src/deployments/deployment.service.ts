@@ -13,6 +13,7 @@ import type {
   PublicDeployment,
   PublicLogLine,
 } from './deployment.types';
+import type { DeploymentImageReadyEvent } from '../realtime/realtime.types';
 import type { Deployment, DeploymentLog, DeploymentStatus, EnvironmentTarget, Prisma } from '../generated/prisma/client';
 
 const SLUG_MAX_ATTEMPTS = 5;
@@ -237,6 +238,10 @@ async function createDeploymentInternal(
       buildCommand: project.buildCommand,
       outputDirectory: project.outputDirectory,
       userEnvVars,
+      // NEW — see BuildJob's comment in deployment-engine.ts: this is what
+      // actually decides which branch of build-engine's script.js runs.
+      deploymentType: project.detectedDeploymentType,
+      framework: project.detectedFramework,
     });
 
     const updated = await prisma.deployment.update({
@@ -332,14 +337,6 @@ export async function stopDeployment(
     );
   }
 
-  if (deployment.type === 'DYNAMIC') {
-    // EcsDeploymentEngine never implements service-based dynamic apps (see
-    // deployment-engine.ts) — there's no live ECS Service to tear down yet.
-    // An honest 400 now beats a button that silently no-ops once dynamic
-    // deploys actually ship.
-    throw new BadRequestError('Stopping dynamic deployments is not supported yet', 'DYNAMIC_STOP_UNSUPPORTED');
-  }
-
   if (deployment.status === 'QUEUED') {
     const updated = await transitionDeploymentStatus(deploymentId, 'CANCELLED', {
       reason: 'Cancelled by user before the build started',
@@ -360,23 +357,38 @@ export async function stopDeployment(
       console.error(`[STOP_DEPLOYMENT] ECS StopTask failed for ${deploymentId}:`, err);
     }
   } else if (deployment.status === 'RUNNING') {
-    // Already-finished static output has no running compute to kill — the
-    // ECS task that built it already exited after upload. "Stopping" a live
-    // static deployment means taking its output down, and that only makes
-    // sense if it's the one the project is CURRENTLY serving — every
-    // deployment of the same project shares one S3 prefix (project.slug), so
-    // stopping an old, already-superseded RUNNING row must never touch
-    // whatever the project is serving right now.
+    // Whichever type this is, "stopping" a RUNNING deployment only makes
+    // sense if it's the one the project is CURRENTLY serving — both types
+    // share one live slot per project (STATIC's one S3 prefix, DYNAMIC's
+    // one Lambda function — see lambdaFunctionName's comment), so stopping
+    // an old, already-superseded RUNNING row must never touch whatever the
+    // project is serving right now.
     const project = await prisma.project.findUnique({
       where: { id: deployment.projectId },
       select: { slug: true, activeDeploymentId: true },
     });
 
     if (project?.activeDeploymentId === deploymentId) {
-      try {
-        await deleteS3Prefix(deployment.s3Prefix ?? `__outputs/${project.slug}/`);
-      } catch (err) {
-        console.error(`[STOP_DEPLOYMENT] S3 cleanup failed for ${deploymentId}:`, err);
+      if (deployment.type === 'DYNAMIC') {
+        // Falls back to re-deriving the name from the project slug for a
+        // row that predates lambdaFunctionName being populated (shouldn't
+        // happen post-migration, but costs nothing to be defensive about —
+        // same instinct as the STATIC branch's `?? __outputs/{slug}/` fallback).
+        const functionName = deployment.lambdaFunctionName ?? `dreamer-${project.slug}`;
+        try {
+          await deploymentEngine.stopDynamicApp(functionName);
+        } catch (err) {
+          // Same reasoning as the BUILDING/UPLOADING/STARTING branch above:
+          // don't leave the row stuck RUNNING in the DB just because AWS's
+          // view and ours raced or the function was already gone.
+          console.error(`[STOP_DEPLOYMENT] Lambda teardown failed for ${deploymentId}:`, err);
+        }
+      } else {
+        try {
+          await deleteS3Prefix(deployment.s3Prefix ?? `__outputs/${project.slug}/`);
+        } catch (err) {
+          console.error(`[STOP_DEPLOYMENT] S3 cleanup failed for ${deploymentId}:`, err);
+        }
       }
       await prisma.project.update({ where: { id: deployment.projectId }, data: { activeDeploymentId: null } });
     }
@@ -563,6 +575,90 @@ export async function recordCommitInfo(deploymentId: string, info: CommitInfo): 
       commitAuthor: info.commitAuthor,
     },
   });
+}
+
+/**
+ * NEW: the dynamic hand-off point - called from log-relay.ts when 
+ * build-engine's Kaniko step publishes `image_ready` (see realtime.types.ts).
+ * Turns a pushed container image into a live, publically invokable Lambda function
+ * via deploymentEngine.deployDynamicApp() then transitions the deployment to RUNNING - or FAILED,
+ * symmetric wiht how a LaunchBuildTask failure is handled in createDeploymentInternal above.
+ * 
+ * Runs AFTER build-engine's own task has already exited (kaniko's push was its last step) - this 
+ * is why Lambda CreateFunction/UpdateFunctionCode work happens over here, in api-server, 
+ * rather than in build-enigne itself: build-engine's IAM role only ever needed ECR push 
+ * permissions (see * env.ts's comment on ECR_REPOSITORY_URI), never Lambda permissions.
+ */
+export async function handleImageReady(
+  deploymentId: string,
+  event: DeploymentImageReadyEvent
+): Promise<Deployment | null> {
+  const deployment = await prisma.deployment.findUnique({ where: { id: deploymentId } });
+  if (!deployment) return null;
+
+  // Persist the pushed image URI immediately, independent of whether the
+  // Lambda deploy that follows succeeds — if deployDynamicApp throws below,
+  // a retried/rolled-back deploy (or a human debugging in the dashboard)
+  // still sees exactly which image was built, not a blank column.
+  await prisma.deployment.update({
+    where: { id: deploymentId },
+    data: { ecrImageUri: event.ecrImageUri, imageSizeBytes: event.imageSizeBytes },
+  });
+
+  await transitionDeploymentStatus(deploymentId, 'STARTING', {
+    reason: 'Image pushed to ECR — creating Lambda function',
+    triggeredBy: 'build-engine',
+  });
+
+  const project = await prisma.project.findUnique({
+    where: { id: deployment.projectId },
+    select: { slug: true },
+  });
+  if (!project) {
+    return transitionDeploymentStatus(deploymentId, 'FAILED', {
+      reason: 'Project no longer exists',
+      errorCode: 'PROJECT_NOT_FOUND',
+      errorStep: 'start',
+      triggeredBy: 'api',
+    });
+  }
+
+  try {
+    // Re-resolved here rather than threaded through from createDeploymentInternal
+    // — this runs minutes later, in a completely separate async hop
+    // (Redis pub/sub -> log-relay), so there's no in-memory value to reuse;
+    // same reasoning as why launchBuildTask resolves them fresh too.
+    const userEnvVars = await resolveProjectEnvVarsForEnvironment(deployment.projectId, deployment.environment);
+
+    const handle = await deploymentEngine.deployDynamicApp({
+      deploymentId,
+      projectSlug: project.slug,
+      ecrImageUri: event.ecrImageUri,
+      userEnvVars,
+    });
+
+    await prisma.deployment.update({
+      where: { id: deploymentId },
+      data: {
+        lambdaFunctionArn: handle.lambdaFunctionArn,
+        lambdaFunctionName: handle.lambdaFunctionName,
+        lambdaFunctionUrl: handle.lambdaFunctionUrl,
+      },
+    });
+
+    return await transitionDeploymentStatus(deploymentId, 'RUNNING', {
+      url: event.url,
+      triggeredBy: 'build-engine',
+    });
+  } catch (err) {
+    return await transitionDeploymentStatus(deploymentId, 'FAILED', {
+      reason: 'Failed to deploy Lambda function',
+      errorCode: 'LAMBDA_DEPLOY_FAILED',
+      errorMessage: err instanceof Error ? err.message : 'Unknown Lambda deploy error',
+      errorStep: 'start',
+      triggeredBy: 'api',
+    });
+  }
 }
 
 export async function appendLogLine(

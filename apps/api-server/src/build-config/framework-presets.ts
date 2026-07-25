@@ -67,7 +67,16 @@ export const FRAMEWORK_PRESETS: Record<FrameworkPresetId, FrameworkPreset> = {
     defaultInstallCommand: 'npm install',
     defaultBuildCommand: 'npm run build',
     defaultOutputDirectory: '.next',
-    requiresUnsupportedRuntime: true,
+    // CHANGED — was true. Next.js SSR now actually deploys, on the
+    // Lambda-based DYNAMIC runtime — see deployDynamicApp() in
+    // deployment-engine.ts and docs/How-I-built-it.md. The requirement
+    // this preset can't express here (next.config.js needs
+    // `output: 'standalone'`) is checked instead at build time by
+    // build-engine's dockerfile-resolver.js, which warns in the build
+    // logs rather than blocking the deploy outright — a text-search check
+    // against the repo's config file is reliable enough to warn on, not
+    // reliable enough to hard-block a deploy on a false positive.
+    requiresUnsupportedRuntime: false,
   },
   vite: {
     id: 'vite',
