@@ -3,8 +3,10 @@ const path = require('path')
 const fs = require('fs')
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
 const mime = require('mime-types')
-const { publishLog, publishStatus, publishCommitInfo, publisher } = require('./redis')
+const { publishLog, publishStatus, publishCommitInfo, publishImageReady, publisher } = require('./redis')
 const { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommitInfo, getBuildContextPath } = require('./clone-repo')
+const { resolveDockerfile } = require('./dockerfile-resolver')
+const { runKanikoBuild } = require('./kaniko-build')
 
 const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'ap-south-1',
@@ -31,6 +33,16 @@ const BASE_DOMAIN = process.env.BASE_DOMAIN || 'singularitydev.xyz'
 const INSTALL_COMMAND = (process.env.INSTALL_COMMAND || 'npm ci --legacy-peer-deps').replace(/^["']|["']$/g, '')
 const BUILD_COMMAND = (process.env.BUILD_COMMAND || 'npm run build').replace(/^["']|["']$/g, '')
 const OUTPUT_DIRECTORY = (process.env.OUTPUT_DIRECTORY || 'dist').replace(/^["']|["']$/g, '')
+
+// NEW — decides which branch init() takes after the clone/checkout
+// preamble. Forwarded by deployment-engine.ts's launchBuildTask, straight
+// off Project.detectedDeploymentType. A build task that predates this
+// feature (or a STATIC project) never sets this, and the `|| 'STATIC'`
+// fallback below means it behaves exactly as it always did.
+const DEPLOYMENT_TYPE = process.env.DEPLOYMENT_TYPE || 'STATIC'
+const FRAMEWORK = process.env.FRAMEWORK || 'UNKNOWN'
+// Only read on the DYNAMIC branch — see runDynamicBuild() below.
+const ECR_REPOSITORY_URI = process.env.ECR_REPOSITORY_URI || ''
 
 /**
  * Runs install and build as two separate sequential steps (not one chained
@@ -72,6 +84,145 @@ function runShellCommand(command, cwd) {
     })
 }
 
+/**
+ * The original, unchanged STATIC pipeline — install, build, verify the
+ * output directory exists, upload it to S3. Extracted out of init() as its
+ * own function (rather than left inline) purely so DEPLOYMENT_TYPE can pick
+ * between this and runDynamicBuild() with a plain if/else instead of a much
+ * larger branch buried in the middle of one function.
+ */
+async function runStaticBuild(buildContextPath) {
+    // 1. Install dependencies.
+    publishLog(`Installing dependencies: ${INSTALL_COMMAND}`, 'SYSTEM', 'platform')
+    try {
+        await runShellCommand(INSTALL_COMMAND, buildContextPath)
+    } catch (installError) {
+        installError.step = 'install'
+        throw installError
+    }
+
+    // 2. Run the build.
+    publishLog(`Building: ${BUILD_COMMAND}`, 'SYSTEM', 'platform')
+    try {
+        await runShellCommand(BUILD_COMMAND, buildContextPath)
+    } catch (buildError) {
+        buildError.step = 'build'
+        throw buildError
+    }
+
+    console.log('Build Complete')
+    publishLog('Build complete', 'SYSTEM')
+
+    const distFolderPath = path.join(buildContextPath, OUTPUT_DIRECTORY)
+
+    // Safety check to ensure the framework actually built the expected output folder.
+    if (!fs.existsSync(distFolderPath)) {
+        const notFoundError = new Error(
+            `Build finished but expected output directory "${OUTPUT_DIRECTORY}" was not found at ${distFolderPath} — ` +
+            `check that the project's Output Directory setting matches what "${BUILD_COMMAND}" actually produces`
+        )
+        notFoundError.step = 'build'
+        throw notFoundError
+    }
+
+    publishStatus('UPLOADING')
+    publishLog('Starting upload to S3', 'SYSTEM', 'platform')
+
+    const distFolderContents = fs.readdirSync(distFolderPath, { recursive: true })
+    let uploadedCount = 0
+
+    for (const file of distFolderContents) {
+        const filePath = path.join(distFolderPath, file)
+        if (fs.lstatSync(filePath).isDirectory()) continue;
+
+        console.log('uploading', filePath)
+        publishLog(`uploading ${file}`, 'INFO', 'platform')
+
+        // __outputs/{PROJECT_SLUG}/... — keyed by the PROJECT's slug,
+        // not this deployment's own random one. Every deployment of the
+        // same project writes to, and overwrites, the same prefix — on
+        // purpose. apps/reverse-proxy needs NO changes: it already
+        // proxies subdomain -> __outputs/{subdomain}, and the subdomain
+        // a user visits IS the project's slug.
+        const command = new PutObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: `__outputs/${PROJECT_SLUG}/${file}`,
+            Body: fs.createReadStream(filePath),
+            ContentType: mime.lookup(filePath) || 'application/octet-stream'
+        })
+
+        await s3Client.send(command)
+        uploadedCount++
+        publishLog(`uploaded ${file}`, 'INFO', 'platform')
+    }
+
+    const url = `https://${PROJECT_SLUG}.${BASE_DOMAIN}`
+    publishLog(`Done — ${uploadedCount} files uploaded`, 'SYSTEM')
+    // CHANGED — uploadedCount was computed and logged, but never sent
+    // here, so Deployment.uploadedFileCount stayed null forever. This is
+    // the one-line fix the Build Summary card (Part 7) depends on.
+    publishStatus('RUNNING', { url, uploadedFileCount: uploadedCount })
+}
+
+/**
+ *  NEW. The DYNAMIC pipeline: resolve a Dockerfile (the repo's own, or a
+ * generated one for the detected framework), build it with Kaniko, push to
+ * ECR, publish `image_ready`. Deliberately does NOT publish a RUNNING (or
+ * even STARTING) status itself — this task's job ends the moment the image
+ * lands in ECR. Turning that image into a live Lambda function is
+ * api-server's job (deployDynamicApp() in deployment-engine.ts, triggered
+ * by handleImageReady() in deployment.service.ts), because that step needs
+ * Lambda IAM permissions this task's role deliberately doesn't have — see
+ * env.ts's comment on LAMBDA_EXECUTION_ROLE_ARN vs this task's own role.
+ */
+async function runDynamicBuild(buildContextPath) {
+    if (!ECR_REPOSITORY_URI) {
+        const configError = new Error(
+            'DEPLOYMENT_TYPE is DYNAMIC but ECR_REPOSITORY_URI is not set — an administrator needs to ' +
+            'configure ECR_REPOSITORY_URI on the api-server before dynamic (SSR) deployments can build.'
+        )
+        configError.step = 'build'
+        throw configError
+    }
+
+    let dockerfilePath
+    try {
+        dockerfilePath = resolveDockerfile(buildContextPath, {
+            framework: FRAMEWORK,
+            installCommand: INSTALL_COMMAND,
+            buildCommand: BUILD_COMMAND,
+        })
+    } catch (resolveError) {
+        resolveError.step = 'build'
+        throw resolveError
+    }
+
+    // Tagged by PROJECT slug (not this deployment's own id) — same "one
+    // live thing per PROJECT, a redeploy overwrites it" model STATIC's S3
+    // prefix already uses. deployDynamicApp() in deployment-engine.ts reads
+    // this exact tag back via UpdateFunctionCode/CreateFunction.
+    const destination = `${ECR_REPOSITORY_URI}:${PROJECT_SLUG}`
+
+    publishLog(`Building container image for ${FRAMEWORK} and pushing to ${destination}`, 'SYSTEM', 'platform')
+    try {
+        await runKanikoBuild({ dockerfilePath, contextPath: buildContextPath, destination })
+    } catch (kanikoError) {
+        kanikoError.step = 'build'
+        throw kanikoError
+    }
+
+    console.log('Image build + push complete')
+    publishLog('Image pushed to ECR', 'SYSTEM')
+
+    const url = `https://${PROJECT_SLUG}.${BASE_DOMAIN}`
+    // Image size is informational only (surfaced in the dashboard's Build
+    // Summary card, same spirit as uploadedFileCount for STATIC) — Kaniko
+    // doesn't report this on stdout in a stable, parseable way, so this is
+    // left null rather than screen-scraping log output that could change
+    // format across Kaniko versions.
+    publishImageReady({ ecrImageUri: destination, imageSizeBytes: null, url })
+}
+
 async function init() {
     console.log('Executing script.js')
     publishLog('Build started', 'SYSTEM')
@@ -107,82 +258,20 @@ async function init() {
         // resolve outside the clone — see the guard in clone-repo.js.
         const buildContextPath = getBuildContextPath()
 
-        // 1. Install dependencies.
-        publishLog(`Installing dependencies: ${INSTALL_COMMAND}`, 'SYSTEM', 'platform')
-        try {
-            await runShellCommand(INSTALL_COMMAND, buildContextPath)
-        } catch (installError) {
-            installError.step = 'install'
-            throw installError
+        // NEW — DYNAMIC apps' install+build happens INSIDE the Kaniko
+        // image build (see the generated Dockerfile's own `builder`
+        // stage), not out here on the host — running `npm install`/`npm
+        // run build` twice (once here, once again inside the Docker
+        // build) would waste the bulk of a build's wall-clock time for no
+        // benefit. So the branch happens BEFORE step 1, not after — the
+        // two paths only share the clone/checkout/commit-info preamble
+        // above this line.
+        if (DEPLOYMENT_TYPE === 'DYNAMIC') {
+            await runDynamicBuild(buildContextPath)
+        } else {
+            await runStaticBuild(buildContextPath)
         }
 
-        // 2. Run the build.
-        publishLog(`Building: ${BUILD_COMMAND}`, 'SYSTEM', 'platform')
-        try {
-            await runShellCommand(BUILD_COMMAND, buildContextPath)
-        } catch (buildError) {
-            buildError.step = 'build'
-            throw buildError
-        }
-
-        console.log('Build Complete')
-        publishLog('Build complete', 'SYSTEM')
-
-        // CHANGED — was a hardcoded path.join(__dirname, 'output', 'dist').
-        // Now resolved relative to the actual build context (so a monorepo
-        // project's output directory is read relative to its OWN
-        // sub-folder, not the repo root) and using the project's configured
-        // OUTPUT_DIRECTORY instead of an assumption that every framework
-        // calls its output folder "dist".
-        const distFolderPath = path.join(buildContextPath, OUTPUT_DIRECTORY)
-
-        // Safety check to ensure the framework actually built the expected output folder.
-        if (!fs.existsSync(distFolderPath)) {
-            const notFoundError = new Error(
-                `Build finished but expected output directory "${OUTPUT_DIRECTORY}" was not found at ${distFolderPath} — ` +
-                `check that the project's Output Directory setting matches what "${BUILD_COMMAND}" actually produces`
-            )
-            notFoundError.step = 'build'
-            throw notFoundError
-        }
-
-        publishStatus('UPLOADING')
-        publishLog('Starting upload to S3', 'SYSTEM', 'platform')
-
-        const distFolderContents = fs.readdirSync(distFolderPath, { recursive: true })
-        let uploadedCount = 0
-
-        for (const file of distFolderContents) {
-            const filePath = path.join(distFolderPath, file)
-            if (fs.lstatSync(filePath).isDirectory()) continue;
-
-            console.log('uploading', filePath)
-            publishLog(`uploading ${file}`, 'INFO', 'platform')
-
-            // __outputs/{PROJECT_SLUG}/... — keyed by the PROJECT's slug,
-            // not this deployment's own random one. Every deployment of the
-            // same project writes to, and overwrites, the same prefix — on
-            // purpose. apps/reverse-proxy needs NO changes: it already
-            // proxies subdomain -> __outputs/{subdomain}, and the subdomain
-            // a user visits IS the project's slug.
-            const command = new PutObjectCommand({
-                Bucket: S3_BUCKET,
-                Key: `__outputs/${PROJECT_SLUG}/${file}`,
-                Body: fs.createReadStream(filePath),
-                ContentType: mime.lookup(filePath) || 'application/octet-stream'
-            })
-
-            await s3Client.send(command)
-            uploadedCount++
-            publishLog(`uploaded ${file}`, 'INFO', 'platform')
-        }
-
-        const url = `https://${PROJECT_SLUG}.${BASE_DOMAIN}`
-        publishLog(`Done — ${uploadedCount} files uploaded`, 'SYSTEM')
-        // CHANGED — uploadedCount was computed and logged, but never sent
-        // here, so Deployment.uploadedFileCount stayed null forever. This is
-        // the one-line fix the Build Summary card (Part 7) depends on.
-        publishStatus('RUNNING', { url, uploadedFileCount: uploadedCount })
         console.log('Done...')
     } catch (error) {
         console.error('Fatal execution error:', error.message)
