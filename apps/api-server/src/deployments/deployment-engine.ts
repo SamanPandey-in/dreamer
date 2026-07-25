@@ -353,21 +353,56 @@ export class EcsDeploymentEngine implements DeploymentEngine {
         })
       );
       functionUrl = urlConfig.FunctionUrl!;
+    }
 
-      // A Function URL with AuthType NONE still needs an explicit
-      // resource-based policy statement granting public invoke — without
-      // this, every request to the URL 403s regardless of AuthType. Only
-      // needed once, right after CreateFunctionUrlConfig; a
-      // ResourceConflictException here just means a previous deploy
-      // attempt already added it (e.g. this step succeeded but a LATER
-      // step in that attempt failed and the whole deploy was retried).
+    // FIXED — this used to live INSIDE the `catch` block above, i.e. it
+    // only ever ran the very first time a function's Function URL config
+    // was created. That's wrong: a function can end up with a URL config
+    // but NO invoke permission — e.g. a deploy that got this far and then
+    // failed on a LATER step (so the whole deployDynamicApp() call threw
+    // and was retried), or a function that was created/inspected manually
+    // outside this platform while testing. Either way, the next deploy
+    // would take the `try` branch above (GetFunctionUrlConfigCommand
+    // succeeds), skip this block entirely, and produce exactly the
+    // symptom this was debugged from: a 200 from Lambda's own console, a
+    // live Function URL, and a 403 Forbidden on every actual request.
+    // Running this on EVERY deploy — not just function creation — is what
+    // makes deployDynamicApp() actually idempotent with respect to "is
+    // this function reachable," not just "does it exist." A
+    // ResourceConflictException here just means a previous deploy already
+    // added this exact statement — not an error, the desired end state.
+    //
+    // FIXED (round 2) — a public Function URL actually needs TWO resource
+    // policy statements, not one: `lambda:InvokeFunctionUrl` (the HTTP
+    // entry point itself) AND plain `lambda:InvokeFunction` (the
+    // underlying invoke permission the Function URL service calls on your
+    // behalf). Confirmed against the Lambda console's own diagnostic
+    // banner: "Your function URL auth type is NONE, but is missing
+    // permissions required for public access... create a resource-based
+    // policy that grants lambda:invokeFunction AND lambda:invokeFunctionUrl
+    // permissions." AddPermission only accepts ONE Action per call — there
+    // is no way to grant both in a single statement — so this is two
+    // separate calls with two separate StatementIds, not one call with a
+    // list.
+    const publicInvokePermissions: Array<{ statementId: string; action: string }> = [
+      { statementId: 'PublicFunctionUrlInvoke', action: 'lambda:InvokeFunctionUrl' },
+      { statementId: 'PublicInvokeFunction', action: 'lambda:InvokeFunction' },
+    ];
+
+    for (const { statementId, action } of publicInvokePermissions) {
       try {
         await lambdaClient.send(
           new AddPermissionCommand({
             FunctionName: functionName,
-            StatementId: 'PublicFunctionUrlInvoke',
-            Action: 'lambda:InvokeFunctionUrl',
+            StatementId: statementId,
+            Action: action,
             Principal: '*',
+            // FunctionUrlAuthType is only a meaningful condition for the
+            // InvokeFunctionUrl statement — AWS accepts it being present
+            // on the plain InvokeFunction statement too (it's just an
+            // unused condition key there), so passing it unconditionally
+            // for both keeps this loop simple rather than special-casing
+            // one iteration.
             FunctionUrlAuthType: 'NONE',
           })
         );
