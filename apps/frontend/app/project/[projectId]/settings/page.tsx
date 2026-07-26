@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
-import { createDeployment, deleteProject, updateProject } from "@/lib/dashboard-api";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
+import { createDeployment, deleteProject, listRepoBranches, updateProject } from "@/lib/dashboard-api";
+import type { RepoBranch } from "@/lib/dashboard-types";
 import { Button } from "@/components/ui/Button";
 import { useProject } from "@/lib/project-context";
 import { ConfirmModal } from "@/components/dashboard/ConfirmModal";
@@ -73,6 +74,36 @@ export default function ProjectSettingsPage() {
   const [savingGit, setSavingGit] = useState(false);
   const [savedGit, setSavedGit] = useState(false);
   const [gitError, setGitError] = useState<string | null>(null);
+
+  // NEW — branches fetched directly from GitHub, so "Production Branch"
+  // is a dropdown of what actually exists on the repo rather than a free-text
+  // field the user could typo. Falls back to the existing text input if the
+  // list can't be fetched (repo not linked, GitHub call fails, etc.) so this
+  // panel never becomes unusable because of a GitHub hiccup.
+  const [branches, setBranches] = useState<RepoBranch[] | null>(null);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchesError, setBranchesError] = useState<string | null>(null);
+  const hasRequestedBranches = useRef(false);
+
+  useEffect(() => {
+    if (hasRequestedBranches.current || !project.repoFullName) return;
+    hasRequestedBranches.current = true;
+
+    setBranchesLoading(true);
+    listRepoBranches(project.repoFullName, project.defaultBranch)
+      .then(setBranches)
+      .catch((err) => setBranchesError(err instanceof Error ? err.message : "Failed to load branches"))
+      .finally(() => setBranchesLoading(false));
+  }, [project.repoFullName, project.defaultBranch]);
+
+  // The currently-saved branch is always selectable even if it's somehow
+  // missing from what GitHub returned (renamed/deleted upstream) — the
+  // dropdown shouldn't silently swap the project's stored branch just
+  // because the fetched list doesn't happen to include it.
+  const branchOptions =
+    branches && !branches.some((b) => b.name === defaultBranch)
+      ? [{ name: defaultBranch, isDefault: false }, ...branches]
+      : branches;
 
   // Danger zone
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -292,12 +323,40 @@ export default function ProjectSettingsPage() {
 
         <div>
           <label className="block text-xs font-medium text-zinc-400 mb-1.5">Production Branch</label>
-          <input
-            value={defaultBranch}
-            onChange={(e) => setDefaultBranch(e.target.value)}
-            required
-            className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
-          />
+
+          {branchOptions ? (
+            <select
+              value={defaultBranch}
+              onChange={(e) => setDefaultBranch(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
+            >
+              {branchOptions.map((b) => (
+                <option key={b.name} value={b.name}>
+                  {b.name}
+                  {b.isDefault ? " (default)" : ""}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="relative">
+              <input
+                value={defaultBranch}
+                onChange={(e) => setDefaultBranch(e.target.value)}
+                required
+                className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
+              />
+              {branchesLoading && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 animate-spin" />
+              )}
+            </div>
+          )}
+
+          {branchesError && (
+            <p className="text-xs text-amber-400/80 mt-1.5">
+              Couldn&apos;t fetch branches from GitHub — you can still type a branch name directly.
+            </p>
+          )}
+
           <p className="text-xs text-zinc-600 mt-1.5">
             Deploys of this branch are tagged Production; every other branch is tagged Preview.
           </p>

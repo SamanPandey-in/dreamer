@@ -1,2 +1,2 @@
 export { githubRepoRouter } from './github-repo.routes';
-export type { RepoEntry, UserRepoSummary } from './github-repo.service';
+export type { RepoBranch, RepoEntry, UserRepoSummary } from './github-repo.service';

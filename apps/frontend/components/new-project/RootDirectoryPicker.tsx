@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Folder, Loader2 } from "lucide-react";
-import { listGithubRepoContents } from "@/lib/dashboard-api";
-import type { RepoEntry } from "@/lib/dashboard-types";
+import { ChevronDown, ChevronRight, Folder, GitBranch, Loader2 } from "lucide-react";
+import { listGithubRepoContents, listRepoBranches } from "@/lib/dashboard-api";
+import type { RepoBranch, RepoEntry } from "@/lib/dashboard-types";
 import { Button } from "@/components/ui/Button";
 
 interface DirectoryNode {
@@ -124,8 +124,12 @@ export function RootDirectoryPicker({
   onCancel,
 }: {
   repoFullName: string;
+  /** The repo's actual default branch (from GitHub) — used to flag which
+   * option in the branch dropdown is "(default)" and as the initial
+   * selection, but the branch the user ends up building from is whatever
+   * they pick, not necessarily this one. */
   branch: string;
-  onContinue: (rootDirectory: string) => void;
+  onContinue: (rootDirectory: string, branch: string) => void;
   onCancel: () => void;
 }) {
   const [roots, setRoots] = useState<DirectoryNode[] | null>(null);
@@ -135,11 +139,21 @@ export function RootDirectoryPicker({
   // requiring the user to explicitly pick the top level first.
   const [selectedPath, setSelectedPath] = useState("");
 
-  const hasRequestedRoot = useRef(false);
+  // NEW — which branch to deploy. Starts on the repo's default branch and
+  // is fetched directly from GitHub so the user can pick any branch that
+  // actually exists, not just type one in.
+  const [selectedBranch, setSelectedBranch] = useState(branch);
+  const [branches, setBranches] = useState<RepoBranch[] | null>(null);
+  const [branchesError, setBranchesError] = useState<string | null>(null);
+  const [branchesLoading, setBranchesLoading] = useState(true);
 
-  async function loadRoot() {
+  const hasRequestedRoot = useRef(false);
+  const hasRequestedBranches = useRef(false);
+
+  async function loadRoot(forBranch: string) {
+    setRootError(null);
     try {
-      const entries = await listGithubRepoContents(repoFullName, branch, "");
+      const entries = await listGithubRepoContents(repoFullName, forBranch, "");
       setRoots(
         entries
           .filter((e) => e.type === "dir")
@@ -157,9 +171,30 @@ export function RootDirectoryPicker({
   useEffect(() => {
     if (hasRequestedRoot.current) return;
     hasRequestedRoot.current = true;
-    loadRoot();
+    loadRoot(branch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (hasRequestedBranches.current) return;
+    hasRequestedBranches.current = true;
+    listRepoBranches(repoFullName, branch)
+      .then(setBranches)
+      .catch((err) => setBranchesError(err instanceof Error ? err.message : "Failed to load branches"))
+      .finally(() => setBranchesLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Switching branches re-fetches the root listing for the new ref and
+  // resets any selected/expanded folder state — a path selected on one
+  // branch isn't guaranteed to exist on another.
+  function handleBranchChange(nextBranch: string) {
+    if (nextBranch === selectedBranch) return;
+    setSelectedBranch(nextBranch);
+    setSelectedPath("");
+    setRoots(null);
+    loadRoot(nextBranch);
+  }
 
   async function toggleNode(path: string) {
     function findNode(nodes: DirectoryNode[]): DirectoryNode | null {
@@ -192,7 +227,7 @@ export function RootDirectoryPicker({
     setRoots((prev) => prev && updateNodeByPath(prev, path, (n) => ({ ...n, loading: true, error: null })));
 
     try {
-      const entries = await listGithubRepoContents(repoFullName, branch, path);
+      const entries = await listGithubRepoContents(repoFullName, selectedBranch, path);
       const children: DirectoryNode[] = entries
         .filter((e) => e.type === "dir")
         .map((entry) => ({ entry, expanded: false, loading: false, error: null, children: null }));
@@ -213,10 +248,40 @@ export function RootDirectoryPicker({
       <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col">
         <div className="px-6 pt-6 pb-4 border-b border-zinc-800">
           <h2 className="text-xl font-bold mb-2">Root Directory</h2>
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-zinc-400 mb-4">
             Select the directory containing your source code. For monorepos, create a separate project
             for each directory you want to deploy.
           </p>
+
+          <label className="block text-xs font-medium text-zinc-400 mb-1.5">Branch to Deploy</label>
+          <div className="relative">
+            <GitBranch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+            <select
+              value={selectedBranch}
+              onChange={(e) => handleBranchChange(e.target.value)}
+              disabled={branchesLoading || !branches}
+              className="w-full pl-8 pr-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm font-mono focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {branches
+                ? branches.map((b) => (
+                    <option key={b.name} value={b.name}>
+                      {b.name}
+                      {b.isDefault ? " (default)" : ""}
+                    </option>
+                  ))
+                : (
+                    <option value={selectedBranch}>{selectedBranch}</option>
+                  )}
+            </select>
+            {branchesLoading && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 animate-spin" />
+            )}
+          </div>
+          {branchesError && (
+            <p className="text-xs text-amber-400/80 mt-1.5">
+              Couldn&apos;t fetch branches from GitHub — deploying from &quot;{selectedBranch}&quot;.
+            </p>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto py-2">
@@ -269,7 +334,7 @@ export function RootDirectoryPicker({
           <Button variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={() => onContinue(selectedPath)} disabled={!roots}>
+          <Button variant="primary" onClick={() => onContinue(selectedPath, selectedBranch)} disabled={!roots}>
             Continue
           </Button>
         </div>
