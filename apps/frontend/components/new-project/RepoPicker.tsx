@@ -67,30 +67,42 @@ function PublicRepoSearch({ onSelect }: { onSelect: (repo: UserRepoSummary) => v
   const [results, setResults] = useState<UserRepoSummary[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasValidQuery = query.trim().length >= 2;
+  const visibleResults = hasValidQuery ? results : null;
+  const visibleError = hasValidQuery ? error : null;
+  const isSearching = hasValidQuery && searching;
 
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setResults(null);
-      setError(null);
-      setSearching(false);
       return;
     }
 
-    setSearching(true);
-    setError(null);
-
+    let cancelled = false;
     const timer = setTimeout(() => {
+      if (cancelled) return;
+
+      setSearching(true);
+      setError(null);
+
       searchPublicRepos(normalizeRepoInput(trimmed))
-        .then((repos) => setResults(repos))
+        .then((repos) => {
+          if (!cancelled) setResults(repos);
+        })
         .catch((err) => {
+          if (cancelled) return;
           setError(err instanceof Error ? err.message : "Failed to search GitHub");
           setResults(null);
         })
-        .finally(() => setSearching(false));
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
     }, 400);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [query]);
 
   return (
@@ -103,25 +115,25 @@ function PublicRepoSearch({ onSelect }: { onSelect: (repo: UserRepoSummary) => v
           placeholder="any other publicly available Github repo"
           className="w-full pl-9 pr-9 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
         />
-        {searching && (
+        {isSearching && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 animate-spin" />
         )}
       </div>
 
-      {error && (
+      {visibleError && (
         <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-3">
-          {error}
+          {visibleError}
         </p>
       )}
 
-      {results && (
+      {visibleResults && (
         <div className="border border-zinc-800 rounded-xl divide-y divide-zinc-800 overflow-hidden mb-1">
-          {results.length === 0 ? (
+          {visibleResults.length === 0 ? (
             <p className="text-sm text-zinc-500 px-4 py-6 text-center">
               No public repositories match &quot;{query.trim()}&quot;
             </p>
           ) : (
-            results.map((repo) => <RepoRow key={repo.fullName} repo={repo} onSelect={onSelect} />)
+            visibleResults.map((repo) => <RepoRow key={repo.fullName} repo={repo} onSelect={onSelect} />)
           )}
         </div>
       )}
