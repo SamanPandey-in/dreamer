@@ -12,8 +12,16 @@ import { NewProjectEnvVarsForm, type StagedEnvVar } from "@/components/new-proje
 type WizardStep =
   | { name: "pick-repo" }
   | { name: "pick-root-directory"; repo: UserRepoSummary }
-  | { name: "configure-build"; repo: UserRepoSummary; rootDirectory: string }
-  | { name: "env-vars-and-deploy"; repo: UserRepoSummary; rootDirectory: string; buildConfig: BuildConfigValues };
+  // NEW — `branch` carries whatever the user picked in the Root Directory
+  // step's branch dropdown, which may differ from repo.defaultBranch.
+  | { name: "configure-build"; repo: UserRepoSummary; rootDirectory: string; branch: string }
+  | {
+      name: "env-vars-and-deploy";
+      repo: UserRepoSummary;
+      rootDirectory: string;
+      buildConfig: BuildConfigValues;
+      branch: string;
+    };
 
 /**
  * Builds the same https://github.com/owner/repo URL shape createProject's
@@ -34,7 +42,7 @@ export default function NewProjectPage() {
 
   async function handleDeploy(envVars: StagedEnvVar[]) {
     if (step.name !== "env-vars-and-deploy") return;
-    const { repo, rootDirectory, buildConfig } = step;
+    const { repo, rootDirectory, buildConfig, branch } = step;
 
     setDeploying(true);
     setDeployError(null);
@@ -43,10 +51,13 @@ export default function NewProjectPage() {
       // 1. Create the project with the resolved build config — see
       // createProjectSchema on the API for why every one of these fields
       // is accepted at creation time now, not just from Settings afterward.
+      // defaultBranch is the branch the user picked in the Root Directory
+      // step — not necessarily repo.defaultBranch — since that's the branch
+      // this project should actually build and deploy from.
       const project = await createProject({
         name: buildConfig.projectName,
         repoUrl: repoUrlFromFullName(repo.fullName),
-        defaultBranch: repo.defaultBranch,
+        defaultBranch: branch,
         isPrivate: repo.isPrivate,
         rootDirectory: rootDirectory || undefined,
         buildCommand: buildConfig.buildCommand || undefined,
@@ -89,8 +100,8 @@ export default function NewProjectPage() {
           repoFullName={step.repo.fullName}
           branch={step.repo.defaultBranch}
           onCancel={() => setStep({ name: "pick-repo" })}
-          onContinue={(rootDirectory) =>
-            setStep({ name: "configure-build", repo: step.repo, rootDirectory })
+          onContinue={(rootDirectory, branch) =>
+            setStep({ name: "configure-build", repo: step.repo, rootDirectory, branch })
           }
         />
       );
@@ -100,7 +111,7 @@ export default function NewProjectPage() {
         <BuildConfigForm
           repoFullName={step.repo.fullName}
           repoName={step.repo.name}
-          branch={step.repo.defaultBranch}
+          branch={step.branch}
           rootDirectory={step.rootDirectory}
           onBack={() => setStep({ name: "pick-root-directory", repo: step.repo })}
           onContinue={(buildConfig) =>
@@ -109,6 +120,7 @@ export default function NewProjectPage() {
               repo: step.repo,
               rootDirectory: step.rootDirectory,
               buildConfig,
+              branch: step.branch,
             })
           }
         />
@@ -120,7 +132,12 @@ export default function NewProjectPage() {
           deploying={deploying}
           error={deployError}
           onBack={() =>
-            setStep({ name: "configure-build", repo: step.repo, rootDirectory: step.rootDirectory })
+            setStep({
+              name: "configure-build",
+              repo: step.repo,
+              rootDirectory: step.rootDirectory,
+              branch: step.branch,
+            })
           }
           onDeploy={handleDeploy}
         />

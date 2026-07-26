@@ -112,6 +112,115 @@ export async function listUserRepos(accessToken: string): Promise<UserRepoSummar
   return results;
 }
 
+interface GithubSearchRepoApiResponse {
+  items: GithubUserRepoApiEntry[];
+}
+
+/**
+ * Searches GitHub's public repositories for the wizard's "any other publicly
+ * available GitHub repo" search bar — deliberately a SEPARATE endpoint from
+ * listUserRepos rather than a client-side filter, since this needs to reach
+ * repos the caller doesn't own or collaborate on, which /user/repos never
+ * returns regardless of query.
+ *
+ * Forces `is:public` onto the query so a private repo the caller happens to
+ * have access to (and that would otherwise match by name) never surfaces
+ * here — this search bar is exclusively for public repos; a private repo
+ * the user owns already has its own row in the "Your Repositories" list.
+ *
+ * Capped at one page (PER_PAGE results) — this is a "find the repo you're
+ * looking for" search box, not a paginated browse; GitHub's own relevance
+ * ranking (the default `sort`) puts the most likely match within the first
+ * screen almost always.
+ */
+export async function searchPublicRepos(accessToken: string, query: string): Promise<UserRepoSummary[]> {
+  const PER_PAGE = 20;
+  const q = `${query} in:name is:public`;
+
+  const res = await fetch(
+    `${GITHUB_API_BASE}/search/repositories?q=${encodeURIComponent(q)}&per_page=${PER_PAGE}`,
+    { headers: githubHeaders(accessToken) }
+  );
+
+  if (!res.ok) {
+    throw new BadRequestError('Could not search GitHub repositories', 'GITHUB_SEARCH_REPOS_FAILED');
+  }
+
+  const data = (await res.json()) as GithubSearchRepoApiResponse;
+
+  return data.items.map((repo) => ({
+    fullName: repo.full_name,
+    name: repo.name,
+    defaultBranch: repo.default_branch,
+    isPrivate: repo.private,
+    updatedAt: repo.updated_at,
+  }));
+}
+
+interface GithubBranchApiEntry {
+  name: string;
+  commit: { sha: string };
+  protected: boolean;
+}
+
+/**
+ * Mirrors the subset of a GitHub branch we surface — used by both the
+ * new-project wizard's branch picker and the project-settings "Production
+ * Branch" dropdown, so a repo's branch list is fetched the same way and in
+ * the same shape regardless of which screen asked for it.
+ */
+export interface RepoBranch {
+  name: string;
+  isDefault: boolean;
+}
+
+/**
+ * Lists a repo's branches — GitHub doesn't sort branches by activity the way
+ * it does repos/PRs, so this returns whatever order the API gives
+ * (alphabetical in practice) with the repo's default branch flagged so
+ * callers can float it to the top of a dropdown instead of leaving it
+ * wherever it happens to sort.
+ *
+ * Capped at one page like searchPublicRepos — a branch picker for a repo
+ * with 100+ branches is a rare enough case that "show the first 100,
+ * default branch included" is a reasonable limit rather than something
+ * worth paginating.
+ */
+export async function listBranches(
+  accessToken: string,
+  repoFullName: string,
+  defaultBranch: string
+): Promise<RepoBranch[]> {
+  const PER_PAGE = 100;
+  const res = await fetch(
+    `${GITHUB_API_BASE}/repos/${repoFullName}/branches?per_page=${PER_PAGE}`,
+    { headers: githubHeaders(accessToken) }
+  );
+
+  if (res.status === 404) {
+    throw new BadRequestError(
+      `Could not find repository "${repoFullName}" — check that it exists and your GitHub connection has access to it`,
+      'GITHUB_REPO_NOT_FOUND'
+    );
+  }
+
+  if (!res.ok) {
+    throw new BadRequestError('Could not list branches for this repository', 'GITHUB_LIST_BRANCHES_FAILED');
+  }
+
+  const data = (await res.json()) as GithubBranchApiEntry[];
+
+  return data
+    .map((branch) => ({ name: branch.name, isDefault: branch.name === defaultBranch }))
+    .sort((a, b) => {
+      // Default branch first, then alphabetical — matches the same
+      // "put the obvious choice at the top" convention listRepoDirectory
+      // already uses for directories-before-files.
+      if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+}
+
 /**
  * Lists the immediate children of a directory in a repo at a given ref —
  * used by the new-project wizard's root-directory picker (lazy: one call per

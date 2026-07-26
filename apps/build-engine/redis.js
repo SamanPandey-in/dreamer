@@ -25,9 +25,20 @@ function publishCommitInfo(commitInfo) {
     publisher.publish(CHANNEL, JSON.stringify({ type: 'commit_info', ...commitInfo }))
 }
 
+// NEW — a distinct message type, not folded into a status event: this is
+// the DYNAMIC hand-off point. api-server's log-relay.ts routes this to
+// deployment.service.ts's handleImageReady(), which is what actually
+// creates/updates the Lambda function — see that file's comment on why
+// this happens in api-server and not here (build-engine's own IAM role only
+// ever needed ECR push permissions, never Lambda permissions).
+function publishImageReady(imageInfo) {
+    publisher.publish(CHANNEL, JSON.stringify({ type: 'image_ready', ...imageInfo }))
+}
+
 module.exports = {
     publishLog,
     publishStatus,
     publishCommitInfo,
+    publishImageReady,
     publisher
 }

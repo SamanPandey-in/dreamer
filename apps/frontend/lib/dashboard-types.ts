@@ -171,6 +171,12 @@ export interface UserRepoSummary {
   updatedAt: string;
 }
 
+// Mirrors RepoBranch from the API's src/integrations/github-repo.service.ts.
+export interface RepoBranch {
+  name: string;
+  isDefault: boolean;
+}
+
 // Mirrors FrameworkPresetId from the API's src/build-config/framework-presets.ts.
 // Kept as a plain string union here (not imported — the frontend has no
 // access to the API's TS source) so adding a new preset on the backend

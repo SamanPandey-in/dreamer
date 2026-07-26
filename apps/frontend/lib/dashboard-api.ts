@@ -11,6 +11,7 @@ import type {
   Project,
   ProjectWithLatestDeployment,
   PublicFrameworkPreset, // NEW
+  RepoBranch, // NEW
   RepoEntry, // NEW
   UserRepoSummary, // NEW
 } from "./dashboard-types";
@@ -131,6 +132,30 @@ export async function listGithubRepoContents(
   const res = await apiFetch(`/api/github/repo-contents?${params}`);
   const data = await parseJson<{ entries: RepoEntry[] }>(res);
   return data.entries;
+}
+
+/**
+ * Searches public GitHub repos by name — backs the wizard's "any other
+ * publicly available GitHub repo" search bar, which sits above the "Your
+ * Repositories" list and follows the same fullName-based selection flow
+ * once a result is chosen.
+ */
+export async function searchPublicRepos(query: string): Promise<UserRepoSummary[]> {
+  const params = new URLSearchParams({ query });
+  const res = await apiFetch(`/api/github/public-repos?${params}`);
+  const data = await parseJson<{ repos: UserRepoSummary[] }>(res);
+  return data.repos;
+}
+
+/**
+ * Lists a repo's branches, default branch flagged — shared by the wizard's
+ * branch picker and the project-settings "Production Branch" dropdown.
+ */
+export async function listRepoBranches(repoFullName: string, defaultBranch: string): Promise<RepoBranch[]> {
+  const params = new URLSearchParams({ repoFullName, defaultBranch });
+  const res = await apiFetch(`/api/github/branches?${params}`);
+  const data = await parseJson<{ branches: RepoBranch[] }>(res);
+  return data.branches;
 }
 
 /**
