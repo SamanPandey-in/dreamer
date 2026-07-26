@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Zap, ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { GithubIcon } from "../../components/icons";
 import { useAuth } from "../providers";
 
@@ -41,9 +41,7 @@ export default function RegisterPage() {
       <div style={{ width: "100%", maxWidth: "24rem" }}>
         <div className="flex flex-col items-center mb-8">
           <Link href="/" className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
+            <img src="/logo-dark.svg" alt="Dreamer" className="w-8 h-8" />
             <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-indigo-200">
               Dreamer
             </span>

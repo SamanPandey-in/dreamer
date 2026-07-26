@@ -2,3 +2,5 @@
 node_modules
 skills-lock.json
 .env
+.env.deploy
+certbot/

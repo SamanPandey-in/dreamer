@@ -67,6 +67,7 @@ export const metadata: Metadata = {
     images: ["/og.png"],
     creator: "@SamanPandey",
   },
+  icons: [{ rel: "icon", url: "/logo-dark.svg", type: "image/svg+xml" }],
   robots: {
     index: true,
     follow: true,

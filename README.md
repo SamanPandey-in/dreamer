@@ -10,6 +10,9 @@
 ██████╔╝██║  ██║███████╗██║  ██║██║ ╚═╝ ██║███████╗██║  ██║
 ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝
 ```
+<p align="center">
+  <img src="apps/frontend/public/logo-dark.svg" alt="Dreamer Logo" width="150">
+</p>
 
 **A self-hosted PaaS that deploys any GitHub repo in under 3 minutes.**  
 Static sites, SSR apps, and Node servers — on AWS or your own machine.
@@ -25,7 +28,7 @@ Static sites, SSR apps, and Node servers — on AWS or your own machine.
 
 <br />
 
-[**Live Demo**](https://dreamer.yourdomain.com) · [**Architecture Docs**](#architecture) · [**Self-Host Guide**](#self-hosting)
+[**Walkthrough Video**](https://drive.google.com/file/d/1jHGQnt4hf-lu4mkSWboDuhPpi8_1WSUw/view?usp=sharing) · [**Live Link**](https://dreamer.samanp.xyz) · [**Architecture Docs**](#architecture) · [**Self-Host Guide**](#self-hosting)
 
 <br />
 
@@ -45,6 +48,11 @@ This is not a tutorial project with renamed variables. It handles the problems t
 
 ## Architecture
 
+<img src="./docs/architecture/Dreamer-Architecture.svg" alt="Dreamer Architecture" width="100%">
+
+#### Explained in more detail in [docs](./docs/)
+
+**Mermaid Diagram:**
 ```
                         ┌─────────────────────────────────────────────┐
                         │              User Request                    │
@@ -226,6 +234,14 @@ dreamer/
 
 ## Self-Hosting
 
+**Fastest path:** `sudo ./scripts/install.sh --domain yourdomain.com` on a fresh
+VPS/EC2 box does everything below automatically — Docker, secrets, a wildcard TLS
+cert, and the full stack via `docker-compose.prod.yml`, with no managed cloud
+Postgres/Redis required. See [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md).
+
+The manual steps below are what that script is actually doing under the hood —
+useful if you want to understand or customize the setup rather than just run it.
+
 ### Prerequisites
 
 - AWS account with ECS, ECR, S3, ALB, Route53 access
@@ -249,7 +265,7 @@ cp apps/reverse-proxy/.env.example apps/reverse-proxy/.env
 cp apps/frontend/.env.example apps/frontend/.env.local
 ```
 
-Fill in your AWS credentials, region, ECS cluster ARN, ECR registry URL, S3 bucket name, ALB listener ARN, and base domain. Generate secrets:
+Fill in your AWS credentials, region, ECS cluster ARN, ECR registry URL, S3 bucket name and base domain. Generate secrets:
 
 ```bash
 # JWT secrets (run twice for two different values)

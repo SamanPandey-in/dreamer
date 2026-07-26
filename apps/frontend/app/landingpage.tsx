@@ -9,7 +9,6 @@ import {
   Check,
   Copy,
   Server,
-  Zap,
   Database,
   Lock,
   Cpu,
@@ -137,9 +136,7 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <Zap className="w-4 h-4 text-white animate-pulse" />
-            </div>
+            <img src="/logo-dark.svg" alt="Dreamer" className="w-8 h-8" />
             <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-indigo-200">
               Dreamer
             </span>
@@ -244,7 +241,6 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mb-6 inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/35 bg-blue-500/10 text-blue-300 text-xs font-medium tracking-wide shadow-inner shadow-blue-500/10"
           >
-            <Zap className="w-3.5 h-3.5 text-blue-400" />
             <span>Open Source PaaS Engine</span>
           </motion.div>
 
@@ -980,9 +976,7 @@ pnpm dev`}</code>
       <footer className="border-t border-zinc-900 bg-black py-12 text-center text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center">
-              <Zap className="w-3 h-3 text-white" />
-            </div>
+            <img src="/logo-dark.svg" alt="" className="w-6 h-6" />
             <span className="font-bold text-white">Dreamer PaaS</span>
           </div>
 

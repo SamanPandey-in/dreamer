@@ -1,0 +1,18 @@
+{
+  "name": "dreamer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently -n api,front,proxy -c blue,green,yellow \"npm -C apps/api-server run dev\" \"npm -C apps/frontend run dev\" \"npm -C apps/reverse-proxy run dev\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Saman Pandey",
+  "github-url": "SamanPandey-in/dreamer",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "concurrently": "^10.0.4"
+  }
+}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Monitor, Plus, Settings, Zap } from "lucide-react";
+import { LogOut, Monitor, Plus, Settings } from "lucide-react";
 import { useAuth } from "../../app/providers";
 import * as authApi from "../../lib/auth";
 import { Button } from "../ui/Button";
@@ -31,9 +31,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <header className="border-b border-white/10 sticky top-0 bg-black/80 backdrop-blur-md z-20">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center">
-              <Zap className="w-3.5 h-3.5 text-black" />
-            </div>
+            <img src="/logo-dark.svg" alt="Dreamer" className="w-6 h-6" />
             <span className="text-sm font-semibold tracking-tight">Dreamer</span>
           </Link>
 
