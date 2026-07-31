@@ -5,6 +5,7 @@
   --foreground: #f4f4f5;
   --accent: #0091ff;
   --accent-glow: rgba(0, 145, 255, 0.15);
+  --border: #27272a;
 }
 
 @theme inline {
@@ -12,6 +13,7 @@
   --color-foreground: var(--foreground);
   --color-accent: var(--accent);
   --color-accent-glow: var(--accent-glow);
+  --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

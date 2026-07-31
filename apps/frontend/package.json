@@ -1,6 +1,6 @@
 {
   "name": "dreamer",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,13 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@paper-design/shaders-react": "^0.0.76",
+    "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
+    "github-slugger": "^2.0.0",
     "lucide-react": "^1.20.0",
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "socket.io-client": "^4.8.3"
+    "react-markdown": "^10.1.0",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "socket.io-client": "^4.8.3",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

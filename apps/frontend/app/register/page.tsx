@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -41,7 +42,7 @@ export default function RegisterPage() {
       <div style={{ width: "100%", maxWidth: "24rem" }}>
         <div className="flex flex-col items-center mb-8">
           <Link href="/" className="flex items-center gap-3 mb-6">
-            <img src="/logo-dark.svg" alt="Dreamer" className="w-8 h-8" />
+            <Image src="/logo-dark.svg" alt="Dreamer" width={32} height={32} className="w-8 h-8" />
             <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-indigo-200">
               Dreamer
             </span>

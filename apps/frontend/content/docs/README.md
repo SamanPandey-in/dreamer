@@ -34,18 +34,13 @@ If you're new to the codebase, read these in order:
      Kaniko, ECR, Lambda, Function URLs.
 6. **[reverse-proxy](./reverse-proxy/README.md)** — the single ingress point
    for every deployed app, request by request.
-   - **[Wildcard Domains](./reverse-proxy/wildcard-domains.md)** — the two
-     different kinds of wildcard TLS, and how each is actually obtained
-     (managed host vs. self-hosted VPS).
 
 ## Other references
 
 - **[Self-Hosting Guide](./SELF-HOSTING.md)** — running the Dreamer
   platform itself on a VPS/EC2 box.
-- **[AWS Console Setup Guide](./AWS-Console-Setup-Guide.md)** — the full AWS
-  side, in order: IAM user, S3, and ECS for STATIC deployments first, then
-  ECR/Lambda for DYNAMIC (SSR) support. Start here if you're bootstrapping
-  the project from nothing.
+- **[AWS Console Setup Guide](./AWS-Console-Setup-Guide.md)** — provisioning
+  the AWS side (ECR, Lambda IAM) that dynamic deployments need.
 - **[How I Built SSR Engine](./Implementation_docs/DEPLOYMENTS/HOW_I_BUILT_SSR_ENGINE.md)** — the build log for the
   Lambda-based SSR runtime specifically, written step-by-step as it was
   built, including the real debugging trail.
