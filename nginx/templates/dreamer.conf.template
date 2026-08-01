@@ -39,14 +39,14 @@ server {
 }
 
 # --- api-server: REST API + Socket.IO realtime gateway -------------------
-# One hostname, split by PATH — api-server actually runs two listeners in
-# the same process (see apps/api-server/src/realtime/index.ts: Express on
-# 8000, a separate Socket.IO server on 9002). Rather than needing a FOURTH
-# hostname just for sockets, Socket.IO's client defaults to requesting
-# path /socket.io/ on whatever host you point it at — so
-# NEXT_PUBLIC_SOCKET_URL and NEXT_PUBLIC_API_BASE_URL can be the exact
-# same URL (https://api.${DOMAIN}), and this one server block routes each
-# request to the right upstream PORT based on that path alone.
+# api-server now serves BOTH REST and Socket.IO from the SAME listener on
+# port 8000 (see apps/api-server/src/index.ts and
+# src/realtime/socket.server.ts) — Socket.IO intercepts requests under its
+# own /socket.io/ path before they reach Express's router. That means one
+# location block for everything, proxying to one upstream port; no more
+# splitting by path to two different ports the way this file used to.
+# NEXT_PUBLIC_SOCKET_URL and NEXT_PUBLIC_API_BASE_URL can be — and now
+# should be — the exact same URL (https://api.${DOMAIN}).
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
@@ -55,24 +55,14 @@ server {
     ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
 
-    location /socket.io/ {
-        proxy_pass http://api-server:9002;
-        proxy_http_version 1.1;
-        # Required for the WebSocket upgrade handshake — without these
-        # two headers this location falls back to Socket.IO's HTTP
-        # long-polling transport only, which still technically works but
-        # defeats the point of a persistent realtime connection for
-        # streaming build logs.
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
     location / {
         proxy_pass http://api-server:8000;
+        proxy_http_version 1.1;
+        # Required for Socket.IO's WebSocket upgrade under /socket.io/ —
+        # harmless no-ops for ordinary REST requests, so one location block
+        # can serve both instead of splitting by path.
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

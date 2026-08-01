@@ -1,3 +1,4 @@
+import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import { verifyAccessToken } from '../auth/auth.tokens';
 import { assertDeploymentOwnership } from '../deployments/deployment.service'; // concrete file — see §3.6 DASHBOARD_BACKEND_IMPL.md
@@ -13,14 +14,25 @@ export function roomFor(deploymentId: string): string {
 
 /**
  * One Socket.IO server for the whole process, created once and handed to
- * log-relay.ts below — the only thing that ever emits through it. Stays on
- * its own port (9002, matching the prototype's apps/frontend
- * `io("http://localhost:9002")` client in app/demo/page.tsx) rather than
- * attaching to the Express app's HTTP server, so a burst of build-log
- * traffic can never compete with API request handling on the same listener.
+ * log-relay.ts below — the only thing that ever emits through it.
+ *
+ * Attached to the SAME http.Server as the Express app (see src/index.ts),
+ * not given its own port. This used to listen on its own port (9002) —
+ * that only worked in local dev, where every port on localhost is directly
+ * reachable. Render (and most PaaS providers, and Vercel's own edge) only
+ * forward external traffic to ONE port per service: whatever's in the PORT
+ * env var. Port 9002 was simply never reachable from the internet once
+ * deployed, so the browser's socket.io-client sat there endlessly retrying
+ * a connection that could never succeed — every 'log'/'status' push was
+ * silently lost, and the only way to see current state was a hard reload
+ * (which goes through the REST API on the port that IS public). Sharing
+ * the HTTP server fixes this structurally: Socket.IO intercepts requests
+ * under its own `path` before they reach Express's router, so both HTTP
+ * REST calls and the WebSocket upgrade now go over the one port every
+ * platform actually exposes.
  */
-export function createSocketServer(): Server {
-  const io = new Server({ cors: { origin: env.FRONTEND_URL, credentials: true } });
+export function createSocketServer(httpServer: HttpServer): Server {
+  const io = new Server(httpServer, { cors: { origin: env.FRONTEND_URL, credentials: true } });
 
   // Auth happens ONCE, at connection time — not re-checked per event. A
   // socket that never presented a valid access token never even reaches the

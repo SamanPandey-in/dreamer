@@ -166,9 +166,10 @@ is still crash-looping on the GitHub OAuth placeholders (step 2 above).
 which.
 
 **Build logs / realtime updates don't show up on the deployment detail
-page, but the rest of the dashboard works fine** — check the
-`location /socket.io/` block actually reached `api-server:9002` and not
-`:8000` — `curl -I https://api.yourdomain.com/socket.io/` should come
-back with something other than a plain 404 HTML page. This is the one
-part of the nginx config where a typo is genuinely easy to make (two
-different ports, one hostname).
+page, but the rest of the dashboard works fine** — `curl -I
+https://api.yourdomain.com/socket.io/` should come back with something
+other than a plain 404 HTML page. api-server serves REST and Socket.IO
+from the same port (8000) now, so there's no second port to mis-route to
+— if this still 404s, check `NEXT_PUBLIC_SOCKET_URL` on the frontend
+actually points at `api.yourdomain.com` and not a stale `:9002` value
+left over from an old `.env`.

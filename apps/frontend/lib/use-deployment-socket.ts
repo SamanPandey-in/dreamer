@@ -16,9 +16,7 @@ interface UseDeploymentSocketOptions {
 /**
  * One socket per mounted log panel, joined to exactly one
  * `deployment:{id}` room — see api-server's src/realtime/socket.server.ts.
- * Mirrors the connect/subscribe pattern already proven out in
- * apps/frontend/app/demo/page.tsx, plus the access-token handshake that
- * page never needed (it predates auth entirely).
+ * Uses the access-token handshake for authentication.
  */
 export function useDeploymentSocket(deploymentId: string, { enabled, onLog, onStatus }: UseDeploymentSocketOptions) {
   const [connected, setConnected] = useState(false);

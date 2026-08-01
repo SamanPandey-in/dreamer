@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { authRouter, requireAuth } from './auth';
 import { buildConfigRouter } from './build-config';
@@ -16,7 +17,13 @@ export const app = express();
 // only that one hop (not `true`, which trusts the whole X-Forwarded-For
 // chain) is what lets req.ip resolve to the real visitor — and is what
 // express-rate-limit needs to key the abuse-prone auth routes correctly.
-app.set('trust proxy', true); // Trust the first proxy (e.g., load balancer) for correct client IP and secure cookie handling
+app.set('trust proxy', 1); // Trust exactly the first proxy hop (e.g., load balancer) for correct client IP and secure cookie handling
+
+// Baseline security headers (HSTS, X-Content-Type-Options, X-Frame-Options,
+// Referrer-Policy, etc). CSP is off — this app only ever returns JSON, never
+// HTML, so a content-security-policy header here restricts nothing and just
+// adds noise; the frontend app is the one that should carry a CSP.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // CORS must allow exactly ONE known origin (never '*') AND credentials: true,
 // or the browser silently refuses to send/receive the refresh cookie at all.
