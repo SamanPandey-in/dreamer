@@ -5,6 +5,7 @@ import * as authApi from "@/lib/auth";
 import { Button } from "@/components/ui/Button";
 import type { AuthSession } from "@/lib/auth";
 import { SessionRow } from "@/components/dashboard/SessionRow";
+import { describeApiError } from "@/lib/dashboard-api";
 
 export default function AccountPage() {
   const [sessions, setSessions] = useState<AuthSession[] | null>(null);
@@ -21,7 +22,7 @@ export default function AccountPage() {
     authApi
       .listSessions()
       .then(setSessions)
-      .catch((err) => setSessionsError(err instanceof Error ? err.message : "Failed to load sessions"));
+      .catch((err) => setSessionsError(describeApiError(err, "Failed to load sessions")));
   }, []);
 
   async function handleRevoke(sessionId: string) {
@@ -45,7 +46,7 @@ export default function AccountPage() {
       setPasswordSaved(true);
       setTimeout(() => setPasswordSaved(false), 2000);
     } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : "Failed to change password. Please try again.");
+      setPasswordError(describeApiError(err, "Failed to change password. Please try again."));
     } finally {
       setSavingPassword(false);
     }

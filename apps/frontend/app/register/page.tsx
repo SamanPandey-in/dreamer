@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { GithubIcon } from "../../components/icons";
 import { useAuth } from "../providers";
+import { describeApiError } from "@/lib/dashboard-api";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function RegisterPage() {
       await register(name, email, password);
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(describeApiError(err, "Something went wrong. Please try again."));
     } finally {
       setSubmitting(false);
     }

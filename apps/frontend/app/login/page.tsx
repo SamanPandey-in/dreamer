@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { GithubIcon } from "../../components/icons";
 import { useAuth } from "../providers";
+import { describeApiError } from "@/lib/dashboard-api";
 
 const ERROR_MESSAGES: Record<string, string> = {
   github_state_mismatch: "Your GitHub sign-in session expired before it could finish. Please try again.",
@@ -43,7 +44,7 @@ function LoginForm() {
       await login(email, password);
       router.push(redirectTo);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(describeApiError(err, "Something went wrong. Please try again."));
     } finally {
       setSubmitting(false);
     }

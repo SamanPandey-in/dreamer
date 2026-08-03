@@ -1,4 +1,6 @@
 import { apiFetch } from "./api-client";
+import { ApiError, extractRequestId } from "./api-error";
+export { ApiError, describeApiError } from "./api-error";
 import type {
   Deployment,
   DeploymentDetail,
@@ -16,25 +18,10 @@ import type {
   UserRepoSummary, // NEW
 } from "./dashboard-types";
 
-// NEW — carries the API's machine-readable error code (see
-// error-handler.middleware.ts's { error, code } response shape) as a
-// property on the thrown Error, rather than only the human-readable
-// message. Every existing catch site that does
-// `err instanceof Error ? err.message : ...` keeps working unchanged
-// (ApiError IS an Error); only new code that wants to branch on the
-// specific failure (the wizard's GITHUB_NOT_CONNECTED handling, e.g.)
-// needs to know this subclass exists.
-export class ApiError extends Error {
-  constructor(message: string, public readonly code: string | undefined) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
 async function parseJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new ApiError(data?.error ?? "Something went wrong. Please try again.", data?.code);
+    throw new ApiError(data?.error ?? "Something went wrong. Please try again.", data?.code, extractRequestId(data, res));
   }
   return data as T;
 }

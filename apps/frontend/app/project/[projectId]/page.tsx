@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GitBranch, Rocket } from "lucide-react";
-import { createDeployment, listDeployments } from "@/lib/dashboard-api";
+import { createDeployment, listDeployments, describeApiError } from "@/lib/dashboard-api";
 import { Button } from "@/components/ui/Button";
 import type { Deployment } from "@/lib/dashboard-types";
 import { useProject } from "@/lib/project-context";
@@ -21,7 +21,7 @@ export default function ProjectOverviewPage() {
   useEffect(() => {
     listDeployments(project.id, { limit: 10 })
       .then(({ deployments }) => setDeployments(deployments))
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load deployments"));
+      .catch((err) => setError(describeApiError(err, "Failed to load deployments")));
   }, [project.id]);
 
   async function handleDeploy() {
@@ -30,7 +30,7 @@ export default function ProjectOverviewPage() {
       const deployment = await createDeployment(project.id);
       router.push(`/project/${project.id}/deployments/${deployment.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start deployment");
+      setError(describeApiError(err, "Failed to start deployment"));
       setDeploying(false);
     }
   }

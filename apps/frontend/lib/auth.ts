@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "./config";
 import { apiFetch, setAccessToken } from "./api-client";
+import { ApiError, extractRequestId } from "./api-error";
 
 // Mirrors PublicUser from the API's src/auth/auth.types.ts — keep these in sync.
 export interface AuthUser {
@@ -20,7 +21,7 @@ async function parseAuthResponse(res: Response): Promise<AuthResponse> {
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {
-    throw new Error(data?.error ?? "Something went wrong. Please try again.");
+    throw new ApiError(data?.error ?? "Something went wrong. Please try again.", data?.code, extractRequestId(data, res));
   }
 
   return data as AuthResponse;
@@ -101,7 +102,7 @@ export interface AuthSession {
 export async function listSessions(): Promise<AuthSession[]> {
   const res = await apiFetch("/api/auth/sessions");
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error ?? "Failed to load sessions.");
+  if (!res.ok) throw new ApiError(data?.error ?? "Failed to load sessions.", data?.code, extractRequestId(data, res));
   return data.sessions;
 }
 
@@ -109,7 +110,7 @@ export async function revokeSession(sessionId: string): Promise<void> {
   const res = await apiFetch(`/api/auth/sessions/${sessionId}`, { method: "DELETE" });
   if (!res.ok) {
     const data = await res.json().catch(() => null);
-    throw new Error(data?.error ?? "Failed to revoke session.");
+    throw new ApiError(data?.error ?? "Failed to revoke session.", data?.code, extractRequestId(data, res));
   }
 }
 
@@ -126,6 +127,6 @@ export async function changePassword(input: ChangePasswordInput): Promise<void> 
   });
   if (!res.ok) {
     const data = await res.json().catch(() => null);
-    throw new Error(data?.error ?? "Failed to change password.");
+    throw new ApiError(data?.error ?? "Failed to change password.", data?.code, extractRequestId(data, res));
   }
 }

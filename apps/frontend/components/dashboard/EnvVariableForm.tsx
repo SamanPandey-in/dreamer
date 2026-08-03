@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { EnvironmentTarget, EnvVariable } from "@/lib/dashboard-types";
 import { Button } from "../ui/Button";
+import { describeApiError } from "@/lib/dashboard-api";
 
 const ALL_ENVIRONMENTS: EnvironmentTarget[] = ["PRODUCTION", "PREVIEW", "DEVELOPMENT"];
 
@@ -48,7 +49,7 @@ export function EnvVariableForm({
     try {
       await onSubmit({ key, value, environments, isSecret, description });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(describeApiError(err, "Something went wrong. Please try again."));
       setSubmitting(false);
     }
   }

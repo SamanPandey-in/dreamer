@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Pencil, Trash2 } from "lucide-react";
-import { createDeployment, deleteProject, listRepoBranches, updateProject } from "@/lib/dashboard-api";
+import { createDeployment, deleteProject, listRepoBranches, updateProject, describeApiError } from "@/lib/dashboard-api";
 import type { RepoBranch } from "@/lib/dashboard-types";
 import { Button } from "@/components/ui/Button";
 import { useProject } from "@/lib/project-context";
@@ -92,7 +92,7 @@ export default function ProjectSettingsPage() {
     setBranchesLoading(true);
     listRepoBranches(project.repoFullName, project.defaultBranch)
       .then(setBranches)
-      .catch((err) => setBranchesError(err instanceof Error ? err.message : "Failed to load branches"))
+      .catch((err) => setBranchesError(describeApiError(err, "Failed to load branches")))
       .finally(() => setBranchesLoading(false));
   }, [project.repoFullName, project.defaultBranch]);
 
@@ -118,7 +118,7 @@ export default function ProjectSettingsPage() {
       setSavedGeneral(true);
       setTimeout(() => setSavedGeneral(false), 2000);
     } catch (err) {
-      setGeneralError(err instanceof Error ? err.message : "Failed to save. Please try again.");
+      setGeneralError(describeApiError(err, "Failed to save. Please try again."));
     } finally {
       setSavingGeneral(false);
     }
@@ -153,7 +153,7 @@ export default function ProjectSettingsPage() {
         redeployTimerRef.current = null;
       }, 10000);
     } catch (err) {
-      setBuildError(err instanceof Error ? err.message : "Failed to save. Please try again.");
+      setBuildError(describeApiError(err, "Failed to save. Please try again."));
     } finally {
       setSavingBuild(false);
     }
@@ -181,7 +181,7 @@ export default function ProjectSettingsPage() {
       setSavedGit(true);
       setTimeout(() => setSavedGit(false), 2000);
     } catch (err) {
-      setGitError(err instanceof Error ? err.message : "Failed to save. Please try again.");
+      setGitError(describeApiError(err, "Failed to save. Please try again."));
     } finally {
       setSavingGit(false);
     }

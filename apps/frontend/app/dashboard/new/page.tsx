@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createDeployment, createEnvVariable, createProject } from "@/lib/dashboard-api";
+import { createDeployment, createEnvVariable, createProject, describeApiError } from "@/lib/dashboard-api";
 import type { UserRepoSummary } from "@/lib/dashboard-types";
 import { RepoPicker } from "@/components/new-project/RepoPicker";
 import { RootDirectoryPicker } from "@/components/new-project/RootDirectoryPicker";
@@ -85,7 +85,7 @@ export default function NewProjectPage() {
       const deployment = await createDeployment(project.id);
       router.push(`/project/${project.id}/deployments/${deployment.id}`);
     } catch (err) {
-      setDeployError(err instanceof Error ? err.message : "Failed to create project. Please try again.");
+      setDeployError(describeApiError(err, "Failed to create project. Please try again."));
       setDeploying(false);
     }
   }

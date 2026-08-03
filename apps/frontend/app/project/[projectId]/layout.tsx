@@ -9,7 +9,7 @@ import { useAuth } from "@/app/providers";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { ProjectTabs } from "@/components/dashboard/ProjectTabs";
 import { ProjectProvider } from "@/lib/project-context";
-import { getProject } from "@/lib/dashboard-api";
+import { getProject, describeApiError } from "@/lib/dashboard-api";
 import type { Project } from "@/lib/dashboard-types";
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
@@ -32,7 +32,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
       setProject(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load project");
+      setError(describeApiError(err, "Failed to load project"));
     }
   }, [projectId]);
 
@@ -49,7 +49,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
         }
       } catch (err) {
         if (!controller.signal.aborted) {
-          setError(err instanceof Error ? err.message : "Failed to load project");
+          setError(describeApiError(err, "Failed to load project"));
         }
       }
     })();

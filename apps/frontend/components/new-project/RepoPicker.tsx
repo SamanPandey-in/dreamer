@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Globe, GitBranch, Loader2, Lock, Search } from "lucide-react";
-import { listUserRepos, searchPublicRepos } from "@/lib/dashboard-api";
+import { listUserRepos, searchPublicRepos, describeApiError } from "@/lib/dashboard-api";
 import type { UserRepoSummary } from "@/lib/dashboard-types";
 import { Button } from "@/components/ui/Button";
 
@@ -91,7 +91,7 @@ function PublicRepoSearch({ onSelect }: { onSelect: (repo: UserRepoSummary) => v
         })
         .catch((err) => {
           if (cancelled) return;
-          setError(err instanceof Error ? err.message : "Failed to search GitHub");
+          setError(describeApiError(err, "Failed to search GitHub"));
           setResults(null);
         })
         .finally(() => {
@@ -149,7 +149,7 @@ export function RepoPicker({ onSelect }: { onSelect: (repo: UserRepoSummary) => 
   useEffect(() => {
     listUserRepos()
       .then(setRepos)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load your repositories"));
+      .catch((err) => setError(describeApiError(err, "Failed to load your repositories")));
   }, []);
 
   const filtered = repos?.filter((r) => r.name.toLowerCase().includes(query.toLowerCase())) ?? null;

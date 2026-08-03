@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { listProjects } from "@/lib/dashboard-api";
+import { listProjects, describeApiError } from "@/lib/dashboard-api";
 import type { ProjectWithLatestDeployment } from "@/lib/dashboard-types";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { EmptyProjectsState } from "@/components/dashboard/EmptyState";
@@ -13,7 +13,7 @@ export default function DashboardPage() {
   useEffect(() => {
     listProjects()
       .then(setProjects)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load projects"));
+      .catch((err) => setError(describeApiError(err, "Failed to load projects")));
   }, []);
 
   if (error) {
