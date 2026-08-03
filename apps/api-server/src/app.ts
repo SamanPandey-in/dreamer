@@ -8,6 +8,7 @@ import { deploymentsRouter } from './deployments';
 import { envVariablesRouter } from './env-variables';
 import { githubRepoRouter } from './integrations';
 import { errorHandlerMiddleware } from './middleware/error-handler.middleware';
+import { requestContextMiddleware } from './middleware/request-context.middleware';
 import { projectsRouter } from './projects';
 import { env } from './lib/env';
 
@@ -18,6 +19,10 @@ export const app = express();
 // chain) is what lets req.ip resolve to the real visitor — and is what
 // express-rate-limit needs to key the abuse-prone auth routes correctly.
 app.set('trust proxy', 1); // Trust exactly the first proxy hop (e.g., load balancer) for correct client IP and secure cookie handling
+
+// MUST be first — every downstream middleware/route/error-handler logs
+// inside this request's correlation-ID context (see lib/logger.ts).
+app.use(requestContextMiddleware);
 
 // Baseline security headers (HSTS, X-Content-Type-Options, X-Frame-Options,
 // Referrer-Policy, etc). CSP is off — this app only ever returns JSON, never
