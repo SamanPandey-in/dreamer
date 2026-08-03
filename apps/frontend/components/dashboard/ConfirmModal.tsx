@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "../ui/Button";
+import { describeApiError } from "@/lib/dashboard-api";
 
 interface ConfirmModalProps {
   title: string;
@@ -36,7 +37,7 @@ export function ConfirmModal({
     try {
       await onConfirm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(describeApiError(err, "Something went wrong. Please try again."));
       setSubmitting(false);
     }
   }

@@ -7,6 +7,7 @@ import { decryptFromColumn, decryptFromStorage } from '../lib/crypto';
 import { deleteS3Prefix } from '../lib/s3-client';
 import { assertProjectOwnership } from '../projects/project.service'; // concrete file, not the barrel — see §0.5
 import { deploymentEngine } from './deployment-engine';
+import { logger } from '../lib/logger';
 import type {
   CreateDeploymentInput,
   DeploymentDetail,
@@ -354,7 +355,7 @@ export async function stopDeployment(
       // call landed — proceed to mark the row STOPPED regardless; don't
       // leave it stuck mid-flight in the DB just because ECS's view and
       // ours raced.
-      console.error(`[STOP_DEPLOYMENT] ECS StopTask failed for ${deploymentId}:`, err);
+      logger.error('ECS StopTask failed', { deploymentId, err });
     }
   } else if (deployment.status === 'RUNNING') {
     // Whichever type this is, "stopping" a RUNNING deployment only makes
@@ -381,13 +382,13 @@ export async function stopDeployment(
           // Same reasoning as the BUILDING/UPLOADING/STARTING branch above:
           // don't leave the row stuck RUNNING in the DB just because AWS's
           // view and ours raced or the function was already gone.
-          console.error(`[STOP_DEPLOYMENT] Lambda teardown failed for ${deploymentId}:`, err);
+          logger.error('Lambda teardown failed', { deploymentId, err });
         }
       } else {
         try {
           await deleteS3Prefix(deployment.s3Prefix ?? `__outputs/${project.slug}/`);
         } catch (err) {
-          console.error(`[STOP_DEPLOYMENT] S3 cleanup failed for ${deploymentId}:`, err);
+          logger.error('S3 cleanup failed', { deploymentId, err });
         }
       }
       await prisma.project.update({ where: { id: deployment.projectId }, data: { activeDeploymentId: null } });

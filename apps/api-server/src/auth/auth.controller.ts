@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import crypto from 'node:crypto';
 import { env } from '../lib/env';
+import { logger } from '../lib/logger';
 import { UnauthorizedError } from '../lib/errors';
 import * as authService from './auth.service';
 import {
@@ -169,7 +170,7 @@ export async function githubCallbackHandler(req: Request, res: Response) {
     // into memory.
     return res.redirect(`${env.FRONTEND_URL}/auth/callback`);
   } catch (err) {
-    console.error('[GITHUB_OAUTH_ERROR]', err);
+    logger.error('GitHub OAuth callback failed', { err });
     return res.redirect(`${env.FRONTEND_URL}/login?error=github_auth_failed`);
   }
 }

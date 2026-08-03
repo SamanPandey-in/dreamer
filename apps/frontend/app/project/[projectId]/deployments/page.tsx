@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { listDeployments } from "@/lib/dashboard-api";
+import { listDeployments, describeApiError } from "@/lib/dashboard-api";
 import type { Deployment } from "@/lib/dashboard-types";
 import { useProject } from "@/lib/project-context";
 import { DeploymentFilterBar, type DeploymentFilters } from "@/components/dashboard/DeploymentFilterBar";
@@ -39,7 +39,7 @@ export default function DeploymentsListPage() {
         }
       })
       .catch((err) => {
-        if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Failed to load deployments");
+        if (!controller.signal.aborted) setError(describeApiError(err, "Failed to load deployments"));
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);

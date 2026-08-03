@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
-import { detectBuildConfig, listFrameworkPresets } from "@/lib/dashboard-api";
+import { detectBuildConfig, listFrameworkPresets, describeApiError } from "@/lib/dashboard-api";
 import type { DetectedBuildConfig, FrameworkPresetId, PublicFrameworkPreset } from "@/lib/dashboard-types";
 import { Button } from "@/components/ui/Button";
 
@@ -120,7 +120,7 @@ export function BuildConfigForm({
         setDetected(detectedConfig);
         setSelectedPresetId(detectedConfig.framework.id);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to detect project configuration"))
+      .catch((err) => setError(describeApiError(err, "Failed to detect project configuration")))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Copy, ExternalLink } from "lucide-react";
-import { getDeployment, getDeploymentLogs } from "@/lib/dashboard-api";
+import { getDeployment, getDeploymentLogs, describeApiError } from "@/lib/dashboard-api";
 import { TERMINAL_STATUSES } from "@/lib/dashboard-types";
 import type { DeploymentDetail, DeploymentStatus, LogLine } from "@/lib/dashboard-types";
 import { useDeploymentSocket } from "@/lib/use-deployment-socket";
@@ -26,7 +26,7 @@ export default function DeploymentDetailPage() {
         setDeployment(deploymentData);
         setLogs(logData);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load deployment"));
+      .catch((err) => setError(describeApiError(err, "Failed to load deployment")));
   }, [deploymentId]);
 
   const handleLog = useCallback((log: LogLine) => {

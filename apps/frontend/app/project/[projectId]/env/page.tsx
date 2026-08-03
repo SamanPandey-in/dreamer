@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import { createEnvVariable, deleteEnvVariable, listEnvVariables, updateEnvVariable } from "@/lib/dashboard-api";
+import { createEnvVariable, deleteEnvVariable, listEnvVariables, updateEnvVariable, describeApiError } from "@/lib/dashboard-api";
 import type { EnvironmentTarget, EnvVariable } from "@/lib/dashboard-types";
 import { useProject } from "@/lib/project-context";
 import { Button } from "@/components/ui/Button";
@@ -22,7 +22,7 @@ export default function EnvVariablesPage() {
   function loadEnvVariables() {
     listEnvVariables(project.id)
       .then(setEnvVariables)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load environment variables"));
+      .catch((err) => setError(describeApiError(err, "Failed to load environment variables")));
   }
 
   useEffect(loadEnvVariables, [project.id]);

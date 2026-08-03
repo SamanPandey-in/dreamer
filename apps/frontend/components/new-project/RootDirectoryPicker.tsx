@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Folder, GitBranch, Loader2 } from "lucide-react";
-import { listGithubRepoContents, listRepoBranches } from "@/lib/dashboard-api";
+import { listGithubRepoContents, listRepoBranches, describeApiError } from "@/lib/dashboard-api";
 import type { RepoBranch, RepoEntry } from "@/lib/dashboard-types";
 import { Button } from "@/components/ui/Button";
 
@@ -160,7 +160,7 @@ export function RootDirectoryPicker({
           .map((entry) => ({ entry, expanded: false, loading: false, error: null, children: null }))
       );
     } catch (err) {
-      setRootError(err instanceof Error ? err.message : "Failed to load repository contents");
+      setRootError(describeApiError(err, "Failed to load repository contents"));
     }
   }
 
@@ -180,7 +180,7 @@ export function RootDirectoryPicker({
     hasRequestedBranches.current = true;
     listRepoBranches(repoFullName, branch)
       .then(setBranches)
-      .catch((err) => setBranchesError(err instanceof Error ? err.message : "Failed to load branches"))
+      .catch((err) => setBranchesError(describeApiError(err, "Failed to load branches")))
       .finally(() => setBranchesLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -238,7 +238,7 @@ export function RootDirectoryPicker({
           updateNodeByPath(prev, path, (n) => ({ ...n, loading: false, expanded: true, children }))
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load this folder";
+      const message = describeApiError(err, "Failed to load this folder");
       setRoots((prev) => prev && updateNodeByPath(prev, path, (n) => ({ ...n, loading: false, error: message })));
     }
   }

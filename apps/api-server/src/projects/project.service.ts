@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { audit, type AuditMeta } from '../lib/audit';
 import { deleteS3Prefix } from '../lib/s3-client';
+import { logger } from '../lib/logger';
 import { ConflictError, NotFoundError } from '../lib/errors';
 import { getPresetById } from '../build-config/framework-presets';
 import type {
@@ -306,6 +307,6 @@ export async function softDeleteProject(projectId: string, userId: string, meta:
   try {
     await deleteS3Prefix(`__outputs/${project.slug}/`);
   } catch (err) {
-    console.error(`[PROJECT_DELETE] Failed to clean up S3 prefix for project ${projectId}:`, err);
+    logger.error('Failed to clean up S3 prefix for project', { projectId, err });
   }
 }
