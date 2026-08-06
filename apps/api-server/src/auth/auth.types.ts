@@ -59,3 +59,40 @@ export const changePasswordSchema = z.object({
 });
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>['body'];
+
+// Email verification / password reset
+
+export const verifyEmailSchema = z.object({
+  body: z.object({
+    token: z.string().min(1, 'Token is required'),
+  }),
+});
+
+export const resendVerificationSchema = z.object({
+  body: z.object({
+    email: z.email().max(320).toLowerCase(),
+  }),
+});
+
+export const forgotPasswordSchema = z.object({
+  body: z.object({
+    email: z.email().max(320).toLowerCase(),
+  }),
+});
+
+// Reuses the same "newPassword" shape/limits as changePasswordSchema above —
+// bcrypt's 72-byte truncation applies here too.
+export const resetPasswordSchema = z.object({
+  body: z.object({
+    token: z.string().min(1, 'Token is required'),
+    newPassword: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(72, 'Password must be at most 72 characters'),
+  }),
+});
+
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>['body'];
+export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>['body'];
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>['body'];
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>['body'];

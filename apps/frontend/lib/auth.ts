@@ -27,7 +27,9 @@ async function parseAuthResponse(res: Response): Promise<AuthResponse> {
   return data as AuthResponse;
 }
 
-export async function register(name: string, email: string, password: string): Promise<AuthResponse> {
+// Registering no longer logs the user in — the account needs email
+// verification first, so there's no accessToken to receive.
+export async function register(name: string, email: string, password: string): Promise<{ user: AuthUser }> {
   const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
     method: "POST",
     credentials: "include",
@@ -35,9 +37,11 @@ export async function register(name: string, email: string, password: string): P
     body: JSON.stringify({ name, email, password }),
   });
 
-  const data = await parseAuthResponse(res);
-  setAccessToken(data.accessToken);
-  return data;
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiError(data?.error ?? "Something went wrong. Please try again.", data?.code, extractRequestId(data, res));
+  }
+  return data as { user: AuthUser };
 }
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
@@ -129,4 +133,35 @@ export async function changePassword(input: ChangePasswordInput): Promise<void> 
     const data = await res.json().catch(() => null);
     throw new ApiError(data?.error ?? "Failed to change password.", data?.code, extractRequestId(data, res));
   }
+}
+
+// Email verification / password reset — all public, unauthenticated (plain
+// fetch, not apiFetch, since there's no access token yet at this point).
+
+async function publicPost(path: string, body: unknown, fallback: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(data?.error ?? fallback, data?.code, extractRequestId(data, res));
+  }
+}
+
+export function verifyEmail(token: string): Promise<void> {
+  return publicPost("/api/auth/verify-email", { token }, "This verification link is invalid or has expired.");
+}
+
+export function resendVerification(email: string): Promise<void> {
+  return publicPost("/api/auth/resend-verification", { email }, "Failed to resend verification email.");
+}
+
+export function forgotPassword(email: string): Promise<void> {
+  return publicPost("/api/auth/forgot-password", { email }, "Failed to send reset email.");
+}
+
+export function resetPassword(token: string, newPassword: string): Promise<void> {
+  return publicPost("/api/auth/reset-password", { token, newPassword }, "This reset link is invalid or has expired.");
 }

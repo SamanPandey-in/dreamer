@@ -30,6 +30,7 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.21.0",
     "random-word-slugs": "^0.1.7",
+    "resend": "^6.18.1",
     "socket.io": "^4.8.3",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",

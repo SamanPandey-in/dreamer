@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { prisma } from '../lib/prisma';
 import { env } from '../lib/env';
 import type { AccessTokenPayload } from './auth.types';
+import type { VerificationTokenType } from '../generated/prisma/client';
 
 const REFRESH_SECRET_BYTES = 64;
 const BCRYPT_SALT_ROUNDS = 12; // matches the cost factor documented on User.passwordHash in schema.prisma
@@ -140,4 +141,69 @@ export async function listSessionsForUser(userId: string) {
 export async function revokeSessionById(userId: string, sessionId: string): Promise<boolean> {
   const result = await prisma.userSession.deleteMany({ where: { id: sessionId, userId } });
   return result.count > 0;
+}
+
+// ── Verification tokens (email-verify / password-reset) ────────────────────
+//
+// Exact same raw-token-vs-hash shape as refresh tokens above: the raw token
+// handed to the client (embedded in the email link) is `${id}.${secret}`,
+// only bcrypt(secret) is ever persisted. Reusing this pattern instead of
+// storing a plain random token means a DB read alone can never be replayed
+// as a valid token — the same property refresh tokens already have.
+
+const VERIFICATION_SECRET_BYTES = 32;
+
+export const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
+
+/**
+ * Creates a new verification/reset token row and returns the raw token to
+ * embed in the email link. Any previous unconsumed token of the same type
+ * for this user is invalidated first, so clicking an old email link never
+ * works alongside a freshly requested one.
+ */
+export async function createVerificationToken(
+  userId: string,
+  type: VerificationTokenType,
+  ttlMs: number
+): Promise<string> {
+  const secret = crypto.randomBytes(VERIFICATION_SECRET_BYTES).toString('hex');
+  const tokenHash = await bcrypt.hash(secret, BCRYPT_SALT_ROUNDS);
+  const expiresAt = new Date(Date.now() + ttlMs);
+
+  await prisma.verificationToken.deleteMany({ where: { userId, type, consumedAt: null } });
+  const token = await prisma.verificationToken.create({ data: { userId, type, tokenHash, expiresAt } });
+
+  // packRefreshToken is a generic "${id}.${secret}" packer despite the name
+  // (shared with refresh-token creation above) — reused here rather than
+  // duplicated.
+  return packRefreshToken(token.id, secret);
+}
+
+/**
+ * Validates a raw verification/reset token, marks it consumed (single-use),
+ * and returns the userId it belongs to — or null for ANY failure (expired,
+ * already used, garbage input, wrong type). Callers should surface a single
+ * generic error either way, same reasoning as rotateSession() above.
+ */
+export async function consumeVerificationToken(
+  rawToken: string,
+  type: VerificationTokenType
+): Promise<string | null> {
+  const unpacked = unpackRefreshToken(rawToken);
+  if (!unpacked) return null;
+  const { sessionId: tokenId, secret } = unpacked; // generic id.secret packer, reused from refresh tokens
+
+  const token = await prisma.verificationToken.findUnique({ where: { id: tokenId } });
+  if (!token || token.type !== type || token.consumedAt || token.expiresAt < new Date()) return null;
+
+  const isValid = await bcrypt.compare(secret, token.tokenHash);
+  if (!isValid) return null;
+
+  await prisma.verificationToken.update({
+    where: { id: token.id },
+    data: { consumedAt: new Date() },
+  });
+
+  return token.userId;
 }

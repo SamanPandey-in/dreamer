@@ -54,9 +54,10 @@ function clearRefreshCookie(res: Response) {
 // Email + password
 
 export async function registerHandler(req: Request, res: Response) {
-  const { accessToken, refreshToken, user } = await authService.register(req.body, sessionMeta(req));
-  setRefreshCookie(res, refreshToken);
-  res.status(201).json({ accessToken, user });
+  // No accessToken/refreshCookie anymore — the account exists but can't log
+  // in until the verification email is clicked. See auth.service.ts.
+  const { user } = await authService.register(req.body, sessionMeta(req));
+  res.status(201).json({ user });
 }
 
 export async function loginHandler(req: Request, res: Response) {
@@ -115,6 +116,31 @@ export async function revokeSessionHandler(req: Request, res: Response) {
 
 export async function changePasswordHandler(req: Request, res: Response) {
   await authService.changePassword(req.user!.id, req.body, sessionMeta(req));
+  res.status(204).send();
+}
+
+// Email verification / password reset
+
+export async function verifyEmailHandler(req: Request, res: Response) {
+  await authService.verifyEmail(req.body, sessionMeta(req));
+  res.status(204).send();
+}
+
+// Always the same 204, whether or not the email exists / already has a
+// password / is already verified — see resendVerification()'s comment.
+export async function resendVerificationHandler(req: Request, res: Response) {
+  await authService.resendVerification(req.body, sessionMeta(req));
+  res.status(204).send();
+}
+
+// Always the same 204 — see requestPasswordReset()'s comment.
+export async function forgotPasswordHandler(req: Request, res: Response) {
+  await authService.requestPasswordReset(req.body, sessionMeta(req));
+  res.status(204).send();
+}
+
+export async function resetPasswordHandler(req: Request, res: Response) {
+  await authService.resetPassword(req.body, sessionMeta(req));
   res.status(204).send();
 }
 

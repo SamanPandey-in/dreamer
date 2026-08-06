@@ -11,11 +11,27 @@ import {
   revokeAllSessions,
   listSessionsForUser,
   revokeSessionById,
+  createVerificationToken,
+  consumeVerificationToken,
+  EMAIL_VERIFY_TTL_MS,
+  PASSWORD_RESET_TTL_MS,
   type SessionMeta,
 } from './auth.tokens';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/mailer';
+import { env } from '../lib/env';
 import type { GithubProfile } from './github.service';
-import type { ChangePasswordInput, LoginInput, PublicUser, RegisterInput } from './auth.types';
+import type {
+  ChangePasswordInput,
+  ForgotPasswordInput,
+  LoginInput,
+  PublicUser,
+  RegisterInput,
+  ResendVerificationInput,
+  ResetPasswordInput,
+  VerifyEmailInput,
+} from './auth.types';
 import type { Prisma, User } from '../generated/prisma/client';
+import { VerificationTokenType } from '../generated/prisma/client';
 
 // A real bcrypt hash of a string nobody will ever type as a password.
 // Used so failed-login timing is identical whether the email exists or not —
@@ -54,6 +70,19 @@ async function audit(
 
 // Email + password
 
+// Builds the link embedded in verification/reset emails. Points at the
+// FRONTEND (not the API) — the frontend page reads the token from the query
+// string and POSTs it to the API itself, same convention as the existing
+// GitHub OAuth /auth/callback page.
+function buildFrontendUrl(path: string, token: string): string {
+  return `${env.FRONTEND_URL}${path}?token=${encodeURIComponent(token)}`;
+}
+
+async function issueAndSendVerificationEmail(user: User): Promise<void> {
+  const token = await createVerificationToken(user.id, VerificationTokenType.EMAIL_VERIFY, EMAIL_VERIFY_TTL_MS);
+  await sendVerificationEmail(user.email, buildFrontendUrl('/verify-email', token));
+}
+
 export async function register(input: RegisterInput, meta: SessionMeta) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
 
@@ -69,12 +98,17 @@ export async function register(input: RegisterInput, meta: SessionMeta) {
     ? await prisma.user.update({ where: { id: existing.id }, data: { passwordHash } })
     : await prisma.user.create({ data: { email: input.email, passwordHash, name: input.name } });
 
-  const accessToken = signAccessToken(user.id, user.email);
-  const { rawToken: refreshToken } = await createSession(user.id, meta);
-
   await audit(user.id, existing ? 'user.password_added' : 'user.register', meta);
 
-  return { accessToken, refreshToken, user: toPublicUser(user) };
+  // No accessToken/session here anymore — email/password accounts must
+  // verify before they can log in. A GitHub-linked account being upgraded
+  // with a password may already be emailVerified (verified GitHub email) —
+  // skip re-sending in that case.
+  if (!user.emailVerified) {
+    await issueAndSendVerificationEmail(user);
+  }
+
+  return { user: toPublicUser(user) };
 }
 
 export async function login(input: LoginInput, meta: SessionMeta) {
@@ -94,6 +128,12 @@ export async function login(input: LoginInput, meta: SessionMeta) {
     throw new ForbiddenError('This account has been suspended', 'ACCOUNT_SUSPENDED');
   }
 
+  // Gate only applies to email/password accounts (passwordHash != null,
+  // already established above). GitHub-only accounts never hit this branch.
+  if (!user.emailVerified) {
+    throw new ForbiddenError('Please verify your email before signing in', 'EMAIL_NOT_VERIFIED');
+  }
+
   const accessToken = signAccessToken(user.id, user.email);
   const { rawToken: refreshToken } = await createSession(user.id, meta);
 
@@ -101,6 +141,54 @@ export async function login(input: LoginInput, meta: SessionMeta) {
   await audit(user.id, 'user.login', meta);
 
   return { accessToken, refreshToken, user: toPublicUser(user) };
+}
+
+export async function verifyEmail(input: VerifyEmailInput, meta: SessionMeta): Promise<void> {
+  const userId = await consumeVerificationToken(input.token, VerificationTokenType.EMAIL_VERIFY);
+  if (!userId) throw new BadRequestError('This verification link is invalid or has expired', 'INVALID_TOKEN');
+
+  await prisma.user.update({ where: { id: userId }, data: { emailVerified: true } });
+  await audit(userId, 'user.email_verified', meta);
+}
+
+export async function resendVerification(input: ResendVerificationInput, meta: SessionMeta): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { email: input.email } });
+
+  // Same enumeration-avoidance principle as login()'s DUMMY_PASSWORD_HASH:
+  // this function returns void either way — the controller always sends an
+  // identical generic response, so a caller can't tell whether the email
+  // exists, already has a password, or is already verified.
+  if (user?.passwordHash && !user.emailVerified) {
+    await issueAndSendVerificationEmail(user);
+    await audit(user.id, 'user.verification_resent', meta);
+  }
+}
+
+export async function requestPasswordReset(input: ForgotPasswordInput, meta: SessionMeta): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { email: input.email } });
+
+  // Same enumeration-avoidance principle — void return, generic response
+  // regardless of whether the account exists or has a password set.
+  if (user?.passwordHash) {
+    const token = await createVerificationToken(user.id, VerificationTokenType.PASSWORD_RESET, PASSWORD_RESET_TTL_MS);
+    await sendPasswordResetEmail(user.email, buildFrontendUrl('/reset-password', token));
+    await audit(user.id, 'user.password_reset_requested', meta);
+  }
+}
+
+export async function resetPassword(input: ResetPasswordInput, meta: SessionMeta): Promise<void> {
+  const userId = await consumeVerificationToken(input.token, VerificationTokenType.PASSWORD_RESET);
+  if (!userId) throw new BadRequestError('This reset link is invalid or has expired', 'INVALID_TOKEN');
+
+  const passwordHash = await hashPassword(input.newPassword);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+  // A password reset (unlike changePassword() below, which trusts the
+  // caller already proved they know the current password) happened because
+  // someone couldn't log in — sign out every existing session as a
+  // precaution in case the account was compromised.
+  await revokeAllSessions(userId);
+  await audit(userId, 'user.password_reset', meta);
 }
 
 // Session lifecycle

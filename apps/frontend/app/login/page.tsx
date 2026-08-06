@@ -8,6 +8,8 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { GithubIcon } from "../../components/icons";
 import { useAuth } from "../providers";
 import { describeApiError } from "@/lib/dashboard-api";
+import { resendVerification } from "@/lib/auth";
+import { ApiError } from "@/lib/api-error";
 
 const ERROR_MESSAGES: Record<string, string> = {
   github_state_mismatch: "Your GitHub sign-in session expired before it could finish. Please try again.",
@@ -29,6 +31,10 @@ function LoginForm() {
     queryError ? ERROR_MESSAGES[queryError] ?? "Something went wrong. Please try again." : null
   );
   const [submitting, setSubmitting] = useState(false);
+  // True when login failed specifically because the email isn't verified
+  // yet — shows a "resend verification email" action instead of a plain error.
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
 
   // Already signed in (e.g. hit the back button after logging in) — skip the form.
   useEffect(() => {
@@ -38,15 +44,33 @@ function LoginForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setNeedsVerification(false);
+    setResendState("idle");
     setSubmitting(true);
 
     try {
       await login(email, password);
       router.push(redirectTo);
     } catch (err) {
-      setError(describeApiError(err, "Something went wrong. Please try again."));
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        setNeedsVerification(true);
+        setError("Please verify your email before signing in.");
+      } else {
+        setError(describeApiError(err, "Something went wrong. Please try again."));
+      }
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleResend() {
+    setResendState("sending");
+    try {
+      await resendVerification(email);
+    } finally {
+      // Always show "sent" — resend intentionally gives no signal either
+      // way about whether the email exists (see backend).
+      setResendState("sent");
     }
   }
 
@@ -109,12 +133,31 @@ function LoginForm() {
               className="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
               placeholder="••••••••"
             />
+            <div className="text-right mt-1.5">
+              <Link href="/forgot-password" className="text-xs text-zinc-500 hover:text-zinc-300">
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           {error && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-              {error}
-            </p>
+            <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+              <p>{error}</p>
+              {needsVerification && (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendState !== "idle"}
+                  className="mt-1.5 text-red-300 hover:text-red-200 font-medium underline underline-offset-2 disabled:no-underline disabled:opacity-70"
+                >
+                  {resendState === "sending"
+                    ? "Sending…"
+                    : resendState === "sent"
+                    ? "Verification email sent — check your inbox"
+                    : "Resend verification email"}
+                </button>
+              )}
+            </div>
           )}
 
           <button

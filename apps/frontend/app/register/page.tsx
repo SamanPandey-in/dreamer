@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, MailCheck } from "lucide-react";
 import { GithubIcon } from "../../components/icons";
 import { useAuth } from "../providers";
 import { describeApiError } from "@/lib/dashboard-api";
@@ -18,6 +18,10 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Set once registration succeeds — registering no longer logs the user
+  // in, so instead of redirecting to /dashboard we show a "check your
+  // email" screen in place of the form.
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && user) router.replace("/dashboard");
@@ -30,7 +34,7 @@ export default function RegisterPage() {
 
     try {
       await register(name, email, password);
-      router.push("/dashboard");
+      setRegisteredEmail(email);
     } catch (err) {
       setError(describeApiError(err, "Something went wrong. Please try again."));
     } finally {
@@ -53,6 +57,25 @@ export default function RegisterPage() {
         </div>
 
         <div className="bg-zinc-950/80 backdrop-blur-md rounded-2xl border border-zinc-800 shadow-2xl shadow-blue-500/5 p-6">
+          {registeredEmail ? (
+            <div className="flex flex-col items-center text-center gap-3 py-4">
+              <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                <MailCheck className="w-6 h-6 text-blue-400" />
+              </div>
+              <h2 className="text-white font-semibold">Check your email</h2>
+              <p className="text-sm text-zinc-400">
+                We sent a verification link to <span className="text-zinc-200">{registeredEmail}</span>. Click it to
+                activate your account, then sign in.
+              </p>
+              <Link
+                href="/login"
+                className="text-sm text-blue-400 hover:text-blue-300 font-medium mt-2"
+              >
+                Go to sign in
+              </Link>
+            </div>
+          ) : (
+            <>
           <a
             href={githubLoginUrl}
             className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border border-white/10 bg-white/5 text-sm font-medium text-zinc-200 hover:bg-white/10 hover:text-white transition-colors"
@@ -138,14 +161,18 @@ export default function RegisterPage() {
               )}
             </button>
           </form>
+          </>
+          )}
         </div>
 
-        <p className="text-center text-sm text-zinc-500 mt-6">
-          Already have an account?{" "}
-          <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium">
-            Sign in
-          </Link>
-        </p>
+        {!registeredEmail && (
+          <p className="text-center text-sm text-zinc-500 mt-6">
+            Already have an account?{" "}
+            <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium">
+              Sign in
+            </Link>
+          </p>
+        )}
       </div>
     </main>
   );
