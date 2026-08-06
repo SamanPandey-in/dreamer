@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+// bcrypt truncates at 72 *bytes*, not 72 characters — a string can pass a
+// 72-char check and still silently lose entropy (or collide with other
+// passwords) if it contains multi-byte UTF-8 (emoji, non-Latin scripts).
+// Shared so changePasswordSchema and resetPasswordSchema below apply the
+// same rule with the same message.
+const passwordByteLimit = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(72, 'Password must be at most 72 characters')
+  .refine((val) => Buffer.byteLength(val, 'utf8') <= 72, {
+    message: 'Password must be at most 72 bytes (some characters take up more than one byte)',
+  });
+
 export const registerSchema = z.object({
   body: z.object({
     email: z.email().max(320).toLowerCase(),
@@ -51,10 +64,7 @@ export interface PublicSession {
 export const changePasswordSchema = z.object({
   body: z.object({
     currentPassword: z.string().optional(),
-    newPassword: z
-      .string()
-      .min(8, 'Password must be at least 8 characters')
-      .max(72, 'Password must be at most 72 characters'),
+    newPassword: passwordByteLimit,
   }),
 });
 
@@ -85,10 +95,7 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z.object({
   body: z.object({
     token: z.string().min(1, 'Token is required'),
-    newPassword: z
-      .string()
-      .min(8, 'Password must be at least 8 characters')
-      .max(72, 'Password must be at most 72 characters'),
+    newPassword: passwordByteLimit,
   }),
 });
 

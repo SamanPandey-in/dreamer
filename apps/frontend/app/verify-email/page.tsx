@@ -14,13 +14,13 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
-  const [status, setStatus] = useState<Status>("verifying");
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>(token ? "verifying" : "error");
+  const [error, setError] = useState<string | null>(
+    token ? null : "This verification link is missing its token."
+  );
 
   useEffect(() => {
     if (!token) {
-      setStatus("error");
-      setError("This verification link is missing its token.");
       return;
     }
 

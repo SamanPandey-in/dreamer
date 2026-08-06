@@ -67,10 +67,13 @@ function LoginForm() {
     setResendState("sending");
     try {
       await resendVerification(email);
-    } finally {
-      // Always show "sent" — resend intentionally gives no signal either
-      // way about whether the email exists (see backend).
       setResendState("sent");
+    } catch (err) {
+      // Distinct from the enumeration-safe backend response: this is a
+      // genuine failure to send (network, rate limit, etc.), so allow
+      // retry instead of falsely claiming success.
+      setResendState("idle");
+      setError(describeApiError(err, "Unable to resend the verification email. Please try again."));
     }
   }
 

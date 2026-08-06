@@ -66,8 +66,9 @@ function ResetPasswordForm() {
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">New Password</label>
+              <label htmlFor="new-password" className="block text-xs font-medium text-zinc-400 mb-1.5">New Password</label>
               <input
+                id="new-password"
                 type="password"
                 autoComplete="new-password"
                 required
@@ -80,8 +81,9 @@ function ResetPasswordForm() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Confirm New Password</label>
+              <label htmlFor="confirm-new-password" className="block text-xs font-medium text-zinc-400 mb-1.5">Confirm New Password</label>
               <input
+                id="confirm-new-password"
                 type="password"
                 autoComplete="new-password"
                 required
