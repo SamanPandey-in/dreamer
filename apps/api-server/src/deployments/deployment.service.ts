@@ -7,6 +7,7 @@ import { decryptFromColumn, decryptFromStorage } from '../lib/crypto';
 import { deleteS3Prefix } from '../lib/s3-client';
 import { assertProjectOwnership } from '../projects/project.service'; // concrete file, not the barrel — see §0.5
 import { deploymentEngine } from './deployment-engine';
+import { buildQueue } from '../lib/queue';
 import { logger } from '../lib/logger';
 import type {
   CreateDeploymentInput,
@@ -220,7 +221,14 @@ async function createDeploymentInternal(
   await audit(userId, 'deployment.create', meta, { resourceType: 'deployment', resourceId: deployment.id });
 
   try {
-    const handle = await deploymentEngine.launchBuildTask({
+    // Actually launching the ECS task now happens in src/workers/build.worker.ts,
+    // not here — this just hands the job off to BullMQ/Redis, which is fast
+    // and doesn't depend on AWS being responsive. jobId: deployment.id means
+    // a duplicate enqueue for the same deployment (e.g. a caller retrying a
+    // timed-out request) is a no-op rather than a second ECS task.
+    await buildQueue.add(
+      'launch-build',
+      {
       deploymentId: deployment.id,
       projectSlug: project.slug,
       projectId,
@@ -243,19 +251,19 @@ async function createDeploymentInternal(
       // actually decides which branch of build-engine's script.js runs.
       deploymentType: project.detectedDeploymentType,
       framework: project.detectedFramework,
-    });
+      },
+      { jobId: deployment.id }
+    );
 
-    const updated = await prisma.deployment.update({
-      where: { id: deployment.id },
-      data: { ecsTaskArn: handle.ecsTaskArn },
-    });
-
-    return toPublicDeployment(updated);
+    return toPublicDeployment(deployment);
   } catch (err) {
+    // Only reachable if Redis itself is unavailable — nothing will ever pick
+    // this job up, so fail the deployment immediately rather than leaving it
+    // stuck at QUEUED forever.
     const failed = await transitionDeploymentStatus(deployment.id, 'FAILED', {
-      reason: 'Failed to launch build task',
-      errorCode: 'ENGINE_LAUNCH_FAILED',
-      errorMessage: err instanceof Error ? err.message : 'Unknown engine error',
+      reason: 'Failed to enqueue build job',
+      errorCode: 'QUEUE_ENQUEUE_FAILED',
+      errorMessage: err instanceof Error ? err.message : 'Unknown queue error',
       triggeredBy: 'api',
     });
     return toPublicDeployment(failed ?? deployment);
@@ -339,6 +347,17 @@ export async function stopDeployment(
   }
 
   if (deployment.status === 'QUEUED') {
+    // Best-effort: if the worker has already moved this job to 'active' this
+    // is a no-op (BullMQ only removes jobs still waiting/delayed) — that's
+    // fine, the worker's own launchBuildTask result will land on a
+    // deployment row that's already CANCELLED, which is a rare, harmless
+    // race rather than something this needs to be watertight against.
+    try {
+      await buildQueue.remove(deploymentId);
+    } catch (err) {
+      logger.error('Failed to remove queued build job', { deploymentId, err });
+    }
+
     const updated = await transitionDeploymentStatus(deploymentId, 'CANCELLED', {
       reason: 'Cancelled by user before the build started',
       triggeredBy: 'user',
