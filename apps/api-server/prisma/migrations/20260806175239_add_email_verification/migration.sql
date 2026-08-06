@@ -1,6 +1,9 @@
 -- CreateEnum
 CREATE TYPE "VerificationTokenType" AS ENUM ('EMAIL_VERIFY', 'PASSWORD_RESET');
 
+-- DropIndex
+DROP INDEX "idx_deployment_log_fts";
+
 -- CreateTable
 CREATE TABLE "VerificationToken" (
     "id" UUID NOT NULL,
