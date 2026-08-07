@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AlertVariant } from "@/components/ui/Alert";
 
@@ -18,26 +18,31 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function useGithubConnectStatus(): { variant: AlertVariant; message: string } | null {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [status, setStatus] = useState<{ variant: AlertVariant; message: string } | null>(null);
+  const hasCleanedUp = useRef(false);
 
-  useEffect(() => {
+  const status = useMemo(() => {
     const githubParam = searchParams.get("github");
     const errorParam = searchParams.get("error");
 
     if (githubParam === "connected") {
-      setStatus({ variant: "success", message: "GitHub account connected." });
-    } else if (errorParam && errorParam in ERROR_MESSAGES) {
-      setStatus({ variant: "error", message: ERROR_MESSAGES[errorParam] });
-    } else {
+      return { variant: "success" as const, message: "GitHub account connected." };
+    }
+
+    if (errorParam && errorParam in ERROR_MESSAGES) {
+      return { variant: "error" as const, message: ERROR_MESSAGES[errorParam] };
+    }
+
+    return null;
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!status || hasCleanedUp.current) {
       return;
     }
 
+    hasCleanedUp.current = true;
     router.replace(window.location.pathname);
-    // Only meant to run once, against whatever query string the page
-    // landed on — router.replace() below intentionally changes the URL
-    // out from under this same effect, so it must not re-fire because of it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [router, status]);
 
   return status;
 }
