@@ -55,7 +55,10 @@ export function Alert({ variant, children, requestId, className = "" }: AlertPro
   const Icon = VARIANT_ICONS[variant];
 
   return (
-    <div className={`rounded-lg border px-3 py-2.5 ${styles.container} ${className}`}>
+    <div
+      role={variant === "error" ? "alert" : "status"}
+      className={`rounded-lg border px-3 py-2.5 ${styles.container} ${className}`}
+    >
       <div className="flex items-start gap-2">
         <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${styles.icon}`} />
         <div className="text-sm leading-snug">{children}</div>

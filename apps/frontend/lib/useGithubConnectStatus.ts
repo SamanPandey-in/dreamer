@@ -41,8 +41,15 @@ export function useGithubConnectStatus(): { variant: AlertVariant; message: stri
     }
 
     hasCleanedUp.current = true;
-    router.replace(window.location.pathname);
-  }, [router, status]);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("github");
+    params.delete("error");
+
+    const nextQuery = params.toString();
+    const nextUrl = nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname;
+    router.replace(nextUrl);
+  }, [router, searchParams, status]);
 
   return status;
 }
