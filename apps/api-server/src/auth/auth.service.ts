@@ -17,7 +17,13 @@ import {
   PASSWORD_RESET_TTL_MS,
   type SessionMeta,
 } from './auth.tokens';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/mailer';
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendPasswordChangedEmail,
+  sendPasswordResetConfirmationEmail,
+  sendNewSignInEmail,
+} from '../lib/mailer';
 import { env } from '../lib/env';
 import type { GithubProfile } from './github.service';
 import type {
@@ -83,6 +89,28 @@ async function issueAndSendVerificationEmail(user: User): Promise<void> {
   await sendVerificationEmail(user.email, buildFrontendUrl('/verify-email', token));
 }
 
+// Notification emails (new sign-in / password changed / password reset
+// confirmation) are informational — the user-facing action has already
+// succeeded by the time they're sent. A failed send must never turn a
+// successful login or password change into a 500, so these are best-effort:
+// mailer.ts already logs the failure loudly, and we swallow it here.
+async function sendSecurityNotification(send: Promise<void>): Promise<void> {
+  try {
+    await send;
+  } catch {
+    // logged inside mailer.ts — intentionally swallowed here
+  }
+}
+
+// A "new sign-in" means a successful login from a device/location we haven't
+// seen before. Compare the incoming request against the user's existing
+// active sessions; a match on both IP and user-agent means we've seen this
+// device before and there's no need to alarm them.
+async function isUnrecognizedSignIn(userId: string, meta: SessionMeta): Promise<boolean> {
+  const sessions = await listSessionsForUser(userId);
+  return !sessions.some((s) => s.ipAddress === meta.ipAddress && s.userAgent === meta.userAgent);
+}
+
 export async function register(input: RegisterInput, meta: SessionMeta) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
 
@@ -134,11 +162,16 @@ export async function login(input: LoginInput, meta: SessionMeta) {
     throw new ForbiddenError('Please verify your email before signing in', 'EMAIL_NOT_VERIFIED');
   }
 
+  const isNewSignIn = await isUnrecognizedSignIn(user.id, meta);
   const accessToken = signAccessToken(user.id, user.email);
   const { rawToken: refreshToken } = await createSession(user.id, meta);
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await audit(user.id, 'user.login', meta);
+
+  if (isNewSignIn) {
+    await sendSecurityNotification(sendNewSignInEmail(user.email, meta));
+  }
 
   return { accessToken, refreshToken, user: toPublicUser(user) };
 }
@@ -189,6 +222,11 @@ export async function resetPassword(input: ResetPasswordInput, meta: SessionMeta
   // precaution in case the account was compromised.
   await revokeAllSessions(userId);
   await audit(userId, 'user.password_reset', meta);
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (user) {
+    await sendSecurityNotification(sendPasswordResetConfirmationEmail(user.email, meta));
+  }
 }
 
 // Session lifecycle
@@ -253,6 +291,8 @@ export async function changePassword(userId: string, input: ChangePasswordInput,
   const passwordHash = await hashPassword(input.newPassword);
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
   await audit(userId, 'user.password_changed', meta);
+
+  await sendSecurityNotification(sendPasswordChangedEmail(user.email, meta));
 }
 
 // GitHub OAuth
@@ -364,11 +404,16 @@ export async function loginOrRegisterWithGithub({
     throw new ForbiddenError('This account has been suspended', 'ACCOUNT_SUSPENDED');
   }
 
+  const isNewSignIn = await isUnrecognizedSignIn(user.id, meta);
   const accessToken = signAccessToken(user.id, user.email);
   const { rawToken: refreshToken } = await createSession(user.id, meta);
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await audit(user.id, 'user.login_github', meta);
+
+  if (isNewSignIn) {
+    await sendSecurityNotification(sendNewSignInEmail(user.email, meta));
+  }
 
   return { accessToken, refreshToken, user: toPublicUser(user) };
 }
