@@ -275,6 +275,40 @@ interface GithubLoginParams {
  * Linking only ever happens on a verified email (see github.service.ts) —
  * this is the line that prevents account takeover via a spoofed email.
  */
+export async function connectGithubAccount(
+  userId: string,
+  params: { profile: GithubProfile; verifiedEmail: string | null; githubAccessToken: string },
+  meta: SessionMeta
+): Promise<void> {
+  const { profile, verifiedEmail, githubAccessToken } = params;
+
+  const conflictingUser = await prisma.user.findUnique({ where: { githubId: profile.id } });
+  if (conflictingUser && conflictingUser.id !== userId) {
+    throw new ConflictError('This GitHub account is already connected to a different Dreamer account', 'GITHUB_ALREADY_LINKED');
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new NotFoundError('User no longer exists', 'USER_NOT_FOUND');
+
+  const encryptedToken = encryptForStorage(githubAccessToken);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      githubId: profile.id,
+      githubUsername: profile.login,
+      githubToken: encryptedToken,
+      avatarUrl: user.avatarUrl ?? profile.avatar_url,
+      // Connecting GitHub only proves something about the account's email
+      // if GitHub's own verified email happens to match it — otherwise
+      // leave emailVerified exactly as it was.
+      ...(verifiedEmail && verifiedEmail === user.email && !user.emailVerified ? { emailVerified: true } : {}),
+    },
+  });
+
+  await audit(userId, 'user.github_linked', meta);
+}
+
 export async function loginOrRegisterWithGithub({
   profile,
   verifiedEmail,

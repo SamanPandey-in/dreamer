@@ -10,7 +10,7 @@ import {
   fetchGithubProfile,
   fetchPrimaryVerifiedGithubEmail,
 } from './github.service';
-import type { SessionMeta } from './auth.tokens';
+import { signGithubConnectState, verifyGithubConnectState, type SessionMeta } from './auth.tokens';
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
 const REFRESH_COOKIE_PATH = '/api/auth'; // cookie is only ever sent back to auth routes
@@ -146,6 +146,15 @@ export async function resetPasswordHandler(req: Request, res: Response) {
 
 // GitHub OAuth
 
+// Only these two relative paths are ever redirected to after a connect —
+// resolved server-side from a short code, never taken as a raw path from
+// the query string, so this can't be turned into an open redirect.
+const GITHUB_CONNECT_RETURN_TARGETS: Record<string, string> = {
+  account: '/dashboard/account',
+  project: '/dashboard/new',
+};
+const DEFAULT_GITHUB_CONNECT_RETURN = GITHUB_CONNECT_RETURN_TARGETS.account;
+
 /** GET /api/auth/github — redirects the browser to GitHub's consent screen. */
 export function githubRedirectHandler(req: Request, res: Response) {
   const state = crypto.randomBytes(16).toString('hex');
@@ -164,6 +173,42 @@ export function githubRedirectHandler(req: Request, res: Response) {
   res.redirect(buildGithubAuthorizeUrl(state));
 }
 
+/**
+ * GET /api/auth/github/connect — same OAuth dance as githubRedirectHandler,
+ * but for an already-logged-in user linking GitHub to their existing
+ * email/password account, from Settings or the New Project wizard.
+ *
+ * Unlike githubRedirectHandler, this one returns JSON instead of
+ * redirecting: it's behind requireAuth, which only ever sees the access
+ * token on a request carrying an `Authorization: Bearer` header — a plain
+ * `<a href>` navigation to GitHub can't attach one. So the frontend calls
+ * this via apiFetch (which does attach it) to get the authorize URL, then
+ * does the actual top-level navigation itself. The `state` this mints is a
+ * signed JWT embedding the caller's userId (see auth.tokens.ts), not a bare
+ * random string, so githubCallbackHandler below can tell this flow apart
+ * from a fresh login/register.
+ */
+export function githubConnectRedirectHandler(req: Request, res: Response) {
+  const requestedReturnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : undefined;
+  const returnTo = (requestedReturnTo && GITHUB_CONNECT_RETURN_TARGETS[requestedReturnTo]) || DEFAULT_GITHUB_CONNECT_RETURN;
+
+  const state = signGithubConnectState(req.user!.id, returnTo);
+
+  // Set via a fetch() response (credentials: 'include' on the frontend's
+  // apiFetch call) rather than a redirect — still a normal Set-Cookie the
+  // browser stores, still read back by githubCallbackHandler after GitHub's
+  // own redirect lands there directly (a real top-level navigation).
+  res.cookie(OAUTH_STATE_COOKIE_NAME, state, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 10 * 60 * 1000,
+    path: OAUTH_CALLBACK_PATH,
+  });
+
+  res.status(200).json({ url: buildGithubAuthorizeUrl(state) });
+}
+
 /** GET /api/auth/github/callback — GitHub redirects here after the user approves/denies. */
 export async function githubCallbackHandler(req: Request, res: Response) {
   const { code, state } = req.query as { code?: string; state?: string };
@@ -173,6 +218,38 @@ export async function githubCallbackHandler(req: Request, res: Response) {
 
   if (!code || !state || !cookieState || state !== cookieState) {
     return res.redirect(`${env.FRONTEND_URL}/login?error=github_state_mismatch`);
+  }
+
+  // A connect-state verifies successfully only for a state signed by
+  // githubConnectRedirectHandler above — a normal login's random-hex state
+  // simply isn't valid JWT input, so this returns null and falls through
+  // to the existing login/register flow unchanged.
+  const connectState = verifyGithubConnectState(state);
+
+  if (connectState) {
+    try {
+      const githubAccessToken = await exchangeCodeForToken(code);
+      const profile = await fetchGithubProfile(githubAccessToken);
+      const verifiedEmail = await fetchPrimaryVerifiedGithubEmail(githubAccessToken);
+
+      await authService.connectGithubAccount(
+        connectState.userId,
+        { profile, verifiedEmail, githubAccessToken },
+        sessionMeta(req)
+      );
+
+      return res.redirect(`${env.FRONTEND_URL}${connectState.returnTo}?github=connected`);
+    } catch (err) {
+      // GITHUB_ALREADY_LINKED is an expected, user-facing outcome (someone
+      // else already connected that GitHub account) — surface its code
+      // specifically so the frontend can show the right message instead of
+      // a generic failure.
+      const errCode = err instanceof Error && 'code' in err ? (err as { code: string }).code : undefined;
+      logger.error('GitHub connect callback failed', { err });
+      return res.redirect(
+        `${env.FRONTEND_URL}${connectState.returnTo}?error=${errCode === 'GITHUB_ALREADY_LINKED' ? 'github_already_linked' : 'github_connect_failed'}`
+      );
+    }
   }
 
   try {

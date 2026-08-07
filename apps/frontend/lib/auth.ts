@@ -92,6 +92,29 @@ export function githubLoginUrl(): string {
   return `${API_BASE_URL}/api/auth/github`;
 }
 
+/**
+ * Kicks off the "Connect GitHub" flow for an already-logged-in user
+ * (Settings, New Project wizard) — distinct from githubLoginUrl() above,
+ * which is for the logged-out login/register screens where a plain
+ * `<a href>` works fine. This one goes through apiFetch specifically
+ * because the backend route is behind requireAuth, which needs the access
+ * token as a real `Authorization` header — something only a fetch call can
+ * attach, not a browser navigation. Returns the GitHub authorize URL to
+ * navigate to (e.g. `window.location.href = url`), or throws if not signed
+ * in / the request fails.
+ * `returnTo` is resolved against a fixed allowlist server-side, not taken
+ * as a raw path, so it can only ever be one of those two short codes.
+ */
+export async function connectGithub(returnTo: "account" | "project"): Promise<string> {
+  const res = await apiFetch(`/api/auth/github/connect?returnTo=${returnTo}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(data?.error ?? "Failed to start GitHub connect.", data?.code, extractRequestId(data, res));
+  }
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
+
 // Mirrors PublicSession from the API's src/auth/auth.types.ts.
 export interface AuthSession {
   id: string;

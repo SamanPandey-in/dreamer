@@ -26,6 +26,49 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   return jwt.verify(token, env.JWT_ACCESS_SECRET) as AccessTokenPayload;
 }
 
+// GitHub "connect account" OAuth state
+//
+// The normal GitHub login/register flow's `state` param is just a random
+// hex string, checked only against the httpOnly cookie set alongside it
+// (CSRF protection). Connecting GitHub to an ALREADY-LOGGED-IN account needs
+// more: the callback has to know which user initiated it, but the access
+// token lives in frontend memory, not a cookie, so it never reaches the
+// backend across GitHub's own redirect. Solution: pack the userId (and
+// where to send the user back to) into the state param itself, signed so it
+// can't be tampered with, short-lived so a stale link can't be replayed.
+// The callback still does the same cookie-vs-param equality check as
+// before — this only adds a second, independent check on top of it.
+
+interface GithubConnectStatePayload {
+  purpose: "github_connect";
+  sub: string; // userId
+  returnTo: string; // relative frontend path to redirect back to
+}
+
+const GITHUB_CONNECT_STATE_TTL = "10m"; // matches the OAuth state cookie's own maxAge
+
+export function signGithubConnectState(userId: string, returnTo: string): string {
+  const payload: Omit<GithubConnectStatePayload, never> = { purpose: "github_connect", sub: userId, returnTo };
+  return jwt.sign(payload, env.JWT_ACCESS_SECRET, { expiresIn: GITHUB_CONNECT_STATE_TTL, algorithm: 'HS256' });
+}
+
+/**
+ * Returns the {userId, returnTo} a connect-state was signed for, or null
+ * for ANY failure — expired, wrong purpose, or (crucially) a login flow's
+ * plain random-hex state, which simply isn't valid JWT input. That last
+ * case isn't an error, it's the normal signal to fall through to the
+ * existing login/register handling.
+ */
+export function verifyGithubConnectState(state: string): { userId: string; returnTo: string } | null {
+  try {
+    const payload = jwt.verify(state, env.JWT_ACCESS_SECRET) as GithubConnectStatePayload;
+    if (payload.purpose !== 'github_connect' || !payload.sub) return null;
+    return { userId: payload.sub, returnTo: payload.returnTo };
+  } catch {
+    return null;
+  }
+}
+
 // Password hashing
 
 export function hashPassword(password: string): Promise<string> {

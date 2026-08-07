@@ -5,11 +5,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Loader2, MailCheck } from "lucide-react";
 import { forgotPassword } from "@/lib/auth";
-import { describeApiError } from "@/lib/dashboard-api";
+import { describeApiError, getErrorRequestId } from "@/lib/dashboard-api";
+import { Alert } from "@/components/ui/Alert";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [errorRequestId, setErrorRequestId] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -25,6 +27,7 @@ export default function ForgotPasswordPage() {
       setSent(true);
     } catch (err) {
       setError(describeApiError(err, "Something went wrong. Please try again."));
+      setErrorRequestId(getErrorRequestId(err));
     } finally {
       setSubmitting(false);
     }
@@ -78,15 +81,15 @@ export default function ForgotPasswordPage() {
               </div>
 
               {error && (
-                <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                <Alert variant="error" requestId={errorRequestId}>
                   {error}
-                </p>
+                </Alert>
               )}
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex items-center justify-center gap-2 w-full py-2.5 mt-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-60 text-white font-medium rounded-lg shadow-lg shadow-blue-500/20 transition-all"
+                className="flex items-center justify-center gap-2 w-full py-2.5 mt-1 bg-white hover:bg-zinc-100 disabled:opacity-60 text-zinc-950 font-medium rounded-lg border border-zinc-300 shadow-sm transition-all"
               >
                 {submitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

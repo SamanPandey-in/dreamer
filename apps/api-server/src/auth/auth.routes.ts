@@ -14,6 +14,7 @@ import {
   forgotPasswordHandler,
   resetPasswordHandler,
   githubRedirectHandler,
+  githubConnectRedirectHandler,
   githubCallbackHandler,
 } from './auth.controller';
 import { requireAuth } from './auth.middleware';
@@ -58,4 +59,5 @@ authRouter.post('/reset-password', validate(resetPasswordSchema), resetPasswordH
 
 // GitHub OAuth
 authRouter.get('/github', githubRedirectHandler);
+authRouter.get('/github/connect', requireAuth, githubConnectRedirectHandler);
 authRouter.get('/github/callback', githubCallbackHandler);
