@@ -20,17 +20,20 @@ export class ApiError extends Error {
 /**
  * The one place every page's `catch (err) { setError(...) }` should go
  * through, instead of repeating `err instanceof Error ? err.message :
- * fallback` with no way to show a support reference. When the error came
- * from the API, appends "(ref: <requestId>)" — the same ID that's in the
- * server's own logs for that request, so a bug report naming it is
- * instantly greppable server-side.
+ * fallback`. Returns just the clean, human-readable message — no request
+ * ID mixed in. Use getErrorRequestId() alongside it (see <Alert>'s
+ * `requestId` prop) to surface a support reference separately, rather
+ * than concatenated into the sentence a user actually reads.
  */
 export function describeApiError(err: unknown, fallback: string): string {
-  if (err instanceof ApiError) {
-    return err.requestId ? `${err.message} (ref: ${err.requestId})` : err.message;
-  }
+  if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;
   return fallback;
+}
+
+/** Pairs with describeApiError() — the requestId to show as a separate, small "Reference: …" line (see <Alert>), never inline with the message itself. */
+export function getErrorRequestId(err: unknown): string | undefined {
+  return err instanceof ApiError ? err.requestId : undefined;
 }
 
 /** Shared by dashboard-api.ts's parseJson and auth.ts's parseAuthResponse. */

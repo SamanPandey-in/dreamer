@@ -1,5 +1,8 @@
 const { Pool } = require('pg')
 const Redis = require('ioredis')
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 // A separate, minimal Postgres connection — NOT Prisma. This service is a
 // tiny, latency-critical piece of infrastructure that every single request
@@ -10,7 +13,15 @@ const Redis = require('ioredis')
 // handles many concurrent requests, same reasoning api-server already
 // applies to its own DB access.
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-const cache = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
+const cache = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')  // Fallback to localhost for local dev
+
+cache.on("error", (err) => {
+  console.error("Redis error:", err);
+});
+
+cache.on("connect", () => {
+  console.log("Connected to Redis");
+});
 
 const CACHE_TTL_SECONDS = 30
 const CACHE_KEY_PREFIX = 'route:'

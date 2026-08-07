@@ -1,6 +1,6 @@
 import { apiFetch } from "./api-client";
 import { ApiError, extractRequestId } from "./api-error";
-export { ApiError, describeApiError } from "./api-error";
+export { ApiError, describeApiError, getErrorRequestId } from "./api-error";
 import type {
   Deployment,
   DeploymentDetail,

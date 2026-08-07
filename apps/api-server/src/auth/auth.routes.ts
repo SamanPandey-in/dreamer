@@ -9,7 +9,12 @@ import {
   listSessionsHandler,
   revokeSessionHandler,
   changePasswordHandler,
+  verifyEmailHandler,
+  resendVerificationHandler,
+  forgotPasswordHandler,
+  resetPasswordHandler,
   githubRedirectHandler,
+  githubConnectRedirectHandler,
   githubCallbackHandler,
 } from './auth.controller';
 import { requireAuth } from './auth.middleware';
@@ -18,8 +23,18 @@ import {
   loginRateLimiter,
   registerRateLimiter,
   refreshRateLimiter,
+  resendVerificationRateLimiter,
+  forgotPasswordRateLimiter,
 } from '../middleware/rate-limiter.middleware';
-import { registerSchema, loginSchema, changePasswordSchema } from './auth.types';
+import {
+  registerSchema,
+  loginSchema,
+  changePasswordSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from './auth.types';
 
 export const authRouter = Router();
 
@@ -36,6 +51,13 @@ authRouter.get('/sessions', requireAuth, listSessionsHandler);
 authRouter.delete('/sessions/:sessionId', requireAuth, revokeSessionHandler);
 authRouter.post('/change-password', requireAuth, validate(changePasswordSchema), changePasswordHandler);
 
+// Email verification / password reset — all public, unauthenticated
+authRouter.post('/verify-email', validate(verifyEmailSchema), verifyEmailHandler);
+authRouter.post('/resend-verification', resendVerificationRateLimiter, validate(resendVerificationSchema), resendVerificationHandler);
+authRouter.post('/forgot-password', forgotPasswordRateLimiter, validate(forgotPasswordSchema), forgotPasswordHandler);
+authRouter.post('/reset-password', validate(resetPasswordSchema), resetPasswordHandler);
+
 // GitHub OAuth
 authRouter.get('/github', githubRedirectHandler);
+authRouter.get('/github/connect', requireAuth, githubConnectRedirectHandler);
 authRouter.get('/github/callback', githubCallbackHandler);

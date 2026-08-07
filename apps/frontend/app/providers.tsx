@@ -18,6 +18,7 @@ interface AuthContextType {
   /** True until the initial silent-refresh-on-mount has resolved. */
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  /** No longer logs the user in — the account must be verified first. */
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   /** Re-runs the same cookie-to-access-token exchange used on boot. Used by /auth/callback after GitHub OAuth. */
@@ -72,8 +73,9 @@ export function Providers({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
-    const data = await authApi.register(name, email, password);
-    setUser(data.user);
+    // Intentionally does NOT setUser — registering no longer creates a
+    // session. The caller (RegisterPage) shows a "check your email" screen.
+    await authApi.register(name, email, password);
   }, []);
 
   const logout = useCallback(async () => {

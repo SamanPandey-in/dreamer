@@ -67,6 +67,12 @@ enum EnvironmentTarget {
   DEVELOPMENT
 }
 
+// ★ NEW — which kind of one-time token a VerificationToken row represents.
+enum VerificationTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
 
 // USERS
 
@@ -98,9 +104,35 @@ model User {
   sessions             UserSession[]
   auditLogs            AuditLog[]
   deploymentsTriggered Deployment[]   // ★ NEW — inverse side of Deployment.deployedBy
+  verificationTokens   VerificationToken[]   // ★ NEW — email-verify + password-reset tokens
 
   @@index([email])
   @@index([githubId])
+}
+
+
+// VERIFICATION TOKENS
+// One-time tokens for email verification and password reset. Same
+// raw-token-vs-hash pattern as UserSession: the raw token handed to the
+// client is `${id}.${secret}`, only bcrypt(secret) is ever persisted as
+// tokenHash. `type` distinguishes the two use cases so this single table
+// covers both instead of adding separate columns to User for each.
+
+model VerificationToken {
+  id            String                @id @default(uuid()) @db.Uuid
+  userId        String                @db.Uuid
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type          VerificationTokenType
+  tokenHash     String                @unique
+
+  expiresAt     DateTime              @db.Timestamptz
+  consumedAt    DateTime?             @db.Timestamptz   // set once used — makes the token single-use
+
+  createdAt     DateTime              @default(now()) @db.Timestamptz
+
+  @@index([userId, type])
+  @@index([expiresAt])   // for a cleanup job that deletes expired/consumed tokens
 }
 
 

@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { prisma } from '../lib/prisma';
 import { env } from '../lib/env';
 import type { AccessTokenPayload } from './auth.types';
+import type { VerificationTokenType } from '../generated/prisma/client';
 
 const REFRESH_SECRET_BYTES = 64;
 const BCRYPT_SALT_ROUNDS = 12; // matches the cost factor documented on User.passwordHash in schema.prisma
@@ -23,6 +24,49 @@ export function signAccessToken(userId: string, email: string): string {
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
   return jwt.verify(token, env.JWT_ACCESS_SECRET) as AccessTokenPayload;
+}
+
+// GitHub "connect account" OAuth state
+//
+// The normal GitHub login/register flow's `state` param is just a random
+// hex string, checked only against the httpOnly cookie set alongside it
+// (CSRF protection). Connecting GitHub to an ALREADY-LOGGED-IN account needs
+// more: the callback has to know which user initiated it, but the access
+// token lives in frontend memory, not a cookie, so it never reaches the
+// backend across GitHub's own redirect. Solution: pack the userId (and
+// where to send the user back to) into the state param itself, signed so it
+// can't be tampered with, short-lived so a stale link can't be replayed.
+// The callback still does the same cookie-vs-param equality check as
+// before — this only adds a second, independent check on top of it.
+
+interface GithubConnectStatePayload {
+  purpose: "github_connect";
+  sub: string; // userId
+  returnTo: string; // relative frontend path to redirect back to
+}
+
+const GITHUB_CONNECT_STATE_TTL = "10m"; // matches the OAuth state cookie's own maxAge
+
+export function signGithubConnectState(userId: string, returnTo: string): string {
+  const payload: Omit<GithubConnectStatePayload, never> = { purpose: "github_connect", sub: userId, returnTo };
+  return jwt.sign(payload, env.JWT_ACCESS_SECRET, { expiresIn: GITHUB_CONNECT_STATE_TTL, algorithm: 'HS256' });
+}
+
+/**
+ * Returns the {userId, returnTo} a connect-state was signed for, or null
+ * for ANY failure — expired, wrong purpose, or (crucially) a login flow's
+ * plain random-hex state, which simply isn't valid JWT input. That last
+ * case isn't an error, it's the normal signal to fall through to the
+ * existing login/register handling.
+ */
+export function verifyGithubConnectState(state: string): { userId: string; returnTo: string } | null {
+  try {
+    const payload = jwt.verify(state, env.JWT_ACCESS_SECRET) as GithubConnectStatePayload;
+    if (payload.purpose !== 'github_connect' || !payload.sub) return null;
+    return { userId: payload.sub, returnTo: payload.returnTo };
+  } catch {
+    return null;
+  }
 }
 
 // Password hashing
@@ -140,4 +184,69 @@ export async function listSessionsForUser(userId: string) {
 export async function revokeSessionById(userId: string, sessionId: string): Promise<boolean> {
   const result = await prisma.userSession.deleteMany({ where: { id: sessionId, userId } });
   return result.count > 0;
+}
+
+// ── Verification tokens (email-verify / password-reset) ────────────────────
+//
+// Exact same raw-token-vs-hash shape as refresh tokens above: the raw token
+// handed to the client (embedded in the email link) is `${id}.${secret}`,
+// only bcrypt(secret) is ever persisted. Reusing this pattern instead of
+// storing a plain random token means a DB read alone can never be replayed
+// as a valid token — the same property refresh tokens already have.
+
+const VERIFICATION_SECRET_BYTES = 32;
+
+export const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
+
+/**
+ * Creates a new verification/reset token row and returns the raw token to
+ * embed in the email link. Any previous unconsumed token of the same type
+ * for this user is invalidated first, so clicking an old email link never
+ * works alongside a freshly requested one.
+ */
+export async function createVerificationToken(
+  userId: string,
+  type: VerificationTokenType,
+  ttlMs: number
+): Promise<string> {
+  const secret = crypto.randomBytes(VERIFICATION_SECRET_BYTES).toString('hex');
+  const tokenHash = await bcrypt.hash(secret, BCRYPT_SALT_ROUNDS);
+  const expiresAt = new Date(Date.now() + ttlMs);
+
+  await prisma.verificationToken.deleteMany({ where: { userId, type, consumedAt: null } });
+  const token = await prisma.verificationToken.create({ data: { userId, type, tokenHash, expiresAt } });
+
+  // packRefreshToken is a generic "${id}.${secret}" packer despite the name
+  // (shared with refresh-token creation above) — reused here rather than
+  // duplicated.
+  return packRefreshToken(token.id, secret);
+}
+
+/**
+ * Validates a raw verification/reset token, marks it consumed (single-use),
+ * and returns the userId it belongs to — or null for ANY failure (expired,
+ * already used, garbage input, wrong type). Callers should surface a single
+ * generic error either way, same reasoning as rotateSession() above.
+ */
+export async function consumeVerificationToken(
+  rawToken: string,
+  type: VerificationTokenType
+): Promise<string | null> {
+  const unpacked = unpackRefreshToken(rawToken);
+  if (!unpacked) return null;
+  const { sessionId: tokenId, secret } = unpacked; // generic id.secret packer, reused from refresh tokens
+
+  const token = await prisma.verificationToken.findUnique({ where: { id: tokenId } });
+  if (!token || token.type !== type || token.consumedAt || token.expiresAt < new Date()) return null;
+
+  const isValid = await bcrypt.compare(secret, token.tokenHash);
+  if (!isValid) return null;
+
+  await prisma.verificationToken.update({
+    where: { id: token.id },
+    data: { consumedAt: new Date() },
+  });
+
+  return token.userId;
 }

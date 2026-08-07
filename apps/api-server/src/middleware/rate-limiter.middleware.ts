@@ -22,3 +22,10 @@ export const refreshRateLimiter = createRateLimiter(15, 30); // refresh fires of
 // vars on the env page in one sitting, tight enough to blunt a scripted
 // "reveal everything on this project" sweep run against a stolen session.
 export const revealEnvVariableRateLimiter = createRateLimiter(15, 20);
+
+// ★ NEW — both of these send an email and both intentionally return an
+// identical response whether or not the account exists (see auth.service.ts),
+// so rate limiting is the only real defense against someone using them to
+// spam an arbitrary inbox. Tighter than login/register on purpose.
+export const resendVerificationRateLimiter = createRateLimiter(60, 3); // 3 / hour / IP
+export const forgotPasswordRateLimiter = createRateLimiter(60, 3); // 3 / hour / IP
