@@ -21,7 +21,7 @@ import {
   Lock,
   Cpu,
   Activity,
-  Moon,
+  GitBranch,
   Menu,
   X,
   Cloud,
@@ -281,13 +281,23 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 relative z-20 w-full text-center flex flex-col items-center">
 
           {/* Badge */}
-          <motion.div
+          {/* <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mb-6 inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/35 bg-blue-500/10 text-blue-300 text-xs font-medium tracking-wide shadow-inner shadow-blue-500/10"
+            className="mb-4 inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/35 bg-blue-500/10 text-blue-300 text-xs font-medium tracking-wide shadow-inner shadow-blue-500/10"
           >
             <span>Open Source PaaS Engine</span>
+          </motion.div> */}
+          {/* Lifetime-free line — deliberately small and separate from the
+              badge above, so it reads as an urgent aside, not a rebrand. */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="mb-4 text-xs font-semibold text-emerald-400 tracking-wide"
+          >
+            Lifetime free for first 50 users
           </motion.div>
 
           {/* Heading */}
@@ -298,11 +308,10 @@ export default function LandingPage() {
             className="text-4xl md:text-7xl font-extrabold tracking-tight max-w-5xl leading-none mb-6"
           >
             <motion.span variants={headlineLine} className="block bg-clip-text text-transparent bg-gradient-to-b from-white via-zinc-100 to-zinc-400">
-              {/* Your Own Vercel & Railway, */}
               Your Own Vercel,
             </motion.span>
             <motion.span variants={headlineLine} className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-white">
-              Self-Hosted In Under 3 Mins
+              Deploy free or self-host.
             </motion.span>
           </motion.h1>
 
@@ -313,7 +322,7 @@ export default function LandingPage() {
             transition={{ duration: 0.6, delay: 0.4 }}
             className="text-lg md:text-xl text-zinc-400 max-w-3xl leading-relaxed mb-10"
           >
-            Clones your repositories, auto-detects frameworks, containerizes applications, provisions wildcard routing subdomains, streams build logs, and scales to zero when idle. AWS or local Docker.
+            Connect a GitHub repo and get a live URL in minutes — hosted free on our cloud, or run the whole platform yourself. Auto-detects your framework, builds static or dynamic apps, and redeploys automatically on every push.
           </motion.p>
 
           {/* Actions */}
@@ -327,15 +336,15 @@ export default function LandingPage() {
               href="/register"
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium rounded-full shadow-lg shadow-blue-500/25 transition-colors"
             >
-              Get Started Free
+              Get Started
               <ArrowRight className="w-4 h-4" />
             </MagneticButton>
             <Link
-              href="/docs/architecture"
+              href="/docs/self-hosting"
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 bg-white/5 hover:bg-white/10 text-white font-medium rounded-full border border-white/10 hover:border-white/20 transition-all"
             >
-              <Cpu className="w-4 h-4 text-blue-400" />
-              Explore Architecture
+              <Server className="w-4 h-4 text-blue-400" />
+              Self host?
             </Link>
           </motion.div>
 
@@ -361,10 +370,10 @@ export default function LandingPage() {
           </div>
           <div className="text-center px-4">
             <div className="text-3xl md:text-4xl font-extrabold text-white tabular-nums">
-              <StatCounter value={15} />
+              &lt;<StatCounter value={1} />
               <span className="text-blue-400">m</span>
             </div>
-            <p className="text-xs text-zinc-500 mt-2">idle before scale-to-zero</p>
+            <p className="text-xs text-zinc-500 mt-2">push to live redeploy</p>
           </div>
           <div className="text-center px-4">
             <div className="text-3xl md:text-4xl font-extrabold text-white tabular-nums">
@@ -385,7 +394,7 @@ export default function LandingPage() {
               Engineered for absolute efficiency
             </p>
             <p className="text-zinc-500 mt-4 max-w-xl mx-auto">
-              Dreamer goes beyond standard tutorials to deliver complex mechanisms built for real, self-hosted workloads.
+              Dreamer goes beyond standard tutorials to deliver complex mechanisms built for real production workloads — hosted for you, or self-hosted on your own infrastructure.
             </p>
           </div>
 
@@ -396,7 +405,7 @@ export default function LandingPage() {
             viewport={{ once: true, margin: "-100px" }}
             className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
-            {/* Bento Card 1: Scale-to-Zero */}
+            {/* Bento Card 1: Static + Dynamic Builds, Auto-Deploy on Commit */}
             <motion.div
               variants={fadeInUpVariants}
               whileHover={{ y: -6, transition: { duration: 0.2, ease: "easeOut" } }}
@@ -404,16 +413,16 @@ export default function LandingPage() {
             >
               <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl -z-10 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-6">
-                <Moon className="w-6 h-6 text-blue-400" />
+                <GitBranch className="w-6 h-6 text-blue-400" />
               </div>
-              <h3 className="text-xl font-bold mb-3 group-hover:text-blue-300 transition-colors">Smart Scale-to-Zero</h3>
+              <h3 className="text-xl font-bold mb-3 group-hover:text-blue-300 transition-colors">Static & Dynamic Builds, Auto-Deployed on Every Commit</h3>
               <p className="text-zinc-400 text-sm leading-relaxed mb-4">
-                Dynamic app deployments receiving no traffic for 15 minutes scale automatically to <code className="text-blue-300 bg-blue-950/30 px-1 py-0.5 rounded text-xs">desiredCount: 0</code> on ECS, halting active charges. Wakes up in seconds on subsequent requests using a distributed lock to prevent cold-start bottlenecks.
+                Ship a static site or a full server-rendered app — Dreamer detects which one your repo needs and builds accordingly. Push to your production branch and that exact commit redeploys automatically, no manual trigger required.
               </p>
               <div className="flex flex-wrap gap-2 text-xs font-mono text-zinc-500">
-                <span className="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">Redis SET NX Dedup</span>
-                <span className="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">3s Browser Polling</span>
-                <span className="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">API 503 fallback</span>
+                <span className="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">Static + Dynamic</span>
+                <span className="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">GitHub Webhook</span>
+                <span className="bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">Pinned to commit SHA</span>
               </div>
             </motion.div>
 
