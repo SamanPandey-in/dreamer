@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Globe, GitBranch, Loader2, Lock, Search } from "lucide-react";
-import { listUserRepos, searchPublicRepos, describeApiError } from "@/lib/dashboard-api";
+import { listUserRepos, searchPublicRepos, describeApiError, getErrorRequestId, ApiError } from "@/lib/dashboard-api";
 import type { UserRepoSummary } from "@/lib/dashboard-types";
 import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { ConnectGithubPrompt } from "@/components/ConnectGithubPrompt";
+import { useGithubConnectStatus } from "@/lib/useGithubConnectStatus";
 
 /** Renders "6h ago" / "Jun 21" the same way the actual screenshot does — recent
  * activity gets a relative time, older activity gets a short absolute date,
@@ -121,9 +124,9 @@ function PublicRepoSearch({ onSelect }: { onSelect: (repo: UserRepoSummary) => v
       </div>
 
       {visibleError && (
-        <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-3">
+        <Alert variant="error" className="mb-3">
           {visibleError}
-        </p>
+        </Alert>
       )}
 
       {visibleResults && (
@@ -144,13 +147,25 @@ function PublicRepoSearch({ onSelect }: { onSelect: (repo: UserRepoSummary) => v
 export function RepoPicker({ onSelect }: { onSelect: (repo: UserRepoSummary) => void }) {
   const [repos, setRepos] = useState<UserRepoSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorRequestId, setErrorRequestId] = useState<string | undefined>(undefined);
+  const [githubNotConnected, setGithubNotConnected] = useState(false);
   const [query, setQuery] = useState("");
+  const githubStatus = useGithubConnectStatus();
 
   useEffect(() => {
     listUserRepos()
       .then(setRepos)
-      .catch((err) => setError(describeApiError(err, "Failed to load your repositories")));
-  }, []);
+      .catch((err) => {
+        if (err instanceof ApiError && err.code === "GITHUB_ACCOUNT_NOT_CONNECTED") {
+          setGithubNotConnected(true);
+          return;
+        }
+        setError(describeApiError(err, "Failed to load your repositories"));
+        setErrorRequestId(getErrorRequestId(err));
+      });
+    // Re-runs after a successful "Connect GitHub" round trip lands back on
+    // this page with ?github=connected, since that changes githubStatus.
+  }, [githubStatus]);
 
   const filtered = repos?.filter((r) => r.name.toLowerCase().includes(query.toLowerCase())) ?? null;
 
@@ -158,50 +173,65 @@ export function RepoPicker({ onSelect }: { onSelect: (repo: UserRepoSummary) => 
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold mb-5">Import Git Repository</h1>
 
-      <PublicRepoSearch onSelect={onSelect} />
+      {githubStatus && (
+        <Alert variant={githubStatus.variant} className="mb-5">
+          {githubStatus.message}
+        </Alert>
+      )}
 
-      <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5">Your Repositories</h2>
-
-      {error ? (
-        <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
-          {error}
-        </div>
+      {githubNotConnected ? (
+        <ConnectGithubPrompt
+          returnTo="project"
+          description="Connect your GitHub account to import a repository."
+        />
       ) : (
         <>
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search…"
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
-            />
-          </div>
+          <PublicRepoSearch onSelect={onSelect} />
 
-          <div className="border border-zinc-800 rounded-xl divide-y divide-zinc-800 overflow-hidden">
-            {!repos &&
-              [...Array(4)].map((_, i) => (
-                <div key={i} className="h-14 bg-zinc-950/40 animate-pulse" />
-              ))}
+          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2.5">Your Repositories</h2>
 
-            {filtered?.length === 0 && (
-              <p className="text-sm text-zinc-500 px-4 py-6 text-center">No repositories match &quot;{query}&quot;</p>
-            )}
-
-            {filtered?.map((repo) => (
-              <div key={repo.fullName} className="flex items-center justify-between px-4 py-3.5 hover:bg-zinc-900/40 transition-colors">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <GitBranch className="w-4 h-4 text-zinc-500 shrink-0" />
-                  <span className="text-sm font-medium text-zinc-100 truncate">{repo.name}</span>
-                  {repo.isPrivate && <Lock className="w-3 h-3 text-zinc-500 shrink-0" />}
-                  <span className="text-xs text-zinc-500 shrink-0">· {formatRepoUpdatedAt(repo.updatedAt)}</span>
-                </div>
-                <Button variant="secondary" onClick={() => onSelect(repo)} className="shrink-0">
-                  Import
-                </Button>
+          {error ? (
+            <Alert variant="error" requestId={errorRequestId}>
+              {error}
+            </Alert>
+          ) : (
+            <>
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search…"
+                  className="w-full pl-9 pr-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
+                />
               </div>
-            ))}
-          </div>
+
+              <div className="border border-zinc-800 rounded-xl divide-y divide-zinc-800 overflow-hidden">
+                {!repos &&
+                  [...Array(4)].map((_, i) => (
+                    <div key={i} className="h-14 bg-zinc-950/40 animate-pulse" />
+                  ))}
+
+                {filtered?.length === 0 && (
+                  <p className="text-sm text-zinc-500 px-4 py-6 text-center">No repositories match &quot;{query}&quot;</p>
+                )}
+
+                {filtered?.map((repo) => (
+                  <div key={repo.fullName} className="flex items-center justify-between px-4 py-3.5 hover:bg-zinc-900/40 transition-colors">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <GitBranch className="w-4 h-4 text-zinc-500 shrink-0" />
+                      <span className="text-sm font-medium text-zinc-100 truncate">{repo.name}</span>
+                      {repo.isPrivate && <Lock className="w-3 h-3 text-zinc-500 shrink-0" />}
+                      <span className="text-xs text-zinc-500 shrink-0">· {formatRepoUpdatedAt(repo.updatedAt)}</span>
+                    </div>
+                    <Button variant="secondary" onClick={() => onSelect(repo)} className="shrink-0">
+                      Import
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

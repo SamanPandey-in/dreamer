@@ -29,6 +29,13 @@ const envSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().min(1, 'GITHUB_CLIENT_SECRET is required'),
   GITHUB_CALLBACK_URL: z.url(),
 
+  // ★ NEW — transactional email (verify-email / reset-password links).
+  // Required (not optional) since these flows are now mandatory for every
+  // email+password signup — an unconfigured deploy should fail at boot,
+  // not silently swallow every verification email at runtime.
+  RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
+  EMAIL_FROM: z.string().min(1, 'EMAIL_FROM is required'), // e.g. "Dreamer <noreply@yourdomain.com>"
+
   AWS_REGION: z.string().optional(),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),

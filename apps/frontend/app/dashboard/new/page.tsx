@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createDeployment, createEnvVariable, createProject, describeApiError } from "@/lib/dashboard-api";
 import type { UserRepoSummary } from "@/lib/dashboard-types";
@@ -35,6 +35,14 @@ function repoUrlFromFullName(fullName: string): string {
 }
 
 export default function NewProjectPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewProjectWizard />
+    </Suspense>
+  );
+}
+
+function NewProjectWizard() {
   const router = useRouter();
   const [step, setStep] = useState<WizardStep>({ name: "pick-repo" });
   const [deploying, setDeploying] = useState(false);

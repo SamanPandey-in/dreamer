@@ -4,10 +4,13 @@ import Image from "next/image";
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { GithubIcon } from "../../components/icons";
 import { useAuth } from "../providers";
-import { describeApiError } from "@/lib/dashboard-api";
+import { describeApiError, getErrorRequestId } from "@/lib/dashboard-api";
+import { resendVerification } from "@/lib/auth";
+import { ApiError } from "@/lib/api-error";
+import { Alert } from "@/components/ui/Alert";
 
 const ERROR_MESSAGES: Record<string, string> = {
   github_state_mismatch: "Your GitHub sign-in session expired before it could finish. Please try again.",
@@ -25,10 +28,16 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(
     queryError ? ERROR_MESSAGES[queryError] ?? "Something went wrong. Please try again." : null
   );
   const [submitting, setSubmitting] = useState(false);
+  const [errorRequestId, setErrorRequestId] = useState<string | undefined>(undefined);
+  // True when login failed specifically because the email isn't verified
+  // yet — shows a "resend verification email" action instead of a plain error.
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
 
   // Already signed in (e.g. hit the back button after logging in) — skip the form.
   useEffect(() => {
@@ -38,15 +47,38 @@ function LoginForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setErrorRequestId(undefined);
+    setNeedsVerification(false);
+    setResendState("idle");
     setSubmitting(true);
 
     try {
       await login(email, password);
       router.push(redirectTo);
     } catch (err) {
-      setError(describeApiError(err, "Something went wrong. Please try again."));
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        setNeedsVerification(true);
+        setError("Please verify your email before signing in.");
+      } else {
+        setError(describeApiError(err, "Something went wrong. Please try again."));
+        setErrorRequestId(getErrorRequestId(err));
+      }
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleResend() {
+    setResendState("sending");
+    try {
+      await resendVerification(email);
+      setResendState("sent");
+    } catch (err) {
+      // Distinct from the enumeration-safe backend response: this is a
+      // genuine failure to send (network, rate limit, etc.), so allow
+      // retry instead of falsely claiming success.
+      setResendState("idle");
+      setError(describeApiError(err, "Unable to resend the verification email. Please try again."));
     }
   }
 
@@ -99,28 +131,61 @@ function LoginForm() {
             <label htmlFor="password" className="block text-xs font-medium text-zinc-400 mb-1.5">
               Password
             </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2.5 pr-10 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-colors"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <div className="text-right mt-1.5">
+              <Link href="/forgot-password" className="text-xs text-zinc-500 hover:text-zinc-300">
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+          {error && needsVerification && (
+            <Alert variant="warning">
+              <p>{error}</p>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendState !== "idle"}
+                className="mt-1.5 text-amber-200 hover:text-amber-100 font-medium underline underline-offset-2 disabled:no-underline disabled:opacity-70"
+              >
+                {resendState === "sending"
+                  ? "Sending…"
+                  : resendState === "sent"
+                  ? "Verification email sent — check your inbox"
+                  : "Resend verification email"}
+              </button>
+            </Alert>
+          )}
+
+          {error && !needsVerification && (
+            <Alert variant="error" requestId={errorRequestId}>
               {error}
-            </p>
+            </Alert>
           )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center justify-center gap-2 w-full py-2.5 mt-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-60 text-white font-medium rounded-lg shadow-lg shadow-blue-500/20 transition-all"
+            className="flex items-center justify-center gap-2 w-full py-2.5 mt-1 bg-white hover:bg-zinc-100 disabled:opacity-60 text-zinc-950 font-medium rounded-lg border border-zinc-300 shadow-sm transition-all"
           >
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />

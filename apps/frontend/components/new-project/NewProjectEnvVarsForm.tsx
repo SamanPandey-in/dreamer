@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Eye, EyeOff, Plus, Upload, X } from "lucide-react";
 import type { EnvironmentTarget } from "@/lib/dashboard-types";
 import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
 
 const ALL_ENVIRONMENTS: EnvironmentTarget[] = ["PRODUCTION", "PREVIEW", "DEVELOPMENT"];
 
@@ -167,9 +168,9 @@ export function NewProjectEnvVarsForm({
       </div>
 
       {error && (
-        <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-4">
+        <Alert variant="error" className="mb-4">
           {error}
-        </p>
+        </Alert>
       )}
 
       <div className="flex items-center justify-between">
