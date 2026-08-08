@@ -9,6 +9,7 @@ import { assertProjectOwnership } from '../projects/project.service'; // concret
 import { deploymentEngine } from './deployment-engine';
 import { buildQueue } from '../lib/queue';
 import { logger } from '../lib/logger';
+import { invalidateRouteCache } from '../lib/route-cache';
 import type {
   CreateDeploymentInput,
   DeploymentDetail,
@@ -461,6 +462,7 @@ export async function stopDeployment(
         }
       }
       await prisma.project.update({ where: { id: deployment.projectId }, data: { activeDeploymentId: null } });
+      await invalidateRouteCache(project.slug);
     }
   }
 
@@ -613,10 +615,12 @@ export async function transitionDeploymentStatus(
   });
 
   if (toStatus === 'RUNNING') {
-    await prisma.project.update({
+    const project = await prisma.project.update({
       where: { id: updated.projectId },
       data: { activeDeploymentId: deploymentId, lastDeployedAt: now },
+      select: { slug: true },
     });
+    await invalidateRouteCache(project.slug);
   }
 
   return updated;
