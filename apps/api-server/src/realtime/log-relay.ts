@@ -63,6 +63,7 @@ export async function startLogRelay(io: Server): Promise<void> {
             errorMessage: event.errorMessage,
             errorStep: event.errorStep,
             uploadedFileCount: event.uploadedFileCount, //  NEW
+            triggeredBy: event.triggeredBy, // NEW — see DeploymentStatusEvent's comment
           });
           if (updated) {
             io.to(roomFor(deploymentId)).emit('status', { status: updated.status, url: updated.url });

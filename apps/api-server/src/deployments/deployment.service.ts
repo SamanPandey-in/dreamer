@@ -229,28 +229,28 @@ async function createDeploymentInternal(
     await buildQueue.add(
       'launch-build',
       {
-      deploymentId: deployment.id,
-      projectSlug: project.slug,
-      projectId,
-      repoUrl: project.repoUrl,
-      branch,
-      commitHash: opts.commitHash,
-      gitAccessToken,
-      // NEW — the project's resolved build config, read straight off the
-      // row assertProjectOwnership already fetched above. null on any
-      // field is a legitimate, common case (a project whose config was
-      // never set, or never edited from Settings) — deployment-engine.ts
-      // forwards null through as an empty string, and build-engine's
-      // script.js falls back to its own hardcoded default for that field.
-      rootDirectory: project.rootDirectory,
-      installCommand: project.installCommand,
-      buildCommand: project.buildCommand,
-      outputDirectory: project.outputDirectory,
-      userEnvVars,
-      // NEW — see BuildJob's comment in deployment-engine.ts: this is what
-      // actually decides which branch of build-engine's script.js runs.
-      deploymentType: project.detectedDeploymentType,
-      framework: project.detectedFramework,
+        deploymentId: deployment.id,
+        projectSlug: project.slug,
+        projectId,
+        repoUrl: project.repoUrl,
+        branch,
+        commitHash: opts.commitHash,
+        gitAccessToken,
+        // NEW — the project's resolved build config, read straight off the
+        // row assertProjectOwnership already fetched above. null on any
+        // field is a legitimate, common case (a project whose config was
+        // never set, or never edited from Settings) — deployment-engine.ts
+        // forwards null through as an empty string, and build-engine's
+        // script.js falls back to its own hardcoded default for that field.
+        rootDirectory: project.rootDirectory,
+        installCommand: project.installCommand,
+        buildCommand: project.buildCommand,
+        outputDirectory: project.outputDirectory,
+        userEnvVars,
+        // NEW — see BuildJob's comment in deployment-engine.ts: this is what
+        // actually decides which branch of build-engine's script.js runs.
+        deploymentType: project.detectedDeploymentType,
+        framework: project.detectedFramework,
       },
       { jobId: deployment.id }
     );
@@ -331,13 +331,27 @@ export async function rollbackDeployment(
  * legal target from BUILDING/UPLOADING/STARTING/RUNNING (after the trigger
  * extension) — QUEUED routes to the pre-existing CANCELLED instead, and the
  * three terminal statuses are rejected before any transition is attempted.
+ *
+ * QUEUED and LAUNCHING are handled specially (see below) rather than
+ * falling into the generic transitionDeploymentStatus(..., 'STOPPED') call
+ * at the bottom — a build that's still QUEUED or LAUNCHING may not have an
+ * ECS task to stop yet (or may get one any millisecond), so there's nothing
+ * safe to call deploymentEngine.stopBuildTask() on yet. See
+ * build.worker.ts's cancelRequested handling for the other half of this —
+ * it's the one that actually owns finishing a cancel that lands during
+ * LAUNCHING.
  */
 export async function stopDeployment(
   deploymentId: string,
   userId: string,
   meta: AuditMeta
 ): Promise<PublicDeployment> {
-  const deployment = await assertDeploymentOwnership(deploymentId, userId);
+  // Annotated as the plain Deployment type (not
+  // Awaited<ReturnType<typeof assertDeploymentOwnership>>, which includes
+  // stateTransitions) because this gets reassigned below to a plain
+  // findUniqueOrThrow() result with no include — both shapes are
+  // structurally compatible with plain Deployment, just not with each other.
+  let deployment: Deployment = await assertDeploymentOwnership(deploymentId, userId);
 
   if (NON_STOPPABLE_STATUSES.includes(deployment.status)) {
     throw new ConflictError(
@@ -347,23 +361,59 @@ export async function stopDeployment(
   }
 
   if (deployment.status === 'QUEUED') {
-    // Best-effort: if the worker has already moved this job to 'active' this
-    // is a no-op (BullMQ only removes jobs still waiting/delayed) — that's
-    // fine, the worker's own launchBuildTask result will land on a
-    // deployment row that's already CANCELLED, which is a rare, harmless
-    // race rather than something this needs to be watertight against.
-    try {
-      await buildQueue.remove(deploymentId);
-    } catch (err) {
-      logger.error('Failed to remove queued build job', { deploymentId, err });
+    // Atomic claim, racing directly against build.worker.ts's own
+    // QUEUED -> LAUNCHING claim on this exact row (same WHERE clause,
+    // opposite target status). Postgres serializes concurrent UPDATEs to
+    // one row: whichever of the two commits first "wins," and the loser's
+    // WHERE re-evaluates against what the winner already committed and
+    // matches zero rows. That's what makes this safe without an explicit
+    // lock — the row itself is the lock — and it closes the gap the
+    // previous version had: read status === 'QUEUED', THEN remove the
+    // BullMQ job, THEN write CANCELLED left a window where the worker
+    // could already have started launching in between those steps.
+    const claimed = await prisma.deployment.updateMany({
+      where: { id: deploymentId, status: 'QUEUED' },
+      data: { status: 'CANCELLED', stoppedAt: new Date() },
+    });
+
+    if (claimed.count === 1) {
+      await prisma.deploymentStateTransition.create({
+        data: {
+          deploymentId,
+          fromStatus: 'QUEUED',
+          toStatus: 'CANCELLED',
+          reason: 'Cancelled by user before the build started',
+          triggeredBy: 'user',
+        },
+      });
+      // Cleanup only, at this point — the claim above is what actually
+      // guarantees the worker will never launch this job (its own claim
+      // against the same row can no longer succeed); removing it from
+      // BullMQ just keeps the queue tidy.
+      await buildQueue.remove(deploymentId).catch((err) => {
+        logger.error('Failed to remove queued build job', { deploymentId, err });
+      });
+
+      await audit(userId, 'deployment.cancel', meta, { resourceType: 'deployment', resourceId: deploymentId });
+      const cancelled = await prisma.deployment.findUniqueOrThrow({ where: { id: deploymentId } });
+      return toPublicDeployment(cancelled);
     }
 
-    const updated = await transitionDeploymentStatus(deploymentId, 'CANCELLED', {
-      reason: 'Cancelled by user before the build started',
-      triggeredBy: 'user',
-    });
+    // Lost the claim — build.worker.ts already won QUEUED -> LAUNCHING.
+    // Re-read to fall into the LAUNCHING branch below with current data.
+    deployment = await prisma.deployment.findUniqueOrThrow({ where: { id: deploymentId } });
+  }
+
+  if (deployment.status === 'LAUNCHING') {
+    // No ECS task ARN necessarily exists yet (and one may land any
+    // millisecond) — the only safe move is to flag intent and let
+    // build.worker.ts finish the job the moment it actually has a task to
+    // stop (or knows the launch failed outright). See its cancelRequested
+    // handling for both outcomes.
+    await prisma.deployment.update({ where: { id: deploymentId }, data: { cancelRequested: true } });
     await audit(userId, 'deployment.cancel', meta, { resourceType: 'deployment', resourceId: deploymentId });
-    return toPublicDeployment(updated ?? deployment);
+    const current = await prisma.deployment.findUniqueOrThrow({ where: { id: deploymentId } });
+    return toPublicDeployment(current);
   }
 
   if (IN_FLIGHT_BUILD_STATUSES.includes(deployment.status) && deployment.ecsTaskArn) {
