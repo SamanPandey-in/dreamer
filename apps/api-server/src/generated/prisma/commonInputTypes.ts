@@ -202,6 +202,23 @@ export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDateTimeNullableFilter<$PrismaModel>
 }
 
+export type EnumVerificationTokenTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.VerificationTokenType | Prisma.EnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.VerificationTokenType[] | Prisma.ListEnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.VerificationTokenType[] | Prisma.ListEnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumVerificationTokenTypeFilter<$PrismaModel> | $Enums.VerificationTokenType
+}
+
+export type EnumVerificationTokenTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.VerificationTokenType | Prisma.EnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.VerificationTokenType[] | Prisma.ListEnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.VerificationTokenType[] | Prisma.ListEnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumVerificationTokenTypeWithAggregatesFilter<$PrismaModel> | $Enums.VerificationTokenType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumVerificationTokenTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumVerificationTokenTypeFilter<$PrismaModel>
+}
+
 export type EnumFrameworkNullableFilter<$PrismaModel = never> = {
   equals?: $Enums.Framework | Prisma.EnumFrameworkFieldRefInput<$PrismaModel> | null
   in?: $Enums.Framework[] | Prisma.ListEnumFrameworkFieldRefInput<$PrismaModel> | null
@@ -650,6 +667,23 @@ export type NestedDateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedDateTimeNullableFilter<$PrismaModel>
   _max?: Prisma.NestedDateTimeNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumVerificationTokenTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.VerificationTokenType | Prisma.EnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.VerificationTokenType[] | Prisma.ListEnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.VerificationTokenType[] | Prisma.ListEnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumVerificationTokenTypeFilter<$PrismaModel> | $Enums.VerificationTokenType
+}
+
+export type NestedEnumVerificationTokenTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.VerificationTokenType | Prisma.EnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.VerificationTokenType[] | Prisma.ListEnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.VerificationTokenType[] | Prisma.ListEnumVerificationTokenTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumVerificationTokenTypeWithAggregatesFilter<$PrismaModel> | $Enums.VerificationTokenType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumVerificationTokenTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumVerificationTokenTypeFilter<$PrismaModel>
 }
 
 export type NestedEnumFrameworkNullableFilter<$PrismaModel = never> = {
