@@ -47,6 +47,7 @@ export type DeploymentMinAggregateOutputType = {
   projectId: string | null
   slug: string | null
   status: $Enums.DeploymentStatus | null
+  cancelRequested: boolean | null
   type: $Enums.DeploymentType | null
   framework: $Enums.Framework | null
   environment: $Enums.EnvironmentTarget | null
@@ -91,6 +92,7 @@ export type DeploymentMaxAggregateOutputType = {
   projectId: string | null
   slug: string | null
   status: $Enums.DeploymentStatus | null
+  cancelRequested: boolean | null
   type: $Enums.DeploymentType | null
   framework: $Enums.Framework | null
   environment: $Enums.EnvironmentTarget | null
@@ -135,6 +137,7 @@ export type DeploymentCountAggregateOutputType = {
   projectId: number
   slug: number
   status: number
+  cancelRequested: number
   type: number
   framework: number
   environment: number
@@ -197,6 +200,7 @@ export type DeploymentMinAggregateInputType = {
   projectId?: true
   slug?: true
   status?: true
+  cancelRequested?: true
   type?: true
   framework?: true
   environment?: true
@@ -241,6 +245,7 @@ export type DeploymentMaxAggregateInputType = {
   projectId?: true
   slug?: true
   status?: true
+  cancelRequested?: true
   type?: true
   framework?: true
   environment?: true
@@ -285,6 +290,7 @@ export type DeploymentCountAggregateInputType = {
   projectId?: true
   slug?: true
   status?: true
+  cancelRequested?: true
   type?: true
   framework?: true
   environment?: true
@@ -416,6 +422,7 @@ export type DeploymentGroupByOutputType = {
   projectId: string
   slug: string
   status: $Enums.DeploymentStatus
+  cancelRequested: boolean
   type: $Enums.DeploymentType | null
   framework: $Enums.Framework | null
   environment: $Enums.EnvironmentTarget
@@ -483,6 +490,7 @@ export type DeploymentWhereInput = {
   projectId?: Prisma.UuidFilter<"Deployment"> | string
   slug?: Prisma.StringFilter<"Deployment"> | string
   status?: Prisma.EnumDeploymentStatusFilter<"Deployment"> | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFilter<"Deployment"> | boolean
   type?: Prisma.EnumDeploymentTypeNullableFilter<"Deployment"> | $Enums.DeploymentType | null
   framework?: Prisma.EnumFrameworkNullableFilter<"Deployment"> | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFilter<"Deployment"> | $Enums.EnvironmentTarget
@@ -532,6 +540,7 @@ export type DeploymentOrderByWithRelationInput = {
   projectId?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  cancelRequested?: Prisma.SortOrder
   type?: Prisma.SortOrderInput | Prisma.SortOrder
   framework?: Prisma.SortOrderInput | Prisma.SortOrder
   environment?: Prisma.SortOrder
@@ -584,6 +593,7 @@ export type DeploymentWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.DeploymentWhereInput | Prisma.DeploymentWhereInput[]
   projectId?: Prisma.UuidFilter<"Deployment"> | string
   status?: Prisma.EnumDeploymentStatusFilter<"Deployment"> | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFilter<"Deployment"> | boolean
   type?: Prisma.EnumDeploymentTypeNullableFilter<"Deployment"> | $Enums.DeploymentType | null
   framework?: Prisma.EnumFrameworkNullableFilter<"Deployment"> | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFilter<"Deployment"> | $Enums.EnvironmentTarget
@@ -633,6 +643,7 @@ export type DeploymentOrderByWithAggregationInput = {
   projectId?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  cancelRequested?: Prisma.SortOrder
   type?: Prisma.SortOrderInput | Prisma.SortOrder
   framework?: Prisma.SortOrderInput | Prisma.SortOrder
   environment?: Prisma.SortOrder
@@ -685,6 +696,7 @@ export type DeploymentScalarWhereWithAggregatesInput = {
   projectId?: Prisma.UuidWithAggregatesFilter<"Deployment"> | string
   slug?: Prisma.StringWithAggregatesFilter<"Deployment"> | string
   status?: Prisma.EnumDeploymentStatusWithAggregatesFilter<"Deployment"> | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolWithAggregatesFilter<"Deployment"> | boolean
   type?: Prisma.EnumDeploymentTypeNullableWithAggregatesFilter<"Deployment"> | $Enums.DeploymentType | null
   framework?: Prisma.EnumFrameworkNullableWithAggregatesFilter<"Deployment"> | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetWithAggregatesFilter<"Deployment"> | $Enums.EnvironmentTarget
@@ -728,6 +740,7 @@ export type DeploymentCreateInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -776,6 +789,7 @@ export type DeploymentUncheckedCreateInput = {
   projectId: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -822,6 +836,7 @@ export type DeploymentUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -870,6 +885,7 @@ export type DeploymentUncheckedUpdateInput = {
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -917,6 +933,7 @@ export type DeploymentCreateManyInput = {
   projectId: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -960,6 +977,7 @@ export type DeploymentUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -1003,6 +1021,7 @@ export type DeploymentUncheckedUpdateManyInput = {
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -1057,6 +1076,7 @@ export type DeploymentCountOrderByAggregateInput = {
   projectId?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  cancelRequested?: Prisma.SortOrder
   type?: Prisma.SortOrder
   framework?: Prisma.SortOrder
   environment?: Prisma.SortOrder
@@ -1109,6 +1129,7 @@ export type DeploymentMaxOrderByAggregateInput = {
   projectId?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  cancelRequested?: Prisma.SortOrder
   type?: Prisma.SortOrder
   framework?: Prisma.SortOrder
   environment?: Prisma.SortOrder
@@ -1153,6 +1174,7 @@ export type DeploymentMinOrderByAggregateInput = {
   projectId?: Prisma.SortOrder
   slug?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  cancelRequested?: Prisma.SortOrder
   type?: Prisma.SortOrder
   framework?: Prisma.SortOrder
   environment?: Prisma.SortOrder
@@ -1359,6 +1381,7 @@ export type DeploymentCreateWithoutDeployedByInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -1406,6 +1429,7 @@ export type DeploymentUncheckedCreateWithoutDeployedByInput = {
   projectId: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -1481,6 +1505,7 @@ export type DeploymentScalarWhereInput = {
   projectId?: Prisma.UuidFilter<"Deployment"> | string
   slug?: Prisma.StringFilter<"Deployment"> | string
   status?: Prisma.EnumDeploymentStatusFilter<"Deployment"> | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFilter<"Deployment"> | boolean
   type?: Prisma.EnumDeploymentTypeNullableFilter<"Deployment"> | $Enums.DeploymentType | null
   framework?: Prisma.EnumFrameworkNullableFilter<"Deployment"> | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFilter<"Deployment"> | $Enums.EnvironmentTarget
@@ -1524,6 +1549,7 @@ export type DeploymentCreateWithoutProjectInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -1570,6 +1596,7 @@ export type DeploymentUncheckedCreateWithoutProjectInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -1642,6 +1669,7 @@ export type DeploymentCreateWithoutStateTransitionsInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -1689,6 +1717,7 @@ export type DeploymentUncheckedCreateWithoutStateTransitionsInput = {
   projectId: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -1750,6 +1779,7 @@ export type DeploymentUpdateWithoutStateTransitionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -1797,6 +1827,7 @@ export type DeploymentUncheckedUpdateWithoutStateTransitionsInput = {
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -1842,6 +1873,7 @@ export type DeploymentCreateWithoutLogsInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -1889,6 +1921,7 @@ export type DeploymentUncheckedCreateWithoutLogsInput = {
   projectId: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -1950,6 +1983,7 @@ export type DeploymentUpdateWithoutLogsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -1997,6 +2031,7 @@ export type DeploymentUncheckedUpdateWithoutLogsInput = {
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -2042,6 +2077,7 @@ export type DeploymentCreateWithoutEnvSnapshotInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -2089,6 +2125,7 @@ export type DeploymentUncheckedCreateWithoutEnvSnapshotInput = {
   projectId: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -2150,6 +2187,7 @@ export type DeploymentUpdateWithoutEnvSnapshotInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -2197,6 +2235,7 @@ export type DeploymentUncheckedUpdateWithoutEnvSnapshotInput = {
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -2243,6 +2282,7 @@ export type DeploymentCreateManyDeployedByInput = {
   projectId: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -2285,6 +2325,7 @@ export type DeploymentUpdateWithoutDeployedByInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -2332,6 +2373,7 @@ export type DeploymentUncheckedUpdateWithoutDeployedByInput = {
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -2378,6 +2420,7 @@ export type DeploymentUncheckedUpdateManyWithoutDeployedByInput = {
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -2420,6 +2463,7 @@ export type DeploymentCreateManyProjectInput = {
   id?: string
   slug: string
   status?: $Enums.DeploymentStatus
+  cancelRequested?: boolean
   type?: $Enums.DeploymentType | null
   framework?: $Enums.Framework | null
   environment?: $Enums.EnvironmentTarget
@@ -2463,6 +2507,7 @@ export type DeploymentUpdateWithoutProjectInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -2509,6 +2554,7 @@ export type DeploymentUncheckedUpdateWithoutProjectInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -2555,6 +2601,7 @@ export type DeploymentUncheckedUpdateManyWithoutProjectInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumDeploymentStatusFieldUpdateOperationsInput | $Enums.DeploymentStatus
+  cancelRequested?: Prisma.BoolFieldUpdateOperationsInput | boolean
   type?: Prisma.NullableEnumDeploymentTypeFieldUpdateOperationsInput | $Enums.DeploymentType | null
   framework?: Prisma.NullableEnumFrameworkFieldUpdateOperationsInput | $Enums.Framework | null
   environment?: Prisma.EnumEnvironmentTargetFieldUpdateOperationsInput | $Enums.EnvironmentTarget
@@ -2648,6 +2695,7 @@ export type DeploymentSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   projectId?: boolean
   slug?: boolean
   status?: boolean
+  cancelRequested?: boolean
   type?: boolean
   framework?: boolean
   environment?: boolean
@@ -2698,6 +2746,7 @@ export type DeploymentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   projectId?: boolean
   slug?: boolean
   status?: boolean
+  cancelRequested?: boolean
   type?: boolean
   framework?: boolean
   environment?: boolean
@@ -2744,6 +2793,7 @@ export type DeploymentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   projectId?: boolean
   slug?: boolean
   status?: boolean
+  cancelRequested?: boolean
   type?: boolean
   framework?: boolean
   environment?: boolean
@@ -2790,6 +2840,7 @@ export type DeploymentSelectScalar = {
   projectId?: boolean
   slug?: boolean
   status?: boolean
+  cancelRequested?: boolean
   type?: boolean
   framework?: boolean
   environment?: boolean
@@ -2829,7 +2880,7 @@ export type DeploymentSelectScalar = {
   updatedAt?: boolean
 }
 
-export type DeploymentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "slug" | "status" | "type" | "framework" | "environment" | "branch" | "commitHash" | "commitMessage" | "commitAuthor" | "deployedById" | "url" | "ecsTaskArn" | "ecsServiceArn" | "ecsTaskDefArn" | "ecrImageUri" | "albTargetGroupArn" | "albListenerRuleArn" | "lambdaFunctionArn" | "lambdaFunctionName" | "lambdaFunctionUrl" | "s3Prefix" | "errorMessage" | "errorCode" | "errorStep" | "buildDurationMs" | "uploadedFileCount" | "imageSizeBytes" | "lastRequestAt" | "sleepCount" | "totalSleepMs" | "triggeredBy" | "webhookDeliveryId" | "queuedAt" | "buildStartedAt" | "buildFinishedAt" | "deployedAt" | "stoppedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["deployment"]>
+export type DeploymentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "slug" | "status" | "cancelRequested" | "type" | "framework" | "environment" | "branch" | "commitHash" | "commitMessage" | "commitAuthor" | "deployedById" | "url" | "ecsTaskArn" | "ecsServiceArn" | "ecsTaskDefArn" | "ecrImageUri" | "albTargetGroupArn" | "albListenerRuleArn" | "lambdaFunctionArn" | "lambdaFunctionName" | "lambdaFunctionUrl" | "s3Prefix" | "errorMessage" | "errorCode" | "errorStep" | "buildDurationMs" | "uploadedFileCount" | "imageSizeBytes" | "lastRequestAt" | "sleepCount" | "totalSleepMs" | "triggeredBy" | "webhookDeliveryId" | "queuedAt" | "buildStartedAt" | "buildFinishedAt" | "deployedAt" | "stoppedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["deployment"]>
 export type DeploymentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   deployedBy?: boolean | Prisma.Deployment$deployedByArgs<ExtArgs>
@@ -2861,6 +2912,7 @@ export type $DeploymentPayload<ExtArgs extends runtime.Types.Extensions.Internal
     projectId: string
     slug: string
     status: $Enums.DeploymentStatus
+    cancelRequested: boolean
     type: $Enums.DeploymentType | null
     framework: $Enums.Framework | null
     environment: $Enums.EnvironmentTarget
@@ -3330,6 +3382,7 @@ export interface DeploymentFieldRefs {
   readonly projectId: Prisma.FieldRef<"Deployment", 'String'>
   readonly slug: Prisma.FieldRef<"Deployment", 'String'>
   readonly status: Prisma.FieldRef<"Deployment", 'DeploymentStatus'>
+  readonly cancelRequested: Prisma.FieldRef<"Deployment", 'Boolean'>
   readonly type: Prisma.FieldRef<"Deployment", 'DeploymentType'>
   readonly framework: Prisma.FieldRef<"Deployment", 'Framework'>
   readonly environment: Prisma.FieldRef<"Deployment", 'EnvironmentTarget'>

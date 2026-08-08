@@ -11,6 +11,7 @@
 
 export const DeploymentStatus = {
   QUEUED: 'QUEUED',
+  LAUNCHING: 'LAUNCHING',
   BUILDING: 'BUILDING',
   UPLOADING: 'UPLOADING',
   STARTING: 'STARTING',

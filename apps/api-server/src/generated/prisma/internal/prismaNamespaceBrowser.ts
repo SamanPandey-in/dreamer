@@ -162,6 +162,7 @@ export const DeploymentScalarFieldEnum = {
   projectId: 'projectId',
   slug: 'slug',
   status: 'status',
+  cancelRequested: 'cancelRequested',
   type: 'type',
   framework: 'framework',
   environment: 'environment',

@@ -1,6 +1,7 @@
 import { RunTaskCommand, StopTaskCommand } from '@aws-sdk/client-ecs';
 import {
   AddPermissionCommand,
+  type AddPermissionCommandInput,
   CreateFunctionCommand,
   CreateFunctionUrlConfigCommand,
   DeleteFunctionCommand,
@@ -31,7 +32,14 @@ import { env } from '../lib/env';
  * forget a second implementation.
  */
 export interface DeploymentEngine {
-  launchBuildTask(job: BuildJob): Promise<EngineHandle>;
+  /**
+   * `gitAccessToken` is a separate argument, not part of `job`, on purpose —
+   * `job` (BuildJob) is exactly what's stored as BullMQ job data in Redis;
+   * the decrypted token must never be part of that persisted payload. See
+   * build.worker.ts for where it's resolved, and deployment.service.ts's
+   * createDeploymentInternal for why it's kept out of job.data.
+   */
+  launchBuildTask(job: BuildJob, gitAccessToken?: string): Promise<EngineHandle>;
 
   /**
    * Stops an in-flight build task. ECS's StopTask is idempotent — calling it
@@ -78,7 +86,14 @@ export interface BuildJob {
   branch: string;
   /**  NEW — set only by rollbackDeployment. Pins the build to this exact commit instead of the branch's current HEAD; see clone-repo.js's runCheckoutIfPinned. */
   commitHash?: string;
-  gitAccessToken?: string;
+  // SECURITY — deliberately NOT the decrypted GitHub token. This is BullMQ
+  // job data, persisted verbatim in Redis for up to 500 completed / 1,000
+  // failed jobs (see lib/queue.ts). userId + isPrivate is enough for
+  // build.worker.ts to resolve and decrypt the token itself, right before
+  // the RunTaskCommand call that needs it — see launchBuildTask's own
+  // gitAccessToken parameter below, which is never written back into job.data.
+  userId: string;
+  isPrivate: boolean;
   // NEW — resolved build config from the Project row (see project.service.ts
   // and build-config/). null on any field means "build-engine should fall
   // back to its own default" — see script.js's INSTALL_COMMAND/BUILD_COMMAND/
@@ -137,7 +152,7 @@ export interface EngineDynamicHandle {
 }
 
 export class EcsDeploymentEngine implements DeploymentEngine {
-  async launchBuildTask(job: BuildJob): Promise<EngineHandle> {
+  async launchBuildTask(job: BuildJob, gitAccessToken?: string): Promise<EngineHandle> {
     const command = new RunTaskCommand({
       cluster: env.ECS_CLUSTER_ARN,
       taskDefinition: env.ECS_TASK_DEFINITION_ARN,
@@ -170,7 +185,7 @@ export class EcsDeploymentEngine implements DeploymentEngine {
               // an ordinary deploy never sends this at all, so clone-repo.js's
               // runCheckoutIfPinned() is a no-op for every build except a rollback.
               ...(job.commitHash ? [{ name: 'COMMIT_HASH', value: job.commitHash }] : []),
-              ...(job.gitAccessToken ? [{ name: 'GIT_ACCESS_TOKEN', value: job.gitAccessToken }] : []),
+              ...(gitAccessToken ? [{ name: 'GIT_ACCESS_TOKEN', value: gitAccessToken }] : []),
               // NEW — resolved build config. Always sent (never conditional)
               // so build-engine's own env var fallback (`process.env.X || 'default'`)
               // is the single source of truth for "what happens when a
@@ -390,21 +405,21 @@ export class EcsDeploymentEngine implements DeploymentEngine {
     ];
 
     for (const { statementId, action } of publicInvokePermissions) {
+      const permissionInput: AddPermissionCommandInput = {
+        FunctionName: functionName,
+        StatementId: statementId,
+        Action: action,
+        Principal: '*',
+      };
+
+      if (action === 'lambda:InvokeFunctionUrl') {
+        // AWS only accepts FunctionUrlAuthType on the Function URL action.
+        permissionInput.FunctionUrlAuthType = 'NONE';
+      }
+
       try {
         await lambdaClient.send(
-          new AddPermissionCommand({
-            FunctionName: functionName,
-            StatementId: statementId,
-            Action: action,
-            Principal: '*',
-            // FunctionUrlAuthType is only a meaningful condition for the
-            // InvokeFunctionUrl statement — AWS accepts it being present
-            // on the plain InvokeFunction statement too (it's just an
-            // unused condition key there), so passing it unconditionally
-            // for both keeps this loop simple rather than special-casing
-            // one iteration.
-            FunctionUrlAuthType: 'NONE',
-          })
+          new AddPermissionCommand(permissionInput)
         );
       } catch (permErr) {
         if (!(permErr instanceof ResourceConflictException)) throw permErr;

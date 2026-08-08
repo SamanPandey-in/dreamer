@@ -10,6 +10,8 @@
     "build": "tsc",
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
+    "worker": "tsx src/workers/build.worker.ts",
+    "worker:dev": "tsx watch src/workers/build.worker.ts",
     "typecheck": "tsc --noEmit",
     "db:execute": "prisma db execute --file prisma/unsupported.sql"
   },
@@ -20,6 +22,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^5.81.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

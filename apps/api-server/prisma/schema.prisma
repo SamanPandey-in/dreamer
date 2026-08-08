@@ -13,6 +13,7 @@ datasource db {
 
 enum DeploymentStatus {
   QUEUED      // Job created in BullMQ, DB record exists, ECS not yet launched
+  LAUNCHING   // build.worker.ts has atomically claimed this row (QUEUED -> LAUNCHING) and is calling ECS RunTaskCommand. Distinct from QUEUED (nothing has happened yet) and BUILDING (the ECS task itself is up and reporting its own progress) — this is the in-between window where a cancel can no longer be handled by just removing a BullMQ job, because the AWS call may already be in flight. See cancelRequested below + build.worker.ts.
   BUILDING    // ECS task is running: git clone + npm install + npm build
   UPLOADING   // (Static only) Syncing dist/ to S3
   STARTING    // (Dynamic only) ECS service created, container starting, health check pending
@@ -21,7 +22,7 @@ enum DeploymentStatus {
   WAKING      // (Dynamic only) ECS service scaling back up, wake proxy is holding requests
   STOPPED     // Manually stopped by user or replaced by newer deployment
   FAILED      // Any step errored — see errorMessage + errorCode
-  CANCELLED   // Queued but cancelled before a worker picked it up
+  CANCELLED   // Queued but cancelled before a worker picked it up (or claimed-but-never-actually-launched — see LAUNCHING -> CANCELLED)
   ERROR     // BullMQ job failed (e.g. worker crashed) — should be retried
 }
 
@@ -240,6 +241,14 @@ model Deployment {
   slug             String            @unique @db.VarChar(63)
   
   status           DeploymentStatus  @default(QUEUED)
+  // NEW — set by deployment.service.ts's stopDeployment when a cancel lands
+  // while status is LAUNCHING (no ECS task ARN to act on yet, or one may
+  // land any millisecond). build.worker.ts checks this the moment it DOES
+  // have an ARN and stops the task itself instead of leaving it orphaned.
+  // Plain column, not a status value — cancellation-in-progress is
+  // metadata about a LAUNCHING row, not a state the trigger's transition
+  // graph needs to know about.
+  cancelRequested  Boolean           @default(false)
   type             DeploymentType?   // set after framework detection
   framework        Framework?        // set after framework detection
   environment      EnvironmentTarget @default(PRODUCTION)   // ★ NEW — PRODUCTION or PREVIEW only; enforced in deployment.service.ts, not the DB (see §1 table above)
