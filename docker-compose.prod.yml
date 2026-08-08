@@ -19,12 +19,12 @@
 # this file.
 #
 # Security posture: ONLY nginx publishes a host port (80/443). Every other
-# service — postgres, redis, api-server, frontend, reverse-proxy — is
-# reachable ONLY over the private compose network, by service name, never
-# from the host or the public internet directly. This is what "no cloud
-# Postgres/Redis needed" actually means in practice: they're exactly as
-# private as a managed provider's VPC-only instance would be, just running
-# as containers on this box instead.
+# service — postgres, redis, api-server, build-worker, frontend,
+# reverse-proxy — is reachable ONLY over the private compose network, by
+# service name, never from the host or the public internet directly. This
+# is what "no cloud Postgres/Redis needed" actually means in practice: they're
+# exactly as private as a managed provider's VPC-only instance would be, just
+# running as containers on this box instead.
 
 services:
   postgres:
@@ -60,6 +60,22 @@ services:
     restart: unless-stopped
     env_file:
       - ./apps/api-server/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  build-worker:
+    build:
+      context: ./apps/api-server
+      dockerfile: Dockerfile
+    command: ["npm", "run", "worker"]
+    restart: unless-stopped
+    env_file:
+      - ./apps/api-server/.env
+    environment:
+      BUILD_WORKER_CONCURRENCY: ${BUILD_WORKER_CONCURRENCY:-5}
     depends_on:
       postgres:
         condition: service_healthy

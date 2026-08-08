@@ -47,19 +47,40 @@ services:
       redis:
         condition: service_healthy
 
+  build-worker:
+    build:
+      context: ./apps/api-server
+      dockerfile: Dockerfile
+    command: ["npm", "run", "worker"]
+    restart: unless-stopped
+    env_file:
+      - ./apps/api-server/.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dreamer}:${POSTGRES_PASSWORD:-dreamer}@postgres:5432/${POSTGRES_DB:-dreamer}
+      REDIS_URL: redis://redis:6379
+      # Independently tunable from api-server's own request-handling
+      # capacity — this caps how many ECS RunTaskCommand calls are ever
+      # in flight at once, regardless of how many deploys get requested.
+      BUILD_WORKER_CONCURRENCY: ${BUILD_WORKER_CONCURRENCY:-5}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   frontend:
     build:
       context: ./apps/frontend
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
-        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:9002}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:8000}
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
-      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:9002}
+      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:8000}
 
   reverse-proxy:
     build:
