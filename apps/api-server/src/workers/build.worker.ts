@@ -4,6 +4,7 @@ import { deploymentEngine, type BuildJob } from '../deployments/deployment-engin
 import { prisma } from '../lib/prisma';
 import { publishDeploymentEvent } from '../realtime/publish';
 import { logger, runWithContext } from '../lib/logger';
+import { decryptFromStorage } from '../lib/crypto';
 
 const CONCURRENCY = Number(process.env.BUILD_WORKER_CONCURRENCY ?? 5);
 
@@ -54,8 +55,34 @@ const worker = new Worker<BuildJob>(
         data: { deploymentId: job.data.deploymentId, fromStatus: 'QUEUED', toStatus: 'LAUNCHING', triggeredBy: 'build-worker' },
       });
 
+      // SECURITY — resolved and decrypted here, right before the ECS call
+      // that needs it, instead of at enqueue time. job.data (this function's
+      // own argument) is exactly what BullMQ already persisted into Redis
+      // as the job payload — a decrypted token must never be added to it.
+      // See deployment-engine.ts's launchBuildTask signature and
+      // deployment.service.ts's createDeploymentInternal for the other ends
+      // of this.
+      let gitAccessToken: string | undefined;
+      if (job.data.isPrivate) {
+        const owner = await prisma.user.findUnique({
+          where: { id: job.data.userId },
+          select: { githubToken: true },
+        });
+        if (owner?.githubToken) {
+          gitAccessToken = decryptFromStorage(owner.githubToken);
+        } else {
+          // Token was present at enqueue time (createDeploymentInternal
+          // checked) but is gone now — e.g. the user disconnected GitHub
+          // between requesting the deploy and this job being picked up.
+          // Don't silently build a private repo with no credentials; let it
+          // fail loudly the same way a launch error does elsewhere in this
+          // file.
+          logger.error('Private repo build has no GitHub token to resolve', { deploymentId: job.data.deploymentId });
+        }
+      }
+
       logger.info('Launching build task', { attempt: job.attemptsMade + 1 });
-      const handle = await deploymentEngine.launchBuildTask(job.data);
+      const handle = await deploymentEngine.launchBuildTask(job.data, gitAccessToken);
 
       const withArn = await prisma.deployment.update({
         where: { id: job.data.deploymentId },

@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
 import { audit, type AuditMeta } from '../lib/audit';
 import { BadRequestError, ConflictError, NotFoundError } from '../lib/errors';
-import { decryptFromColumn, decryptFromStorage } from '../lib/crypto';
+import { decryptFromColumn } from '../lib/crypto';
 import { deleteS3Prefix } from '../lib/s3-client';
 import { assertProjectOwnership } from '../projects/project.service'; // concrete file, not the barrel — see §0.5
 import { deploymentEngine } from './deployment-engine';
@@ -160,7 +160,14 @@ async function createDeploymentInternal(
 ): Promise<PublicDeployment> {
   const project = await assertProjectOwnership(projectId, userId);
 
-  let gitAccessToken: string | undefined;
+  // SECURITY — deliberately NOT decrypting the token here. BullMQ job data
+  // is written verbatim into Redis and (per queue.ts's defaultJobOptions)
+  // kept around for up to 500 completed / 1,000 failed jobs — a decrypted
+  // token in job.data would sit in Redis in plaintext for as long as that
+  // history retains it. This only checks that a token EXISTS; the actual
+  // decrypt happens in build.worker.ts, immediately before the ECS
+  // RunTaskCommand call that needs it, and the decrypted value is never
+  // written back into the job.
   if (project.isPrivate) {
     const owner = await prisma.user.findUnique({ where: { id: userId }, select: { githubToken: true } });
     if (!owner?.githubToken) {
@@ -169,7 +176,6 @@ async function createDeploymentInternal(
         'GITHUB_NOT_CONNECTED'
       );
     }
-    gitAccessToken = decryptFromStorage(owner.githubToken);
   }
 
   const branch = opts.branch ?? project.defaultBranch;
@@ -233,10 +239,14 @@ async function createDeploymentInternal(
         deploymentId: deployment.id,
         projectSlug: project.slug,
         projectId,
+        // NEW — the worker resolves+decrypts the GitHub token itself (see
+        // build.worker.ts) using userId + isPrivate; no secret travels
+        // through the job payload. See the SECURITY comment above.
+        userId,
+        isPrivate: project.isPrivate,
         repoUrl: project.repoUrl,
         branch,
         commitHash: opts.commitHash,
-        gitAccessToken,
         // NEW — the project's resolved build config, read straight off the
         // row assertProjectOwnership already fetched above. null on any
         // field is a legitimate, common case (a project whose config was
