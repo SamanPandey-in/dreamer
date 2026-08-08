@@ -1,6 +1,7 @@
 import { RunTaskCommand, StopTaskCommand } from '@aws-sdk/client-ecs';
 import {
   AddPermissionCommand,
+  type AddPermissionCommandInput,
   CreateFunctionCommand,
   CreateFunctionUrlConfigCommand,
   DeleteFunctionCommand,
@@ -390,7 +391,7 @@ export class EcsDeploymentEngine implements DeploymentEngine {
     ];
 
     for (const { statementId, action } of publicInvokePermissions) {
-      const permissionInput: Parameters<typeof AddPermissionCommand>[0] = {
+      const permissionInput: AddPermissionCommandInput = {
         FunctionName: functionName,
         StatementId: statementId,
         Action: action,
