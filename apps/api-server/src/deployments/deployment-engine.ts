@@ -390,21 +390,21 @@ export class EcsDeploymentEngine implements DeploymentEngine {
     ];
 
     for (const { statementId, action } of publicInvokePermissions) {
+      const permissionInput: Parameters<typeof AddPermissionCommand>[0] = {
+        FunctionName: functionName,
+        StatementId: statementId,
+        Action: action,
+        Principal: '*',
+      };
+
+      if (action === 'lambda:InvokeFunctionUrl') {
+        // AWS only accepts FunctionUrlAuthType on the Function URL action.
+        permissionInput.FunctionUrlAuthType = 'NONE';
+      }
+
       try {
         await lambdaClient.send(
-          new AddPermissionCommand({
-            FunctionName: functionName,
-            StatementId: statementId,
-            Action: action,
-            Principal: '*',
-            // FunctionUrlAuthType is only a meaningful condition for the
-            // InvokeFunctionUrl statement — AWS accepts it being present
-            // on the plain InvokeFunction statement too (it's just an
-            // unused condition key there), so passing it unconditionally
-            // for both keeps this loop simple rather than special-casing
-            // one iteration.
-            FunctionUrlAuthType: 'NONE',
-          })
+          new AddPermissionCommand(permissionInput)
         );
       } catch (permErr) {
         if (!(permErr instanceof ResourceConflictException)) throw permErr;
