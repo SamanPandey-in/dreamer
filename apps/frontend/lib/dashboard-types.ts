@@ -2,6 +2,7 @@
 // keep in sync if the schema's enum ever changes.
 export type DeploymentStatus =
   | "QUEUED"
+  | "LAUNCHING"
   | "BUILDING"
   | "UPLOADING"
   | "STARTING"
