@@ -11,11 +11,11 @@
 ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝
 ```
 <p align="center">
-  <img src="local-engine/frontend/public/logo-dark.svg" alt="Dreamer Logo" width="150">
+  <img src="frontend/public/logo-dark.svg" alt="Dreamer Logo" width="150">
 </p>
 
 **A self-hosted PaaS that deploys any GitHub repo in under 3 minutes.**  
-Static sites, SSR apps, and Node servers — on AWS or your own machine.
+Static sites, SSR apps, and Node servers — on your own machine.
 
 <br />
 
@@ -27,7 +27,7 @@ Static sites, SSR apps, and Node servers — on AWS or your own machine.
 
 <br />
 
-[**Walkthrough Video**](https://drive.google.com/file/d/1jHGQnt4hf-lu4mkSWboDuhPpi8_1WSUw/view?usp=sharing) · [**Live Link**](https://dreamer.samanp.xyz) · [**Architecture Docs**](#architecture) · [**Self-Host Guide**](#self-hosting) · [**Recruiter?**](#recruiter)
+[**Walkthrough Video**](https://drive.google.com/file/d/1jHGQnt4hf-lu4mkSWboDuhPpi8_1WSUw/view?usp=sharing) · [**Live Link**](https://dreamer.samanp.xyz) · [**Architecture Docs**](#architecture) · [**Self-Host Guide**](docs/SELF-HOSTING.md) · [**Recruiter?**](#recruiter)
 
 <br />
 
@@ -39,15 +39,15 @@ Static sites, SSR apps, and Node servers — on AWS or your own machine.
 
 Dreamer is a deployment platform I built from scratch to understand how Vercel and Railway work under the hood. It accepts a GitHub repository URL and handles everything else: cloning, framework detection, building, containerizing (for dynamic apps), uploading (for static apps), subdomain routing, real-time log streaming, and scale-to-zero for idle services.
 
-It runs on two execution engines selected by an environment variable — AWS     Fargate for cloud deployments, local Docker for bare-metal. Both engines implement the same interface, so the deployment pipeline is completely environment-agnostic.
-
-This is not a tutorial project with renamed variables. It handles the problems that tutorials skip: state machine enforcement at the database level, thundering-herd prevention on container wake-up, per-deployment ALB listener rules for dynamic apps, encrypted s   et storage with audit logging, and JWT refresh token rotation.
+This is not a tutorial project with renamed variables. It handles the problems that tutorials skip: state machine enforcement at the database level, thundering-herd prevention on container wake-up, per-deployment host-based routing for dynamic apps, encrypted secret storage with audit logging, and JWT refresh token rotation.
 
 ---
 
 ## Architecture
 
-#### Explained in more detail in [docs](./docs/)
+<img src="./docs/architecture/Dreamer-Architecture.png" alt="Dreamer Architecture" width="100%">
+
+#### Explained in more detail in [docs](https://dreamer.samanp.xyz/docs)
 
 **Mermaid Diagram:**
 ```
@@ -68,13 +68,13 @@ This is not a tutorial project with renamed variables. It handles the problems t
                                        │              │
                      ┌─────────────────▼──┐   ┌──────▼───────────────────┐
                      │   Static Site      │   │   Wake-Up Handler         │
-                     │   (S3 Stream)      │   │                           │
+                     │   (MinIO stream)   │   │                           │
                      │                   │   │  Browser → loading page   │
                      │   or              │   │  API client → 503 +       │
                      │   Dynamic App     │   │  Retry-After: 30          │
-                     │   (ALB      )     │   │                           │
-                     └───────────────────┘   │  BullMQ wake job queued   │
-                                             │  (SET NX — only one job   │
+                     │   (app            │   │                           │
+                     │    container)     │   │  BullMQ wake job queued   │
+                     └───────────────────┘   │  (SET NX — only one job   │
                                              │   fires for N requests)   │
                                              └──────────────────────────┘
 
@@ -106,20 +106,23 @@ This is not a tutorial project with renamed variables. It handles the problems t
                     ┌────────▼──────┐   ┌────────▼───────┐   ┌─────────▼──────┐
                     │    STATIC     │   │  NEXT.JS SSR   │   │  NODE / EXPRESS │
                     │               │   │                │   │                 │
-                    │     RunTask   │   │     RunTask    │   │     RunTask     │
-                    │ → npm build   │   │ → docker build │   │ → docker build  │
-                    │ →    sync     │   │ →     push     │   │ →     push      │
-                    │               │   │ →     Service  │   │ →     Service   │
-                    │ {slug}.domain │   │ → ALB rule     │   │ → ALB rule      │
-                    │ →    Proxy    │   │ {slug}.domain  │   │ {slug}.domain   │
-                    │               │   │ → ALB          │   │ → ALB           │
+                    │  docker run   │   │  docker run    │   │  docker run     │
+                    │  build-engine │   │  build-engine  │   │  build-engine   │
+                    │ → npm build   │   │ → npm build    │   │ → npm build     │
+                    │ → upload      │   │ → docker build │   │ → docker build  │
+                    │   dist/ to    │   │ → run image as │   │ → run image as  │
+                    │   MinIO       │   │   container on │   │   container on  │
+                    │ {slug}.domain │   │   dreamer-local│   │   dreamer-local │
+                    │ → reverse-    │   │ {slug}.domain  │   │ {slug}.domain   │
+                    │   proxy       │   │ → nginx →      │   │ → nginx →       │
+                    │   streams     │   │   reverse-proxy│   │   reverse-proxy │
                     └───────────────┘   └────────────────┘   └─────────────────┘
                                                  │
                                        ┌─────────▼──────────────────────────────┐
                                        │         Log Pipeline                    │
                                        │                                         │
-                                       │  build-server → Redis pub/sub           │
-                                       │  → API Server → SSE → browser          │
+                                       │  build-engine → Redis pub/sub          │
+                                       │  → API Server → Socket.IO → browser    │
                                        │  → PostgreSQL (durable, searchable)    │
                                        └─────────────────────────────────────────┘
 
@@ -136,15 +139,15 @@ This is not a tutorial project with renamed variables. It handles the problems t
            ▼
   ┌─────────────────┐
   │  Sleep Worker   │──▶ SET containerState:{id} = sleeping  (Redis)
-  │                 │──▶     UpdateService desiredCount: 0
+  │                 │──▶     docker stop the app container
   │                 │──▶ DB status → SLEEPING
   └─────────────────┘
 
   On next request:
   Reverse proxy → Redis key = sleeping → serve wake page
                                        → BullMQ wake job (SET NX — dedup)
-                                       →     desiredCount: 1
-                                       → poll until service stable
+                                       →     docker run container again
+                                       → poll until health check passes
                                        → SET containerState:{id} = running
                                        → all queued requests unblocked
 ```
@@ -155,18 +158,19 @@ This is not a tutorial project with renamed variables. It handles the problems t
 
 | Layer | Technology | Why |
 |---|---|---|
-| **API Server** | Node.js, Express, TypeScript | Familiar, fast to iterate, good AWS SDK support |
-| **Queue** | BullMQ + Redis | Persistent jobs, retry logic, concurrency limiting, visual dashboard |
+| **API Server** | Node.js, Express 5, TypeScript | Familiar, fast to iterate, typed end to end with Zod validation |
+| **Queue** | BullMQ + Redis | Persistent jobs, retry logic, concurrency limiting |
 | **Database** | PostgreSQL 16 + Prisma | State machine triggers enforced at DB layer, JSONB for metadata, tsvector for log search |
-| **Build Runner** | Builder (RunTask) | Isolated per-build environment, no shared state, pay per second |
-| **Dynamic App Runtime** | Builder (Service) + ALB | Persistent containers, health checks, per-deployment listener rules |
-| **Static Hosting** | S3 + custom reverse proxy | Near-zero cost at scale, no cold starts |
-| **Container Registry** |     | Native     integration, image scanning |
-| **Cache / PubSub** | Redis (ioredis) | Log streaming, container state, idle detection keys, rate limiting |
-| **Frontend** | Next.js 14, Tailwind CSS | RSC for data-heavy pages, SSE for live updates |
+| **Build Runner** | build-engine container (`docker run` per build) | Isolated per-build environment, no shared state — the worker shells out through the host Docker socket |
+| **Dynamic App Runtime** | Sibling Docker containers on a private compose network | Persistent containers, health-checked staged swaps on redeploy, no orchestration daemon needed |
+| **Static Hosting** | MinIO (S3-compatible) + reverse-proxy streaming | Self-hosted object storage for build output, no running container at rest |
+| **Edge Routing** | nginx (wildcard `*.domain`) + certbot TLS | Host-based routing to deployed apps, HTTPS via Let's Encrypt |
+| **Container Images** | Locally built images (`docker build`, tagged per project) | No external registry — build-engine tags `dreamer-app:<slug>` and runs it directly |
+| **Cache / PubSub** | Redis ×2 (ioredis) — platform + build events | Log streaming, container state, rate limiting; a second instance isolates noisy build pub/sub |
+| **Frontend** | Next.js, React 19, Tailwind CSS v4 | Server components for data-heavy pages, Socket.IO client for live updates |
+| **Realtime** | Socket.IO (WebSocket) | Live build logs and deployment-state changes pushed from API server to dashboard |
 | **Auth** | JWT (15min access) + httpOnly refresh cookie | XSS-resistant, token rotation, session revocation |
-| **S   ets** | AES-256-GCM per-value encryption | S   ets never stored in plaintext, IV per value |
-| **Logging** | Pino (structured JSON) | Searchable in CloudWatch, consistent field names |
+| **Secrets** | AES-256-GCM per-value encryption | Secrets never stored in plaintext, IV per value |
 
 ---
 
@@ -176,30 +180,30 @@ This is not a tutorial project with renamed variables. It handles the problems t
 
 - **Auto-detects framework** from `package.json` — React (CRA/Vite), Vue, Svelte, Next.js (static export vs SSR), Express, Fastify, plain HTML. No config file required.
 - **Two infrastructure paths** based on detection:
-  - Static apps → reverse proxy. No running container, no cost at rest.
-  - Dynamic apps → ALB with per-deployment host-based routing rule.
+  - Static apps → uploaded to MinIO, streamed by the reverse proxy. No running container at rest.
+  - Dynamic apps → a long-lived Docker container on the private compose network, routed by hostname through nginx → reverse-proxy.
 - **Generates a Dockerfile** for dynamic apps that don't provide one. Multi-stage builds for Next.js SSR (builder → runner, ~200MB final image). Single-stage for Express.
-- **Environment variable injection** — s   ets stored AES-256-GCM encrypted in Postgres, d   ypted at deploy time and injected as build task environment variables. Build snapshots capture which s   ets were active at deploy time, enabling accurate rollback.
+- **Environment variable injection** — secrets stored AES-256-GCM encrypted in Postgres, decrypted at deploy time and injected as build-container environment variables. Build snapshots capture which secrets were active at deploy time, enabling accurate rollback.
 - **Rollback** — re-queues any previous deployment with its original commit hash and env snapshot. One click in the dashboard.
 
 ### Real-Time Observability
 
-- **Live build logs** stream from build task → Redis pub/sub → SSE → browser as they happen, with sequence numbers for correct ordering and gapless replay.
+- **Live build logs** stream from the build container → Redis pub/sub → Socket.IO → browser as they happen, with sequence numbers for correct ordering and gapless replay.
 - **Dual delivery**: Redis pub/sub for < 100ms latency while the build is active; PostgreSQL as durable storage for replay after the fact. If you refresh mid-build, logs replay from the DB with no gaps.
 - **State timeline** on every deployment — shows exactly how long was spent queued, building, uploading, and starting, with timestamps on each transition. Pulled from an append-only `DeploymentStateTransition` table.
 - **Full-text search** across build logs via PostgreSQL `tsvector` index. Find every deployment where `MODULE_NOT_FOUND` appeared without scanning rows.
 
 ### Scale-to-Zero
 
-Dynamic app deployments that receive no traffic for 15 minutes are automatically scaled to `desiredCount: 0` on     — no running task, no Fargate charges. On the next inbound request:
+Dynamic app deployments that receive no traffic for 15 minutes are automatically stopped — no running container, no idle resource usage. On the next inbound request:
 
 - The reverse proxy checks `containerState:{id}` in Redis (single microsecond lookup)
 - Browser clients receive an HTML loading page with 3-second polling — the same UX Railway uses
 - API clients (curl, mobile, fetch) receive `503 + Retry-After: 30`
 - A BullMQ wake job is enqueued using `SET NX` — regardless of how many concurrent requests arrive, exactly one wake job fires
--     scales back to `desiredCount: 1`, the proxy polls until the health check passes, then all buffered requests go through normally
+- The platform re-runs the container, the proxy polls until the health check passes, then all buffered requests go through normally
 
-Fargate cold start is 15–30 seconds depending on image size. Smaller images (alpine base, multi-stage build) are prioritized.
+Container cold start depends on image size. Smaller images (alpine base, multi-stage build) are prioritized.
 
 ### Platform
 
@@ -216,211 +220,33 @@ Fargate cold start is 15–30 seconds depending on image size. Smaller images (a
 
 ```
 dreamer/
-├── local-engine/
-│   ├── api/              # Express API server + BullMQ workers
-│   │   └── prisma/       # Schema + migrations
-│   ├── build-engine/     #     task: clone → detect → build → upload/push
-│   ├── reverse-proxy/    # Subdomain router + wake-up proxy
-│   └── frontend/         # Next.js 14 dashboard
-└── docker-compose.yml    # Local dev: PostgreSQL + Redis
-```
-
----
-
-## Self-Hosting
-
-**Fastest path:** `sudo ./scripts/install.sh --domain yourdomain.com` on a fresh
-VPS/EC2 box does everything below automatically — Docker, s   ets, a wildcard TLS
-cert, and the full stack via `docker-compose.prod.yml`, with no managed cloud
-Postgres/Redis required. See [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md).
-
-The manual steps below are what that script is actually doing under the hood —
-useful if you want to understand or customize the setup rather than just run it.
-
-### Prerequisites
-
-- A domain with wildcard DNS support (`*.yourdomain.com`)
-- Node.js 20+, Docker, pnpm
-
-### 1. Clone and install
-
-```bash
-git clone https://github.com/SamanPandey-in/dreamer.git
-cd dreamer
-pnpm install
-```
-
-### 2. Configure environment
-
-```bash
-cp apps/api/.env.example apps/api/.env
-cp apps/build-engine/.env.example apps/build-engine/.env
-cp apps/reverse-proxy/.env.example apps/reverse-proxy/.env
-cp apps/frontend/.env.example apps/frontend/.env.local
-```
-
-Fill in your credentials base domain. Generate s   ets:
-
-```bash
-# JWT s   ets (run twice for two different values)
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-
-# AES-256 encryption key for s   ets storage
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-### 3. Start local services
-
-```bash
-docker compose up -d   # PostgreSQL + Redis
-```
-
-### 4. Initialize the database
-
-```bash
-cd apps/api
-pnpm prisma migrate deploy
-pnpm prisma generate
-```
-
-### 5. Set up wildcard DNS
-
-In Route53 (or your DNS provider), add:
-
-```
-*.dreamer.yourdomain.com  →  A  →  your reverse proxy server IP
-```
-
-For HTTPS, provision a wildcard certificate in AWS Certificate Manager: `*.dreamer.yourdomain.com`.
-
-### 6. Run
-
-```bash
-# Development (all services with hot reload)
-pnpm dev
-
-# Production (individual services, each in its own process/container)
-pnpm --filter api start
-pnpm --filter reverse-proxy start
-pnpm --filter frontend start
-```
-
----
-
-## API Reference
-
-### Authentication
-
-```http
-POST /auth/register
-Content-Type: application/json
-
-{ "email": "you@example.com", "password": "...", "name": "Your Name" }
-```
-
-```http
-POST /auth/login
-Content-Type: application/json
-
-{ "email": "you@example.com", "password": "..." }
-
-# Response:
-# { "accessToken": "eyJ...", "user": { ... } }
-# Set-Cookie: refreshToken=...; HttpOnly; Secure; SameSite=Strict; Path=/auth/refresh
-```
-
-```http
-POST /auth/refresh
-# Cookie: refreshToken=...
-
-# Response: new accessToken + rotated refreshToken cookie
-```
-
-### Projects
-
-```http
-# List projects (with latest deployment)
-GET /projects
-Authorization: Bearer <access_token>
-
-# Create project
-POST /projects
-Authorization: Bearer <access_token>
-
-{
-  "name": "my-app",
-  "repoUrl": "https://github.com/you/my-app",
-  "defaultBranch": "main"
-}
-
-# Trigger deployment
-POST /projects/:id/deploy
-Authorization: Bearer <access_token>
-
-{ "branch": "main" }
-
-# Response: 202 Accepted
-# { "deploymentId": "uuid", "slug": "fuzzy-cat-42", "url": "https://fuzzy-cat-42.dreamer.com" }
-```
-
-### Deployments
-
-```http
-# Deployment detail + state timeline
-GET /deployments/:id
-Authorization: Bearer <access_token>
-
-# Paginated log history
-GET /deployments/:id/logs?after=0&limit=100
-Authorization: Bearer <access_token>
-
-# Live log stream (SSE)
-GET /deployments/:id/logs/stream
-Authorization: Bearer <access_token>
-Accept: text/event-stream
-
-# Stop deployment
-POST /deployments/:id/stop
-Authorization: Bearer <access_token>
-
-# Rollback (re-deploys with original commit + env snapshot)
-POST /deployments/:id/rollback
-Authorization: Bearer <access_token>
-```
-
-### Environment Variables
-
-```http
-# List (values masked)
-GET /projects/:id/env
-Authorization: Bearer <access_token>
-
-# Create or upsert
-POST /projects/:id/env
-Authorization: Bearer <access_token>
-
-{ "key": "DATABASE_URL", "value": "postgresql://...", "isS   et": true }
-
-# Reveal a value (rate-limited: 10/hour, audit-logged)
-POST /env/:id/reveal
-Authorization: Bearer <access_token>
+├── api-server/           # Express API server + BullMQ build worker (same image, two services)
+│   ├── prisma/           # Schema + migrations
+│   └── src/workers/      # build.worker.ts — claims jobs, launches build-engine
+├── build-engine/         # Per-build container: clone → detect → install/build → upload / docker build
+├── reverse-proxy/        # Hostname router: MinIO stream (static) vs app container (dynamic) + metrics
+├── frontend/             # Next.js dashboard
+├── nginx/templates/      # Edge routing template: *.DOMAIN → reverse-proxy, optional webhook route
+├── scripts/              # TLS cert renewal + install helpers
+├── docs/                 # Architecture, auth, deployments, framework-detection docs
+└── docker-compose.yml    # postgres, redis ×2, minio, api-server, build-worker, frontend, reverse-proxy, nginx
 ```
 
 ---
 
 ## Design Decisions
 
-**Why BullMQ instead of SQS?** SQS would work, but BullMQ gives per-job retry configuration, concurrency control, the Bull Board UI, and priority queues — all without additional AWS cost or IAM complexity. For a single-region deployment, Redis is the simpler dependency.
+**Why BullMQ instead of a hosted queue service?** BullMQ gives per-job retry configuration, concurrency control, and priority queues on top of a Redis instance this stack already runs — no extra infrastructure, no IAM, no additional failure domain to operate.
 
-**Why SSE instead of WebSocket for log streaming?** Log streaming is one-directional: server to client. SSE is HTTP/1.1-compatible, auto-reconnects, works through proxies without upgrade headers, and saves ~40KB of client JS (no socket.io). The only thing WebSocket adds here is complexity.
+**Why Socket.IO instead of raw WebSocket or SSE?** Log streaming is mostly one-directional, but the dashboard also needs reconnection semantics for free: if a laptop sleeps mid-build, Socket.IO auto-reconnects with backoff, and one connection multiplexes both build-log lines and deployment-state events. Raw WebSocket or SSE would mean hand-rolling a reconnect-and-resume layer that Socket.IO already ships.
 
 **Why PostgreSQL tsvector for log search instead of Elasticsearch?** At the scale this platform operates, full-text search via a GIN-indexed `tsvector` column in PostgreSQL handles it fine. Elasticsearch would add operational overhead (another service, another failure mode) for the same query results. If this were indexing millions of deployments, the calculus changes.
 
-**Why AES-256-GCM with a per-value IV instead of a single column-level encryption key?** GCM provides authenticated encryption — if the ciphertext is tampered with, d   yption fails with an authentication error rather than producing garbage. Per-value IVs mean that two identical s   ets produce different ciphertexts, so an attacker with DB access can't do a dictionary attack by comparing columns.
+**Why AES-256-GCM with a per-value IV instead of a single column-level encryption key?** GCM provides authenticated encryption — if the ciphertext is tampered with, decryption fails with an authentication error rather than producing garbage. Per-value IVs mean that two identical secrets produce different ciphertexts, so an attacker with DB access can't do a dictionary attack by comparing columns.
 
 **Why are state transitions enforced with a Postgres trigger?** Application-layer validation breaks under race conditions: two BullMQ workers processing retry attempts of the same job can both attempt to transition `QUEUED → BUILDING`. A database trigger either succeeds or raises an exception — no in-between. The BullMQ worker catches the exception and treats it as a signal that another worker already claimed the job.
 
-**Why per-deployment ALB listener rules instead of a shared rule with path-based routing?** Host-based routing (`fuzzy-cat-42.dreamer.com`) maps naturally to how users think about their apps. Path-based routing (`dreamer.com/apps/fuzzy-cat-42/`) would require modifying app code to handle the path prefix. One listener rule per deployment is more AWS resources, but it's the correct UX tradeoff.
+**Why host-based routing through nginx instead of path-based routing?** Host-based routing (`fuzzy-cat-42.dreamer.com`) maps naturally to how users think about their apps. Path-based routing (`dreamer.com/apps/fuzzy-cat-42/`) would require modifying app code to handle the path prefix. A single wildcard listener handing every hostname to the reverse-proxy — which resolves static vs dynamic per request — is more moving parts than a shared path router, but it's the correct UX tradeoff.
 
 ---
 
@@ -428,13 +254,13 @@ Authorization: Bearer <access_token>
 
 The problems that were harder than expected:
 
-**The wake-up proxy thundering herd.** The obvious implementation — check if sleeping, start the container, wait, respond — breaks when 50 requests arrive in a 100ms window. You end up with 50 simultaneous `UpdateService` calls and 50 competing pollers. The fix (Redis `SET NX` as a distributed mutex, with all waiting requests sharing one poll loop) took three rewrites to get right.
+**The wake-up proxy thundering herd.** The obvious implementation — check if sleeping, start the container, wait, respond — breaks when 50 requests arrive in a 100ms window. You end up with 50 simultaneous container-start commands and 50 competing pollers. The fix (Redis `SET NX` as a distributed mutex, with all waiting requests sharing one poll loop) took three rewrites to get right.
 
 **Log sequence ordering.** Redis pub/sub delivers messages in order within a connection, but if the connection drops and reconnects, you might miss lines. The sequence number column in `DeploymentLog` means the client can always request "give me everything after sequence N" and get a gapless replay — pub/sub is for latency, the DB is for correctness.
 
 **The static vs dynamic split is not binary.** Next.js with `output: 'export'` in `next.config.js` produces a static site just like Create React App. Next.js without it needs a running Node process. The framework detector has to read the Next.js config (which might be JS, TS, or CJS), not just check for the `next` dependency in package.json.
 
-**    Fargate cold start is the dominant latency source.** Everything else in the wake-up path (Redis lookup, DB query, ALB rule lookup) is under 10ms.     provisioning a new microVM, pulling the image from    , and passing health checks takes 15–30s. Smaller images help: a 50MB alpine-based image pulls in ~3s; a 500MB Ubuntu-based image takes 20s+.
+**Container cold start is the dominant latency source.** Everything else in the wake-up path (Redis lookup, DB query, route lookup) is under 10ms. Starting the container and passing its health check takes seconds, dominated almost entirely by image size: a 50MB alpine-based image is live in ~3s; a 500MB Ubuntu-based image takes 20s+.
 
 ---
 
@@ -442,56 +268,27 @@ The problems that were harder than expected:
 
 | Status | Description | Next States |
 |---|---|---|
-| `QUEUED` | Build job created, waiting for a worker | `BUILDING`, `CANCELLED`, `FAILED` |
-| `BUILDING` |     task running npm install + npm build | `UPLOADING` (static), `STARTING` (dynamic), `FAILED` |
-| `UPLOADING` | Syncing dist/ to S3 | `RUNNING`, `FAILED` |
-| `STARTING` |     service created, container starting | `RUNNING`, `FAILED` |
+| `QUEUED` | Build job created, waiting for a worker | `LAUNCHING`, `CANCELLED`, `FAILED` |
+| `BUILDING` | build-engine container running npm install + npm build | `UPLOADING` (static), `STARTING` (dynamic), `FAILED` |
+| `UPLOADING` | Syncing dist/ to MinIO | `RUNNING`, `FAILED` |
+| `STARTING` | App container started on the compose network, health check pending | `RUNNING`, `FAILED` |
 | `RUNNING` | App live and serving requests | `SLEEPING`, `STOPPED`, `FAILED` |
-| `SLEEPING` |     scaled to 0, wakes on first request | `WAKING`, `STOPPED` |
-| `WAKING` |     scaling back up, wake proxy holding requests | `RUNNING`, `FAILED`, `STOPPED` |
+| `SLEEPING` | Container stopped to free resources, wakes on first request | `WAKING`, `STOPPED` |
+| `WAKING` | Container starting back up, wake proxy holding requests | `RUNNING`, `FAILED`, `STOPPED` |
 | `STOPPED` | Manually stopped or replaced by newer deployment | — |
 | `FAILED` | Any step errored — see `errorCode` + `errorMessage` | — |
 | `CANCELLED` | Queued but cancelled before worker picked it up | — |
 
 ---
 
-## Roadmap
-
-- [ ] GitHub OAuth and webhook auto-deploy
-- [ ] Branch preview deployments (every PR gets its own URL)
-- [ ] Custom domain support with automatic SSL via ACM
-- [ ] Bare-metal execution engine (local Docker + NGINX)
-- [ ] Prometheus metrics endpoint + Grafana dashboard
-- [ ] Deploy usage analytics (requests/day, bandwidth, cold starts)
-- [ ] Team support (invite members to projects, role-based access)
-- [ ] Deploy from private repositories
-- [ ] Build cache (S3-backed `node_modules` cache keyed by `package-lock.json` hash)
-
----
-
 ## Local Development
 
 ```bash
-# Install dependencies
-pnpm install
+sudo chmod +x ./install.sh
+sudo ./install.sh --domain yourdomain.com --cloudflare-token YOUR_CF_TOKEN
 
-# Start PostgreSQL and Redis
-docker compose up -d
-
-# Run database migrations
-cd apps/api && pnpm prisma migrate dev
-
-# Start all services in development mode (hot reload)
-pnpm dev
-
-# Run tests
-pnpm test
-
-# Type-check the entire monorepo
-pnpm typecheck
+sudo docker compose --env-file .env.deploy up -d --build
 ```
-
-The development setup runs on the bare-metal engine uses local Docker. Set `DEPLOYMENT_ENVIRONMENT=bare_metal` to use it.
 
 ---
 
