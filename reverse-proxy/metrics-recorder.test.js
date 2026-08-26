@@ -9,17 +9,8 @@ async function main() {
     await inspector.flushdb()
 
     const { recordRequest } = require('./metrics-recorder')
-    // Reach into the module's internals via a second require of the flush
-    // function isn't exported — call it indirectly by requiring again and
-    // using startFlushLoop/stopFlushLoop's underlying flush via a tiny
-    // re-require trick: instead, just export flush for this test run by
-    // monkey-patching require cache is overkill — simplest: require the
-    // file fresh and grab flush via module.exports if we temporarily add
-    // it. Since flush() isn't exported in the real module (intentionally
-    // — only recordRequest/startFlushLoop/stopFlushLoop are the public
-    // surface index.js uses), drive this test through stopFlushLoop(),
-    // which internally calls flush() once. That's also a MORE realistic
-    // test: it's the exact same code path a graceful shutdown takes.
+    // flush() isn't exported — drive the test through stopFlushLoop(), which
+    // calls it once. That's also the exact path a graceful shutdown takes.
     const { stopFlushLoop } = require('./metrics-recorder')
 
     const projectA = '11111111-1111-1111-1111-111111111111'
@@ -72,13 +63,9 @@ async function main() {
     const requestsB = Number(await inspector.get(`${baseB}:requests`))
     assert.strictEqual(requestsB, 10, `expected 10 requests recorded for project B, got ${requestsB}`)
 
-    console.log('--- Verifying flush() emits a bounded, small command count (not one-per-request) ---')
-    // Count commands actually sent for THIS flush by monitoring is overkill
-    // for this test; instead, verify indirectly: record another batch and
-    // confirm counts ACCUMULATE correctly across a second flush cycle
-    // (this is what would break if the swap-vs-clear bug were still
-    // present — a second flush's counts would either double-count or wipe
-    // the first flush's data).
+    console.log('--- Verifying counts ACCUMULATE across a second flush cycle ---')
+    // This is what would break if the swap-vs-clear bug were present: a
+    // second flush would double-count or wipe the first flush's data.
     for (let i = 0; i < 100; i++) {
         recordRequest(projectA, `10.0.0.${i % 50}`, 200, 10, 500)
     }

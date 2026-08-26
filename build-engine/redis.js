@@ -2,11 +2,9 @@ const Redis = require('ioredis')
 
 const publisher = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
 
-// Same channel carries both log lines and status events — api-server's
-// src/realtime/log-relay.ts tells them apart by `type`. Keep this contract
-// in sync BY HAND with src/realtime/realtime.types.ts on the API server —
-// there's no shared package between this app (plain Node) and that one
-// (TypeScript) to enforce it for you.
+// One channel carries logs + status + metadata events, distinguished by
+// `type`. Contract is kept in sync BY HAND with api-server's
+// src/realtime/realtime.types.ts — no shared package enforces it.
 const CHANNEL = `deployment:${process.env.DEPLOYMENT_ID}`
 
 function publishLog(message, level = 'INFO', source = 'build') {
@@ -17,20 +15,13 @@ function publishStatus(status, extra = {}) {
     publisher.publish(CHANNEL, JSON.stringify({ type: 'status', status, ...extra }))
 }
 
-// NEW — a distinct message type, not folded into a status event, because
-// it isn't one: api-server's log-relay.ts (Part 2 §2 below) routes this to
-// deployment.service.ts's recordCommitInfo(), which touches three metadata
-// columns and zero status columns.
 function publishCommitInfo(commitInfo) {
     publisher.publish(CHANNEL, JSON.stringify({ type: 'commit_info', ...commitInfo }))
 }
 
-// NEW — a distinct message type, not folded into a status event: this is
-// the DYNAMIC hand-off point. api-server's log-relay.ts routes this to
-// deployment.service.ts's handleImageReady(), which is what actually
-// starts the app container — see that file's comment on why this
-// happens in api-server and not here (a compromised build container
-// should never be able to start/stop arbitrary containers on the host).
+// DYNAMIC hand-off: publishing image_ready is what makes api-server start
+// the app container. That happens THERE, not here — a compromised build
+// container should never be able to start/stop arbitrary host containers.
 function publishImageReady(imageInfo) {
     publisher.publish(CHANNEL, JSON.stringify({ type: 'image_ready', ...imageInfo }))
 }

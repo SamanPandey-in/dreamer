@@ -1,25 +1,18 @@
-# Self-hosted stack for the Dreamer LOCAL ENGINE — same nginx+certbot
-# control-plane pattern as the repo's own docker-compose.prod.yml, plus:
-#   - MinIO, standing in for AWS S3 (static-site output storage)
-#   - api-server / build-worker get the host Docker socket mounted, since
-#     DockerDeploymentEngine (deployment-engine.ts) shells out to `docker
-#     build` / `docker run` directly instead of calling ECS RunTask —
-#     same pattern as dploy's internal/pipeline/docker_exec.go.
+# Self-hosted stack for the Dreamer LOCAL ENGINE.
 #
-# NOT included as a long-running service: build-engine. Like the cloud
-# version, it's launched on-demand per build — DockerDeploymentEngine runs
-# it with `docker run` instead of ECS RunTask. Build its image once before
-# your first deploy:
+# - MinIO stands in for S3-compatible static-site output storage.
+# - api-server / build-worker get the host Docker socket mounted:
+#   DockerDeploymentEngine shells out to `docker build` / `docker run`
+#   directly, and containers it starts become siblings of these.
+#
+# NOT a long-running service: build-engine. It's launched on-demand per
+# build via `docker run`. Build its image once before your first deploy:
 #   docker build -t dreamer-build-engine:local build-engine
 #
-# Security posture: nginx publishes 80/443 for the public internet — see
-# nginx/templates for exactly what it routes (deployed apps + custom
-# domains only, by default). frontend and api-server ALSO publish host
-# ports, but bound to 127.0.0.1 only — reachable from the VPS itself (or
-# over an SSH tunnel), never from the public internet. Everything else —
-# postgres, redis, minio, build-worker, reverse-proxy — is reachable only
-# over the private compose network. See
-# docs/architecture/local-engine-auth-and-networking.md Decision 4.
+# Security posture: only nginx publishes 80/443 to the public internet.
+# frontend and api-server publish host ports bound to 127.0.0.1 only —
+# reachable over an SSH tunnel, never publicly. Everything else is on the
+# private compose network only.
 
 services:
   postgres:
@@ -48,6 +41,7 @@ services:
       timeout: 5s
       retries: 10
 
+  # Second instance isolates the noisy build-log pub/sub from platform Redis.
   redis-builder:
     image: redis:7-alpine
     restart: unless-stopped
@@ -59,9 +53,8 @@ services:
       timeout: 5s
       retries: 10
 
-  # S3-compatible object store, replaces AWS S3 for static-site output.
-  # @aws-sdk/client-s3 talks to this unmodified given S3_ENDPOINT_URL +
-  # S3_FORCE_PATH_STYLE — see lib/s3-client.ts.
+  # S3-compatible object store for static-site output. The AWS SDK talks to
+  # this unmodified given S3_ENDPOINT_URL + S3_FORCE_PATH_STYLE.
   minio:
     image: minio/minio:latest
     restart: unless-stopped
@@ -77,6 +70,7 @@ services:
       timeout: 5s
       retries: 10
 
+  # Creates the outputs bucket with anonymous download enabled.
   minio-init:
     image: minio/mc:latest
     depends_on:
@@ -89,6 +83,10 @@ services:
       mc anonymous set download local/${S3_BUCKET:-dreamer-outputs}
       "
 
+  # Host Docker socket => containers started by DockerDeploymentEngine are
+  # siblings of this one, not nested inside it.
+  # Loopback-only port: the ONE exception is /api/webhooks/github, which
+  # nginx reaches container-to-container when ENABLE_PUSH_DEPLOY=true.
   api-server:
     build:
       context: ./api-server
@@ -96,11 +94,6 @@ services:
     restart: unless-stopped
     env_file:
       - ./api-server/.env
-    # Dashboard's API — loopback-only, same reasoning as frontend below.
-    # See docs/architecture/local-engine-auth-and-networking.md Decision 4.
-    # The ONE exception is /api/webhooks/github, which nginx can also reach
-    # container-to-container over the compose network when
-    # ENABLE_PUSH_DEPLOY=true — that path never needs this host port at all.
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -113,13 +106,9 @@ services:
       minio-init:
         condition: service_completed_successfully
     volumes:
-      # Lets DockerDeploymentEngine's `docker build`/`docker run` calls
-      # (issued FROM inside this container) actually reach the HOST's
-      # Docker daemon — containers it starts become siblings of this one,
-      # not nested inside it. Same reasoning as dploy running its worker
-      # directly on the host rather than sandboxed away from Docker.
       - /var/run/docker.sock:/var/run/docker.sock
 
+  # Same image as api-server, running the BullMQ build worker instead.
   build-worker:
     build:
       context: ./api-server
@@ -140,6 +129,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
+  # Dashboard — loopback-only, reached over an SSH tunnel
+  # (`ssh -L 3000:localhost:3000 user@your-vps`). nginx never routes any
+  # public hostname here.
   frontend:
     build:
       context: ./frontend
@@ -149,12 +141,6 @@ services:
         NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
     restart: unless-stopped
-    # Dashboard — local-engine binds this to the VPS's own loopback only,
-    # never a public interface. See
-    # docs/architecture/local-engine-auth-and-networking.md Decision 4.
-    # Reach it with `ssh -L 3000:localhost:3000 user@your-vps`, then open
-    # http://localhost:3000 on YOUR machine. nginx below never routes any
-    # public hostname to this service.
     ports:
       - "127.0.0.1:3000:3000"
 
@@ -171,6 +157,9 @@ services:
       redis:
         condition: service_healthy
 
+  # The only publicly-exposed service: *.${DOMAIN} -> reverse-proxy, plus
+  # hooks.${DOMAIN} -> api-server's GitHub webhook path ONLY when
+  # ENABLE_PUSH_DEPLOY=true (default false = that hostname answers nothing).
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -179,14 +168,6 @@ services:
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN must be set — see .env.example}
-      # local-engine — see docs/architecture/local-engine-auth-and-networking.md
-      # Decision 4. Off by default: nginx serves ONLY *.${DOMAIN} (deployed
-      # apps + custom domains) and answers for nothing else at all — no
-      # bare ${DOMAIN}, no api.${DOMAIN}. Set to "true" to additionally
-      # expose hooks.${DOMAIN}, routing ONLY /api/webhooks/github to
-      # api-server, for GitHub push-to-deploy (see
-      # webhooks/github-webhook.controller.ts). Nothing else on api-server
-      # is EVER reachable through nginx, regardless of this flag.
       ENABLE_PUSH_DEPLOY: ${ENABLE_PUSH_DEPLOY:-false}
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro
@@ -204,10 +185,7 @@ volumes:
 
 networks:
   default:
-    # Explicit, deterministic name (not the compose-project-name-derived
-    # default) so DockerDeploymentEngine's `docker run --network
-    # dreamer-local` (api-server/.env's DOCKER_NETWORK) always joins the
-    # right network regardless of what directory/project name this stack
-    # was brought up under. Every service above already joins this via
-    # Compose's implicit default network — nothing else needs to change.
+    # Explicit name so DockerDeploymentEngine's
+    # `docker run --network dreamer-local` always joins this exact network,
+    # regardless of the compose project name.
     name: dreamer-local

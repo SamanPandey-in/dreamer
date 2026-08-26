@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Run by cron (see install.sh's step 7), and safe to run by hand any time.
-# `certbot renew` itself is a no-op unless a certificate is within 30 days
-# of expiry — running this daily costs nothing on the days it doesn't
-# actually renew anything.
+# Run daily by cron (install.sh step 7); safe to run by hand any time.
+# `certbot renew` is a no-op unless the cert is within 30 days of expiry.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_ENGINE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"

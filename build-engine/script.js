@@ -8,10 +8,8 @@ const { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommit
 const { resolveDockerfile } = require('./dockerfile-resolver')
 const { runLocalDockerBuild } = require('./docker-build')
 
-// Talks to MinIO (docker-compose.yml), not real AWS S3 — MinIO just
-// speaks the same protocol, which is why @aws-sdk/client-s3 is still the
-// right client. forcePathStyle is required for MinIO (see api-server's
-// lib/s3-client.ts for the matching client-side comment).
+// MinIO (docker-compose.yml), not real S3 — same protocol, hence the AWS SDK
+// client. forcePathStyle is required for MinIO.
 const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'us-east-1',
     credentials: {
@@ -29,64 +27,39 @@ const BRANCH = process.env.BRANCH || 'main'
 const S3_BUCKET = process.env.S3_BUCKET || 'dreamer-outputs'
 const BASE_DOMAIN = process.env.BASE_DOMAIN
 
-// Resolved project build config, forwarded by deployment-engine.ts's
-// DockerDeploymentEngine from the Project row (project.service.ts). Each
-// falls back to exactly what this file hardcoded before this feature
-// existed, so a project created before it shipped (every one of these
-// env vars absent) builds identically — no migration, no behavior
-// change, for existing projects that have never touched their build
-// settings.
+// Project build config from the Project row; defaults keep pre-existing
+// projects building identically.
 const INSTALL_COMMAND = (process.env.INSTALL_COMMAND || 'npm ci --legacy-peer-deps').replace(/^["']|["']$/g, '')
 const BUILD_COMMAND = (process.env.BUILD_COMMAND || 'npm run build').replace(/^["']|["']$/g, '')
 const OUTPUT_DIRECTORY = (process.env.OUTPUT_DIRECTORY || 'dist').replace(/^["']|["']$/g, '')
 
-// Decides which branch init() takes after the clone/checkout preamble.
-// Forwarded by deployment-engine.ts's launchBuildTask, straight off
-// Project.detectedDeploymentType. A build task that predates this
-// feature (or a STATIC project) never sets this, and the `|| 'STATIC'`
-// fallback below means it behaves exactly as it always did.
+// DEPLOYMENT_TYPE decides which pipeline init() takes after the preamble.
 const DEPLOYMENT_TYPE = process.env.DEPLOYMENT_TYPE || 'STATIC'
 const FRAMEWORK = process.env.FRAMEWORK || 'UNKNOWN'
 
-// NEW — only meaningful for DYNAMIC builds (see runDynamicBuild() below).
-// The project's own env vars, name+value, as JSON. deployment-engine.ts
-// sends the SAME vars twice: flat into this container's own env (all a
-// STATIC build needs, since runShellCommand's child_process inherits
-// this container's env directly) and again here as one JSON blob,
-// because runLocalDockerBuild's nested `docker build` runs in its own
-// isolated build context and does not inherit THIS container's env at
-// all — same isolation problem Kaniko has in the cloud engine, just
-// docker-in-docker instead of Kaniko. Without this, `next build` inside
-// that nested build previously saw none of a project's configured env
-// vars — breaking NEXT_PUBLIC_* inlining and any build-time
-// process.env read, even though the resulting standalone server's
-// RUNTIME env was already correct (deployDynamicApp passes
-// job.userEnvVars straight to `docker run -e`). Falls back to [] so a
-// STATIC build (which never sets this) and any build predating this
-// change both behave exactly as before.
+/**
+ * The project's own env vars as JSON — only meaningful for DYNAMIC builds.
+ * The vars arrive twice: flat into this container's env (what a STATIC
+ * build's child_process inherits) AND as this blob, because the nested
+ * `docker build` runs in an isolated context and inherits nothing from this
+ * container. Without it, NEXT_PUBLIC_* inlining and build-time process.env
+ * reads inside `next build` would silently see nothing.
+ */
 let USER_ENV_VARS = []
 try {
     USER_ENV_VARS = JSON.parse(process.env.USER_ENV_VARS_JSON || '[]')
 } catch (parseError) {
-    // Fails open with an empty list rather than crashing the whole build
-    // over a malformed manifest — a build with none of its env vars
-    // available is a recoverable, visible-in-the-UI problem; a build
-    // that never runs at all is worse. The WARN below is what makes it
-    // visible.
+    // Fail open — a build without its env vars is a visible-in-UI problem;
+    // a build that never runs is worse.
     publishLog(`Warning: could not parse USER_ENV_VARS_JSON — env vars will not be available at build time: ${parseError.message}`, 'WARN', 'platform')
 }
 
 /**
- * Runs install and build as two separate sequential steps (not one chained
- * `&&` shell command) specifically so a failure can be attributed to
- * INSTALL vs BUILD — Deployment.errorStep exists precisely to answer "which
- * step failed: install | build | upload | start" (see schema.prisma), and
- * collapsing both into a single exec() makes that column impossible to
- * populate correctly. Each still runs through a shell (needed since
- * INSTALL_COMMAND/BUILD_COMMAND are themselves arbitrary shell command
- * strings — "npm run build", "pnpm install --frozen-lockfile", etc.), with
- * `cwd` doing the directory change instead of a string-interpolated `cd` —
- * safer once dirPath can contain a user-influenced root-directory segment.
+ * Install and build run as separate steps (not one chained command) so a
+ * failure can be attributed to INSTALL vs BUILD via Deployment.errorStep.
+ * Commands still go through a shell (they're arbitrary command strings);
+ * `cwd` does the directory change instead of an interpolated `cd`, since
+ * dirPath can contain a user-influenced root-directory segment.
  */
 function runShellCommand(command, cwd) {
     return new Promise((resolve, reject) => {
@@ -97,10 +70,8 @@ function runShellCommand(command, cwd) {
             publishLog(data.toString())
         })
 
-        // stderr is mostly npm warning chatter and build-tool progress
-        // output, not necessarily a fatal error — WARN, not ERROR. The
-        // build's actual pass/fail signal is the exit code in p.on('close'),
-        // not which stream a given line happened to print to.
+        // stderr is mostly npm chatter and progress output, not fatal —
+        // the exit code is the pass/fail signal.
         p.stderr.on('data', function (data) {
             console.error(data.toString())
             publishLog(data.toString(), 'WARN')
@@ -116,15 +87,7 @@ function runShellCommand(command, cwd) {
     })
 }
 
-/**
- * The original, unchanged STATIC pipeline — install, build, verify the
- * output directory exists, upload it to S3. Extracted out of init() as its
- * own function (rather than left inline) purely so DEPLOYMENT_TYPE can pick
- * between this and runDynamicBuild() with a plain if/else instead of a much
- * larger branch buried in the middle of one function.
- */
 async function runStaticBuild(buildContextPath) {
-    // 1. Install dependencies.
     publishLog(`Installing dependencies: ${INSTALL_COMMAND}`, 'SYSTEM', 'platform')
     try {
         await runShellCommand(INSTALL_COMMAND, buildContextPath)
@@ -133,7 +96,6 @@ async function runStaticBuild(buildContextPath) {
         throw installError
     }
 
-    // 2. Run the build.
     publishLog(`Building: ${BUILD_COMMAND}`, 'SYSTEM', 'platform')
     try {
         await runShellCommand(BUILD_COMMAND, buildContextPath)
@@ -147,7 +109,6 @@ async function runStaticBuild(buildContextPath) {
 
     const distFolderPath = path.join(buildContextPath, OUTPUT_DIRECTORY)
 
-    // Safety check to ensure the framework actually built the expected output folder.
     if (!fs.existsSync(distFolderPath)) {
         const notFoundError = new Error(
             `Build finished but expected output directory "${OUTPUT_DIRECTORY}" was not found at ${distFolderPath} — ` +
@@ -170,12 +131,9 @@ async function runStaticBuild(buildContextPath) {
         console.log('uploading', filePath)
         publishLog(`uploading ${file}`, 'INFO', 'platform')
 
-        // __outputs/{PROJECT_SLUG}/... — keyed by the PROJECT's slug,
-        // not this deployment's own random one. Every deployment of the
-        // same project writes to, and overwrites, the same prefix — on
-        // purpose. apps/reverse-proxy needs NO changes: it already
-        // proxies subdomain -> __outputs/{subdomain}, and the subdomain
-        // a user visits IS the project's slug.
+        // Keyed by PROJECT slug, not deployment id: every deployment of a
+        // project overwrites the same prefix on purpose, and reverse-proxy
+        // already serves __outputs/{subdomain} where subdomain == slug.
         const command = new PutObjectCommand({
             Bucket: S3_BUCKET,
             Key: `__outputs/${PROJECT_SLUG}/${file}`,
@@ -190,23 +148,14 @@ async function runStaticBuild(buildContextPath) {
 
     const url = `https://${PROJECT_SLUG}.${BASE_DOMAIN}`
     publishLog(`Done — ${uploadedCount} files uploaded`, 'SYSTEM')
-    // CHANGED — uploadedCount was computed and logged, but never sent
-    // here, so Deployment.uploadedFileCount stayed null forever. This is
-    // the one-line fix the Build Summary card (Part 7) depends on.
     publishStatus('RUNNING', { url, uploadedFileCount: uploadedCount })
 }
 
 /**
- * The DYNAMIC pipeline: resolve a Dockerfile (the repo's own, or a
- * generated one for the detected framework), build it locally with
- * `docker build` against the host daemon (see docker-build.js — reached
- * via the socket docker-compose.yml mounts into this container), publish
- * `image_ready`. Deliberately does NOT publish a RUNNING (or even
- * STARTING) status itself — this task's job ends the moment the image
- * exists locally. Turning that image into a live running container is
- * api-server's job (deployDynamicApp() in deployment-engine.ts, triggered
- * by handleImageReady() in deployment.service.ts) — no registry push,
- * no pull-back-down: build and run share the same Docker daemon.
+ * DYNAMIC pipeline: resolve a Dockerfile (repo's own or generated), build it
+ * locally against the host daemon, then publish `image_ready`. Deliberately
+ * does NOT publish RUNNING/STARTING itself — turning the image into a live
+ * container is api-server's job (deployDynamicApp, triggered by image_ready).
  */
 async function runDynamicBuild(buildContextPath) {
     let dockerfilePath
@@ -215,10 +164,8 @@ async function runDynamicBuild(buildContextPath) {
             framework: FRAMEWORK,
             installCommand: INSTALL_COMMAND,
             buildCommand: BUILD_COMMAND,
-            // NEW — names only; the generated Dockerfile's ARG/ENV lines
-            // reference these by name, the actual values travel to the
-            // nested `docker build` separately as --build-args below,
-            // never into the Dockerfile text itself.
+            // Names only — values travel separately as --build-args, never
+            // into the Dockerfile text.
             userEnvVarNames: USER_ENV_VARS.map((v) => v.name),
         })
     } catch (resolveError) {
@@ -226,18 +173,13 @@ async function runDynamicBuild(buildContextPath) {
         throw resolveError
     }
 
-    // Tagged by PROJECT slug (not this deployment's own id) — same "one
-    // live thing per PROJECT, a redeploy replaces it" model STATIC's
-    // output prefix already uses. deployDynamicApp() in
-    // deployment-engine.ts reads this exact tag back to `docker run` it.
+    // Tagged per PROJECT (a redeploy replaces it), matching how STATIC
+    // shares one output prefix per project. deployDynamicApp reads this
+    // exact tag back to `docker run` it.
     const destination = `dreamer-app:${PROJECT_SLUG}`
 
     publishLog(`Building container image for ${FRAMEWORK} as ${destination}`, 'SYSTEM', 'platform')
     try {
-        // NEW — buildArgs is what actually gets the project's env vars
-        // (NEXT_PUBLIC_* etc.) into the `next build` step the nested
-        // `docker build` runs inside the generated Dockerfile's builder
-        // stage.
         await runLocalDockerBuild({ dockerfilePath, contextPath: buildContextPath, destination, buildArgs: USER_ENV_VARS })
     } catch (buildError) {
         buildError.step = 'build'
@@ -257,42 +199,25 @@ async function init() {
     publishStatus('BUILDING')
 
     try {
-        // 0. Clone — now INSIDE this try/catch, unlike the original
-        // prototype where main.sh ran it before this process even started
-        // (see the note above Part 6.1 for why that made clone failures
-        // invisible to the dashboard).
         writeNetrcIfNeeded()
         publishLog(`Cloning ${GIT_REPOSITORY_URL} (branch: ${BRANCH})`, 'SYSTEM', 'platform')
         await runClone()
 
-        // NEW — if this build is a rollback (COMMIT_HASH set), pin the
-        // checkout to that exact commit BEFORE scrubbing credentials and
-        // BEFORE reading commit info, so getCommitInfo() below reports the
-        // pinned commit, not the branch's current HEAD.
+        // Rollback pin BEFORE credential scrub and commit-info read, so
+        // getCommitInfo reports the pinned commit, not branch HEAD.
         await runCheckoutIfPinned()
-        scrubNetrc() // before npm touches a single dependency — see the comment on scrubNetrc()
+        scrubNetrc() // before npm touches a single dependency
 
-        // NEW — best-effort; a null result just means the commit fields
-        // stay null on this deployment, same as they already do for every
-        // deployment created before this change.
         const commitInfo = await getCommitInfo()
         if (commitInfo) {
             publishCommitInfo({ commitHash: commitInfo.hash, commitMessage: commitInfo.message, commitAuthor: commitInfo.author })
         }
 
-        // NEW — resolves to the cloned repo root, or a subdirectory of it
-        // for a monorepo project (Project.rootDirectory). Throws (caught
-        // below, reported as errorStep: 'build') if ROOT_DIRECTORY would
-        // resolve outside the clone — see the guard in clone-repo.js.
         const buildContextPath = getBuildContextPath()
 
-        // DYNAMIC apps' install+build happens INSIDE the `docker build`
-        // (see the generated Dockerfile's own `builder` stage), not out
-        // here on the host — running `npm install`/`npm run build` twice
-        // (once here, once again inside the image build) would waste the
-        // bulk of a build's wall-clock time for no benefit. So the branch
-        // happens BEFORE step 1, not after — the two paths only share the
-        // clone/checkout/commit-info preamble above this line.
+        // Branch BEFORE install/build: a DYNAMIC app's install+build happens
+        // INSIDE its `docker build` (builder stage) — running both here and
+        // in the image build would double the wall-clock time for nothing.
         if (DEPLOYMENT_TYPE === 'DYNAMIC') {
             await runDynamicBuild(buildContextPath)
         } else {
@@ -303,25 +228,15 @@ async function init() {
     } catch (error) {
         console.error('Fatal execution error:', error.message)
         publishLog(`Fatal error: ${error.message}`, 'ERROR', 'platform')
-        // CHANGED — errorStep now reflects which phase actually failed
-        // (install vs build vs upload) instead of being hardcoded to
-        // 'build' for every failure. installError/buildError above attach
-        // `.step` before rethrowing; an upload failure (thrown directly
-        // inside the for-loop, no .step attached) and anything thrown
-        // before either step ran both correctly fall back to 'build' as
-        // the most accurate remaining guess.
+        // errorStep reflects the phase that actually failed; anything thrown
+        // before a step ran falls back to 'build' as best guess.
         publishStatus('FAILED', { errorMessage: error.message, errorCode: 'BUILD_FAILED', errorStep: error.step || 'build' })
         process.exitCode = 1
     } finally {
-        // Guarantees cleanup even if the clone itself is what threw — the
-        // success-path call above is the one that matters for the
-        // npm-install threat model, but this one matters for "the process
-        // is about to exit no matter what, leave nothing behind."
+        // Covers the case where the clone itself threw.
         scrubNetrc()
-        // publisher.publish() is fire-and-forget over an already-open
-        // connection — give the last message a moment to actually flush
-        // over the socket before the process (and this whole container)
-        // exits.
+        // Give the last fire-and-forget publish a moment to flush before
+        // the process/container exits.
         setTimeout(() => publisher.quit(), 250)
     }
 }

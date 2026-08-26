@@ -1,29 +1,17 @@
-# Rendered from this template by nginx's own official image at container
-# start (any file under /etc/nginx/templates/*.template gets envsubst'd
-# into /etc/nginx/conf.d/*.conf automatically — no custom entrypoint
-# script needed). ${DOMAIN} and ${ENABLE_PUSH_DEPLOY} are the variables
-# actually substituted; every other "$..." below is a normal nginx runtime
-# variable and is left alone.
+# Rendered by nginx's official image at container start: any file under
+# /etc/nginx/templates/*.template gets envsubst'd into /etc/nginx/conf.d/.
 #
-# local-engine network exposure — see
-# docs/architecture/local-engine-auth-and-networking.md Decision 4. This
-# file is deliberately NOT symmetric with the cloud engine's version: the
-# dashboard (frontend + api-server's REST/dashboard API) has NO server
-# block here at all — no ${DOMAIN}, no www.${DOMAIN}, no api.${DOMAIN}.
-# It's reachable only via docker-compose.yml's 127.0.0.1-bound ports
-# (SSH tunnel from the operator's own machine), never through this public
-# listener. The only things this file ever routes publicly are:
-#
+# Public exposure — this file routes ONLY:
 #   *.${DOMAIN}         -> reverse-proxy   (deployed apps + custom domains)
-#   hooks.${DOMAIN}      -> api-server, ONLY /api/webhooks/github
-#                            (opt-in: ENABLE_PUSH_DEPLOY=true)
+#   hooks.${DOMAIN}     -> api-server, ONLY /api/webhooks/github
+#                          (opt-in: ENABLE_PUSH_DEPLOY=true)
 #
-# nginx always prefers the most specific server_name match regardless of
-# the order server blocks appear in the file, so hooks.${DOMAIN} (exact)
-# safely takes priority over the *.${DOMAIN} (wildcard) block below it,
-# and nothing else on api-server is ever reachable through this listener —
-# not projects, not env vars, not the git PAT, not auth — regardless of
-# ENABLE_PUSH_DEPLOY.
+# The dashboard has NO server block here at all — it's reachable only via
+# docker-compose.yml's 127.0.0.1-bound ports over an SSH tunnel, never
+# through this public listener.
+#
+# nginx prefers the most specific server_name regardless of block order,
+# so hooks.${DOMAIN} (exact) safely wins over the wildcard below.
 
 # Plain HTTP -> HTTPS redirect for every hostname this domain covers.
 server {
@@ -34,12 +22,9 @@ server {
 }
 
 # --- Wildcard: every deployed app (project-slug.${DOMAIN}) + custom domains ---
-# Matches anything under *.${DOMAIN} — hands off entirely to reverse-proxy,
-# which already does its own STATIC (MinIO) vs DYNAMIC (container) routing
-# per request, and its own custom-domain lookup. This block's only job is
-# getting the request onto the private compose network and preserving the
-# original Host header so reverse-proxy knows which subdomain/domain was
-# actually requested.
+# Hands off entirely to reverse-proxy, which does its own STATIC vs DYNAMIC
+# routing per request plus its own custom-domain lookup. Preserving Host is
+# what lets reverse-proxy know which subdomain/domain was requested.
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
@@ -61,10 +46,8 @@ server {
 }
 
 # --- Optional: GitHub push-to-deploy webhook receiver -----------------------
-# ENABLE_PUSH_DEPLOY must be "true" for this block to do anything real.
-# When it's "false" (the default), every request here hits the bare 444
-# below instead of ever reaching api-server — nginx's own "close the
-# connection, send nothing back" pseudo-status — so hooks.${DOMAIN}
+# When ENABLE_PUSH_DEPLOY != "true" (the default), every request here hits
+# the bare 444 — close the connection, send nothing back — so hooks.${DOMAIN}
 # answers for literally nothing on a fresh install.
 server {
     listen 443 ssl;
@@ -74,15 +57,11 @@ server {
     ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
 
-    # ONLY this exact path is ever proxied — everything else on
-    # hooks.${DOMAIN} (including api-server's other routes, if someone
-    # tried to guess a path) hits the bare 444 below instead.
+    # ONLY this exact path is ever proxied — everything else hits 444.
+    # ${ENABLE_PUSH_DEPLOY} is envsubst'd to a literal at container start,
+    # so a plain string compare here (not a map, whose source must be an
+    # nginx runtime variable).
     location = /api/webhooks/github {
-        # envsubst substitutes this to the literal text "true"/"false" at
-        # container start — the plain string compare below is a normal
-        # nginx runtime check against that substituted value, not a map:
-        # map's source argument must itself be an nginx variable, which a
-        # build-time-substituted literal isn't.
         set $push_deploy_enabled "${ENABLE_PUSH_DEPLOY}";
         if ($push_deploy_enabled != "true") {
             return 444;

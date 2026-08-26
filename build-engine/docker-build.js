@@ -2,32 +2,13 @@ const { spawn } = require('child_process')
 const { publishLog } = require('./redis')
 
 /**
- * Builds a container image with a plain `docker build` — no daemon-less
- * builder needed: the local engine's build-engine container has the
- * host's Docker socket mounted in (docker-compose.yml), so a real
- * daemon is right there. And critically, there's no registry push step
- * needed at all: build and run happen on the SAME daemon, so the image
- * tag built here is immediately visible to DockerDeploymentEngine's
- * later `docker run` — no registry, no push, no pull-back-down.
+ * Builds an image with plain `docker build` against the host daemon (the
+ * Docker socket is mounted in by docker-compose.yml). No registry step:
+ * build and run share the same daemon, so the tag built here is directly
+ * runnable by api-server's later `docker run`.
  *
- * Uses `spawn` with a real argv array (not `exec`'s shell string), same
- * reasoning as kaniko-build.js: contextPath/dockerfilePath can contain
- * characters a shell would need quoting for. Same reasoning is why
- * buildArgs below are appended as individual argv entries, not joined
- * into one string.
- *
- * buildArgs: the project's configured env vars as {name, value} pairs —
- * forwarded as `--build-arg NAME=value` so a generated Dockerfile's
- * ARG/ENV lines (see dockerfile-resolver.js) actually receive real
- * values, and so a project's OWN Dockerfile can opt in too by declaring
- * matching ARGs. `docker build` silently ignores a --build-arg whose
- * name has no matching ARG in the Dockerfile being built, so passing
- * all of them unconditionally is safe either way. This build's own
- * process env (this container's REDIS_URL, AWS_* MinIO creds, etc.) is
- * NOT what's being forwarded here — those were never the problem, since
- * runStaticBuild's plain child_process already inherits them fine. This
- * is specifically for the project's OWN vars reaching a `next build`
- * that runs inside a build that this process's own env is invisible to.
+ * `spawn` with a real argv array (not exec's shell string) — paths and
+ * build-arg values can contain characters a shell would need quoting for.
  */
 function runLocalDockerBuild({ dockerfilePath, contextPath, destination, buildArgs = [] }) {
     return new Promise((resolve, reject) => {
@@ -39,10 +20,8 @@ function runLocalDockerBuild({ dockerfilePath, contextPath, destination, buildAr
             contextPath,
         ]
 
-        // Redacted before logging — this line previously would have put
-        // every --build-arg value, secrets included, straight into
-        // Redis-published build logs the first time a project actually
-        // configured one.
+        // Redact --build-arg values (project secrets included) before this
+        // goes into Redis-published build logs.
         const redactedArgs = args.map((arg) =>
             arg.startsWith('--build-arg=') ? `--build-arg=${arg.split('=')[1]}=***` : arg
         )
@@ -56,9 +35,8 @@ function runLocalDockerBuild({ dockerfilePath, contextPath, destination, buildAr
         })
 
         p.stderr.on('data', (data) => {
-            // `docker build`'s own progress output goes to stderr by
-            // default (BuildKit) — WARN, not ERROR, same reasoning as
-            // script.js's stderr handling elsewhere.
+            // BuildKit's progress output goes to stderr — WARN, not ERROR;
+            // pass/fail is the exit code.
             console.error(data.toString())
             publishLog(data.toString(), 'WARN', 'docker')
         })

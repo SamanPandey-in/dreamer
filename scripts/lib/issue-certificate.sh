@@ -1,31 +1,17 @@
 #!/usr/bin/env bash
-# local-engine — see docs/architecture/local-engine-auth-and-networking.md
-# "The samanp.xyz example, concretely". Requests a WILDCARD-ONLY cert
-# (*.${DOMAIN}) — deliberately NOT the apex domain anymore, unlike the
-# cloud engine's version of this script. Nothing on this box serves the
-# apex (nginx has no ${DOMAIN} server block at all — see
-# nginx/templates/dreamer.conf.template): only *.${DOMAIN} (deployed apps,
-# custom domains) and, optionally, hooks.${DOMAIN}. Requesting the apex
-# too would be pointless and would need the operator to prove control of a
-# domain whose apex they may have deliberately left pointed elsewhere
-# (e.g. an existing Vercel/Netlify site at the bare domain).
+# Requests a WILDCARD-ONLY cert (*.${DOMAIN}) — nothing on this box serves
+# the apex, so requesting it would be pointless and would force the
+# operator to prove control of a domain whose apex may point elsewhere.
 #
 # A wildcard SAN is only obtainable via DNS-01 (HTTP-01 can't prove
-# ownership of a wildcard — there's no single file path that answers for
-# every possible subdomain).
+# ownership of a wildcard).
 #
-# --cert-name "${DOMAIN}" pins the on-disk lineage name explicitly (not
-# left to certbot's own default-from-first-domain logic, which is murkier
-# for a wildcard-only request than a documented, load-bearing path should
-# rely on) — this is what makes nginx's hardcoded
-# /etc/letsencrypt/live/${DOMAIN}/ path always correct regardless of
-# certbot version behavior.
+# --cert-name "${DOMAIN}" pins the on-disk lineage name so nginx's
+# hardcoded /etc/letsencrypt/live/${DOMAIN}/ path is always correct.
 #
 # Certs land in a HOST bind mount (./certbot/letsencrypt), not a Docker
-# named volume — this is deliberate: a bind mount path is identical
-# whether it's written by this standalone `docker run` or by
-# docker-compose.prod.yml's own service definitions, with no dependency on
-# Compose's project-name-based volume naming lining up between the two.
+# named volume — same path whether written by this standalone `docker run`
+# or by compose.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -48,7 +34,7 @@ issue_via_cloudflare() {
 
   local cf_ini="${REPO_ROOT}/certbot/cloudflare.ini"
   printf 'dns_cloudflare_api_token = %s\n' "${CLOUDFLARE_TOKEN}" > "${cf_ini}"
-  chmod 600 "${cf_ini}" # certbot itself refuses to run with a group/world-readable credentials file
+  chmod 600 "${cf_ini}" # certbot refuses group/world-readable credentials
 
   docker run --rm \
     -v "${CERT_DIR}:/etc/letsencrypt" \
@@ -73,12 +59,9 @@ issue_via_manual_dns() {
   log_warn "If you're on Cloudflare, re-run with --cloudflare-token instead for a fully unattended install."
   echo
 
-  # Deliberately interactive (-it, no --non-interactive) — certbot will
-  # print the exact TXT record name/value to create and wait for Enter.
-  # This is the one part of install.sh that CAN'T be made fully autonomous
-  # without a supported DNS provider's API — proving control of a domain
-  # you haven't given this script any credentials for fundamentally
-  # requires a manual step somewhere.
+  # Deliberately interactive — certbot prints the TXT record to create
+  # and waits for Enter. Proving control of a domain without API creds
+  # fundamentally requires this manual step.
   docker run --rm -it \
     -v "${CERT_DIR}:/etc/letsencrypt" \
     certbot/certbot:latest \

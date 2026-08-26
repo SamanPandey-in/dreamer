@@ -6,27 +6,18 @@ const { publishLog, publishStatus } = require('./redis')
 
 const GIT_REPOSITORY_URL = process.env.GIT_REPOSITORY_URL
 const BRANCH = process.env.BRANCH || 'main'
-// Set only for a rollback (api-server's DockerDeploymentEngine passes this
-// through from BuildJob.commitHash). When present, runCheckoutIfPinned() below
-// checks the clone out to this exact commit instead of leaving it at the
-// branch's current HEAD.
+// Set only for rollbacks — checkout this exact commit instead of branch HEAD.
 const COMMIT_HASH = process.env.COMMIT_HASH
-// NEW — the subdirectory within the cloned repo that actually contains this
-// project's package.json (set by the new-project wizard's root-directory
-// picker; stored on Project.rootDirectory). Empty string means "repo root,"
-// matching how the API server's build-config wizard represents it too — see
-// build-config.types.ts's detectBuildConfigSchema.
+// Subdirectory of the clone containing this project's package.json
+// (monorepo support; empty string = repo root).
 const ROOT_DIRECTORY = (process.env.ROOT_DIRECTORY || '').replace(/^["']|["']$/g, '')
 const NETRC_PATH = path.join(os.homedir(), '.netrc')
 
 /**
- * For private repos, DockerDeploymentEngine (api-server's deployment-engine.ts)
- * hands this container a GIT_ACCESS_TOKEN env var — the project owner's
- * decrypted GitHub token, scoped for exactly this one task run. We write it
- * to ~/.netrc rather than embedding it in the clone URL: if git ever echoes
- * the URL it's operating on (it does, on several error paths), a
- * netrc-based credential means that echo is always the plain
- * https://github.com/... URL, never one with a token baked into it.
+ * Private repos: GIT_ACCESS_TOKEN is written to ~/.netrc rather than
+ * embedded in the clone URL — if git ever echoes the URL it operates on
+ * (it does, on several error paths), the echo is always the plain URL,
+ * never one with a token baked in.
  */
 function writeNetrcIfNeeded() {
     if (!process.env.GIT_ACCESS_TOKEN) return
@@ -38,14 +29,9 @@ function writeNetrcIfNeeded() {
 }
 
 /**
- * Best-effort, fire-and-forget cleanup — called right after a successful
- * clone AND again in `finally`, so the token can't outlive the one git
- * operation that needed it. The first call matters more than it looks:
- * without it, the token would still be sitting on disk for the ENTIRE
- * `npm install && npm run build` that follows — meaning any compromised or
- * malicious package's postinstall script could read a live GitHub token
- * straight off the filesystem. Scrubbing it before npm ever runs closes
- * that window completely, not just eventually.
+ * Scrubbed right after clone AND again in finally — without the early call,
+ * the token would sit on disk through the entire npm install/build, where
+ * any malicious package's postinstall could read it.
  */
 function scrubNetrc() {
     fs.rm(NETRC_PATH, { force: true }, () => {})
@@ -64,20 +50,16 @@ function runClone() {
     return new Promise((resolve, reject) => {
         const p = exec(`git clone --branch "${BRANCH}" --single-branch "${GIT_REPOSITORY_URL}" "${targetPath}"`)
 
-        // Safe to publish verbatim — git only ever sees the plain repo URL
-        // (credentials come from ~/.netrc, never the command line or the
-        // URL string), so nothing it prints to stderr can contain the token.
+        // Safe to publish verbatim — credentials come from ~/.netrc, never
+        // the command line or URL, so git's output can't contain the token.
         p.stderr.on('data', (data) => publishLog(data.toString(), 'WARN', 'platform'))
 
         p.on('close', (code) => {
             if (code === 0) {
                 resolve()
             } else {
-                // GitHub returns the same 404 for "doesn't exist" and "you
-                // don't have access" — deliberately, to avoid leaking which
-                // private repos exist. This message can't tell those apart
-                // either; the dashboard surfaces it as a hint to check the
-                // GitHub connection rather than asserting the repo is missing.
+                // GitHub returns the same 404 for "doesn't exist" and "no
+                // access" — this message can't tell those apart either.
                 reject(new Error(
                     `git clone exited with code ${code} — check the repository URL and branch, and (for private repos) that your GitHub connection still has access`
                 ))
@@ -87,13 +69,9 @@ function runClone() {
 }
 
 /**
- * NEW. `--single-branch` (no `--depth`) still fetches the FULL history of
- * that one branch — so any commit that was ever reachable from the branch's
- * tip at clone time is checkoutable, no extra fetch needed. This breaks only
- * if the target commit was later removed from the branch's history entirely
- * (a force-push/rebase) — the rejected promise's message says so explicitly,
- * rather than leaving someone to guess why a rollback to a "valid-looking"
- * commit failed.
+ * --single-branch (no --depth) still fetches the branch's FULL history, so
+ * any previously-deployed commit stays checkoutable unless it was removed
+ * from the branch's history by a force-push/rebase.
  */
 function runCheckoutIfPinned() {
     if (!COMMIT_HASH) return Promise.resolve()
@@ -115,11 +93,8 @@ function runCheckoutIfPinned() {
 }
 
 /**
- * NEW. Best-effort by design — if `git log` somehow fails (corrupted
- * shallow state, empty repo), a missing commit hash should never fail the
- * whole build over a metadata nicety. `%x1f` (the ASCII unit separator) is
- * the delimiter, not `:` or `|`, specifically because a real commit message
- * can legally contain either of those.
+ * Best-effort — a missing commit hash must never fail a build. %x1f is the
+ * delimiter because commit messages can legally contain ':' or '|'.
  */
 function getCommitInfo() {
     return new Promise((resolve) => {
@@ -135,22 +110,14 @@ function getCommitInfo() {
 }
 
 /**
- * NEW. Resolves the directory script.js should actually run install/build
- * commands in — `targetPath` itself for an ordinary repo, or a subdirectory
- * of it for a monorepo project whose root directory was set in the wizard
- * (see project.service.ts's rootDirectory, threaded through
- * deployment-engine.ts as the ROOT_DIRECTORY env var).
+ * Resolves where install/build should run — the clone root, or a
+ * subdirectory for monorepo projects.
  *
- * `path.join` + the explicit prefix check below is the path-traversal
- * guard: ROOT_DIRECTORY ultimately originates from a value a project owner
- * typed into the Settings page (or the wizard) — `path.join(targetPath,
- * '../../etc')` is exactly the kind of input `path.join` will happily
- * resolve outside `targetPath` if asked to, and this container briefly
- * holds a live GitHub token on disk (see writeNetrcIfNeeded above) for
- * part of its run. Refusing to resolve outside targetPath at all, rather
- * than trying to sanitize the string first, is the simpler and more
- * robust guarantee — there is no input that makes an out-of-bounds path
- * acceptable here.
+ * The prefix check after path.join is a path-traversal guard:
+ * ROOT_DIRECTORY originates from user input, and path.join will happily
+ * resolve '../../etc' outside targetPath. Refusing out-of-bounds paths
+ * outright (rather than sanitizing strings) is the robust guarantee — this
+ * container briefly holds a live GitHub token on disk.
  */
 function getBuildContextPath() {
     if (!ROOT_DIRECTORY) return targetPath
