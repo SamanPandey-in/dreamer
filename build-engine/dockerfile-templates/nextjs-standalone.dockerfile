@@ -9,7 +9,15 @@
 FROM node:22-slim AS builder
 WORKDIR /app
 COPY . .
-RUN __INSTALL_COMMAND__
+
+# The build-args placeholder below is replaced with one ARG + ENV pair
+# per configured env var name (values come in separately as `docker
+# build --build-arg`s, never written into this file — see
+# docker-build.js). Must sit before install/build so NEXT_PUBLIC_* vars
+# and any other build-time process.env reads are actually available
+# when `next build` runs below. Empty string, i.e. no lines, when the
+# project has no env vars configured.
+__BUILD_ARGS__RUN __INSTALL_COMMAND__
 RUN __BUILD_COMMAND__
 
 FROM node:22-slim AS runner

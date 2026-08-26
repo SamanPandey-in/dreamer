@@ -48,6 +48,34 @@ const OUTPUT_DIRECTORY = (process.env.OUTPUT_DIRECTORY || 'dist').replace(/^["']
 const DEPLOYMENT_TYPE = process.env.DEPLOYMENT_TYPE || 'STATIC'
 const FRAMEWORK = process.env.FRAMEWORK || 'UNKNOWN'
 
+// NEW — only meaningful for DYNAMIC builds (see runDynamicBuild() below).
+// The project's own env vars, name+value, as JSON. deployment-engine.ts
+// sends the SAME vars twice: flat into this container's own env (all a
+// STATIC build needs, since runShellCommand's child_process inherits
+// this container's env directly) and again here as one JSON blob,
+// because runLocalDockerBuild's nested `docker build` runs in its own
+// isolated build context and does not inherit THIS container's env at
+// all — same isolation problem Kaniko has in the cloud engine, just
+// docker-in-docker instead of Kaniko. Without this, `next build` inside
+// that nested build previously saw none of a project's configured env
+// vars — breaking NEXT_PUBLIC_* inlining and any build-time
+// process.env read, even though the resulting standalone server's
+// RUNTIME env was already correct (deployDynamicApp passes
+// job.userEnvVars straight to `docker run -e`). Falls back to [] so a
+// STATIC build (which never sets this) and any build predating this
+// change both behave exactly as before.
+let USER_ENV_VARS = []
+try {
+    USER_ENV_VARS = JSON.parse(process.env.USER_ENV_VARS_JSON || '[]')
+} catch (parseError) {
+    // Fails open with an empty list rather than crashing the whole build
+    // over a malformed manifest — a build with none of its env vars
+    // available is a recoverable, visible-in-the-UI problem; a build
+    // that never runs at all is worse. The WARN below is what makes it
+    // visible.
+    publishLog(`Warning: could not parse USER_ENV_VARS_JSON — env vars will not be available at build time: ${parseError.message}`, 'WARN', 'platform')
+}
+
 /**
  * Runs install and build as two separate sequential steps (not one chained
  * `&&` shell command) specifically so a failure can be attributed to
@@ -187,6 +215,11 @@ async function runDynamicBuild(buildContextPath) {
             framework: FRAMEWORK,
             installCommand: INSTALL_COMMAND,
             buildCommand: BUILD_COMMAND,
+            // NEW — names only; the generated Dockerfile's ARG/ENV lines
+            // reference these by name, the actual values travel to the
+            // nested `docker build` separately as --build-args below,
+            // never into the Dockerfile text itself.
+            userEnvVarNames: USER_ENV_VARS.map((v) => v.name),
         })
     } catch (resolveError) {
         resolveError.step = 'build'
@@ -201,7 +234,11 @@ async function runDynamicBuild(buildContextPath) {
 
     publishLog(`Building container image for ${FRAMEWORK} as ${destination}`, 'SYSTEM', 'platform')
     try {
-        await runLocalDockerBuild({ dockerfilePath, contextPath: buildContextPath, destination })
+        // NEW — buildArgs is what actually gets the project's env vars
+        // (NEXT_PUBLIC_* etc.) into the `next build` step the nested
+        // `docker build` runs inside the generated Dockerfile's builder
+        // stage.
+        await runLocalDockerBuild({ dockerfilePath, contextPath: buildContextPath, destination, buildArgs: USER_ENV_VARS })
     } catch (buildError) {
         buildError.step = 'build'
         throw buildError

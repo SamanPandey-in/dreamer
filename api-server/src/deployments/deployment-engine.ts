@@ -176,6 +176,21 @@ export class DockerDeploymentEngine implements DeploymentEngine {
       S3_BUCKET: env.S3_BUCKET,
       BASE_DOMAIN: env.BASE_DOMAIN,
       ...Object.fromEntries(job.userEnvVars.map((v) => [v.name, v.value])),
+      // NEW — same vars again, JSON-encoded. The flat spread just above
+      // is indistinguishable, key by key, from REDIS_URL/AWS_*/etc.
+      // sitting right next to it in this same envVars record — no prefix
+      // or namespace separates "this project's own config" from "this
+      // platform's own plumbing" once they're both just entries in one
+      // Record<string, string>. That's fine for runStaticBuild(), which
+      // just needs everything present in process.env and never has to
+      // pick the project's vars back out individually. It's NOT fine for
+      // runDynamicBuild(): docker-build.js's nested `docker build` runs
+      // in its own isolated build context and does not inherit this
+      // container's env at all — it needs an explicit list of exactly
+      // which vars to forward as --build-arg, not "process.env minus
+      // some guessed-at reserved prefixes." See script.js's parsing of
+      // this and dockerfile-resolver.js's use of the names.
+      USER_ENV_VARS_JSON: JSON.stringify(job.userEnvVars),
     };
 
     const containerId = await dockerRun({

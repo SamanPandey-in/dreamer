@@ -12,13 +12,41 @@ const { publishLog } = require('./redis')
  *
  * Uses `spawn` with a real argv array (not `exec`'s shell string), same
  * reasoning as kaniko-build.js: contextPath/dockerfilePath can contain
- * characters a shell would need quoting for.
+ * characters a shell would need quoting for. Same reasoning is why
+ * buildArgs below are appended as individual argv entries, not joined
+ * into one string.
+ *
+ * buildArgs: the project's configured env vars as {name, value} pairs —
+ * forwarded as `--build-arg NAME=value` so a generated Dockerfile's
+ * ARG/ENV lines (see dockerfile-resolver.js) actually receive real
+ * values, and so a project's OWN Dockerfile can opt in too by declaring
+ * matching ARGs. `docker build` silently ignores a --build-arg whose
+ * name has no matching ARG in the Dockerfile being built, so passing
+ * all of them unconditionally is safe either way. This build's own
+ * process env (this container's REDIS_URL, AWS_* MinIO creds, etc.) is
+ * NOT what's being forwarded here — those were never the problem, since
+ * runStaticBuild's plain child_process already inherits them fine. This
+ * is specifically for the project's OWN vars reaching a `next build`
+ * that runs inside a build that this process's own env is invisible to.
  */
-function runLocalDockerBuild({ dockerfilePath, contextPath, destination }) {
+function runLocalDockerBuild({ dockerfilePath, contextPath, destination, buildArgs = [] }) {
     return new Promise((resolve, reject) => {
-        const args = ['build', '-f', dockerfilePath, '-t', destination, contextPath]
+        const args = [
+            'build',
+            '-f', dockerfilePath,
+            '-t', destination,
+            ...buildArgs.map(({ name, value }) => `--build-arg=${name}=${value}`),
+            contextPath,
+        ]
 
-        publishLog(`Building image: docker ${args.join(' ')}`, 'SYSTEM', 'platform')
+        // Redacted before logging — this line previously would have put
+        // every --build-arg value, secrets included, straight into
+        // Redis-published build logs the first time a project actually
+        // configured one.
+        const redactedArgs = args.map((arg) =>
+            arg.startsWith('--build-arg=') ? `--build-arg=${arg.split('=')[1]}=***` : arg
+        )
+        publishLog(`Building image: docker ${redactedArgs.join(' ')}`, 'SYSTEM', 'platform')
 
         const p = spawn('docker', args)
 

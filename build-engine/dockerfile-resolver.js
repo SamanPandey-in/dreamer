@@ -54,13 +54,43 @@ function warnIfNotStandalone(buildContextPath) {
 }
 
 /**
+ * Renders the ARG/ENV block that goes in front of `RUN __INSTALL_COMMAND__`
+ * in the generated Dockerfile — one ARG + one ENV per user-configured env
+ * var name. ARG alone only makes a value available as a build-time
+ * parameter; Next.js reads `process.env` from inside Node during
+ * `next build`, which only ever sees real environment variables — hence
+ * re-exposing every ARG as an ENV of the same name right after declaring
+ * it. Only NAMES are interpolated into the Dockerfile text itself; the
+ * VALUES travel separately as `docker build --build-arg`s (see
+ * docker-build.js) so a project's secret value never ends up written into
+ * Dockerfile.dreamer-generated, which sits inside the cloned repo's own
+ * build context on this machine's disk.
+ */
+function renderBuildArgsBlock(userEnvVarNames) {
+    if (userEnvVarNames.length === 0) return ''
+
+    return (
+        userEnvVarNames.map((name) => `ARG ${name}\nENV ${name}=$${name}`).join('\n') + '\n'
+    )
+}
+
+/**
  * Returns the ABSOLUTE PATH to the Dockerfile `docker build` should use,
  * and as a side effect, writes a generated one into buildContextPath if
  * the repo doesn't already ship its own — same "config wins over
  * convention" precedent as Project.buildCommand/outputDirectory
  * overriding script.js's own defaults elsewhere in this file.
+ *
+ * userEnvVarNames: the project's configured env var NAMES (values are
+ * never interpolated into the Dockerfile text — see renderBuildArgsBlock).
+ * Ignored when the repo brings its own Dockerfile: that file is used
+ * as-is, so a project that wants its own Dockerfile to receive these
+ * vars needs its own matching ARG/ENV lines — docker-build.js still
+ * passes the values as --build-args either way, it's just a no-op unless
+ * the Dockerfile declares a matching ARG to receive it (same behavior as
+ * a plain `docker build --build-arg` against any Dockerfile).
  */
-function resolveDockerfile(buildContextPath, { framework, installCommand, buildCommand }) {
+function resolveDockerfile(buildContextPath, { framework, installCommand, buildCommand, userEnvVarNames = [] }) {
     const ownDockerfile = path.join(buildContextPath, 'Dockerfile')
     if (fs.existsSync(ownDockerfile)) {
         publishLog('Found a Dockerfile in the repository — using it as-is.', 'SYSTEM', 'platform')
@@ -84,6 +114,7 @@ function resolveDockerfile(buildContextPath, { framework, installCommand, buildC
 
     const template = fs.readFileSync(path.join(TEMPLATES_DIR, templateFile), 'utf8')
     const rendered = template
+        .replaceAll('__BUILD_ARGS__', renderBuildArgsBlock(userEnvVarNames))
         .replaceAll('__INSTALL_COMMAND__', installCommand)
         .replaceAll('__BUILD_COMMAND__', buildCommand)
 
