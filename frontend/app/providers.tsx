@@ -35,6 +35,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+async function getSessionUser(): Promise<AuthUser | null> {
+  try {
+    const data = await authApi.refresh();
+    return data.user;
+  } catch {
+    return null;
+  }
+}
+
 export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within <Providers>");
@@ -53,15 +62,6 @@ export function Providers({ children }: { children: ReactNode }) {
   // track silent background refreshes too, not just calls made here.
   useEffect(() => onAccessTokenChange(setAccessTokenState), []);
 
-  const refreshSession = useCallback(async () => {
-    try {
-      const data = await authApi.refresh();
-      setUser(data.user);
-    } catch {
-      setUser(null);
-    }
-  }, []);
-
   // First load: restore the session from the httpOnly refresh cookie AND
   // check whether an admin exists yet — in parallel, neither depends on the
   // other. Keeps logins alive across reloads without localStorage and routes
@@ -69,26 +69,31 @@ export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      refreshSession(),
+      getSessionUser(),
       authApi
         .getSetupStatus()
-        .then((status) => {
-          if (!cancelled) {
-            setSetupComplete(status.complete);
-            setSetupStatusLoaded(true);
-          }
-        })
-        .catch(() => {
+        .then((status) => status.complete)
+        .catch((): boolean | null => {
           // Not fatal — leave setupStatusLoaded false so callers keep waiting
           // rather than wrongly assuming either answer.
+          return null;
         }),
-    ]).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
+    ])
+      .then(([sessionUser, setupCompleteResult]) => {
+        if (cancelled) return;
+        setUser(sessionUser);
+        if (setupCompleteResult !== null) {
+          setSetupComplete(setupCompleteResult);
+          setSetupStatusLoaded(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [refreshSession]);
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await authApi.login(email, password);
