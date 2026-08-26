@@ -1,0 +1,176 @@
+# Local-machine variant of docker-compose.yml, for running the Dreamer
+# Local Engine directly on your own Mac/Windows/Linux laptop — no VPS, no
+# domain, no TLS. Driven by the `dreamer-local` CLI (see cli/), which is
+# the supported entrypoint; running this file by hand works too, it just
+# means you generate the .env files yourself (see .env.local.example).
+#
+# What's different from docker-compose.yml (the VPS/production file):
+#   - No nginx, no certbot, no cert volumes — nothing here ever needs a
+#     real domain or TLS. install.sh / docker-compose.yml are untouched
+#     and remain the real self-host path for actually going live.
+#   - reverse-proxy (the "public" component in prod) is published
+#     directly on a host port instead of being fronted by nginx.
+#   - frontend / api-server stay loopback-only, matching prod's posture
+#     that the dashboard is never meant to be casually exposed.
+#   - DOMAIN defaults to `localtest.me`, a public DNS name whose own
+#     records (and *.localtest.me) already resolve to 127.0.0.1 — so
+#     host-based routing (e.g. http://myapp.localtest.me:8080) works
+#     immediately with zero DNS or /etc/hosts setup, the same mechanism
+#     production uses, just aimed at your own machine.
+#
+# Usage: prefer `npx dreamer-local up` (cli/). Calling compose directly:
+#   docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dreamer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set — see .env.local.example}
+      POSTGRES_DB: ${POSTGRES_DB:-dreamer}
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dreamer}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data_local:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis-builder:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_builder_data_local:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-dreamer}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set — see .env.local.example}
+    volumes:
+      - minio_data_local:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-dreamer} ${MINIO_ROOT_PASSWORD} &&
+      mc mb -p local/${S3_BUCKET:-dreamer-outputs} &&
+      mc anonymous set download local/${S3_BUCKET:-dreamer-outputs}
+      "
+
+  # Same Docker-socket-mount posture as production: DockerDeploymentEngine
+  # shells `docker build`/`docker run` and the resulting containers become
+  # siblings of this one. Docker Desktop (Mac/Windows) exposes a
+  # docker.sock-compatible endpoint at this same path, so this bind mount
+  # needs no changes to work there.
+  api-server:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./api-server/.env
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redis-builder:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  build-worker:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile
+    command: ["npm", "run", "worker"]
+    restart: unless-stopped
+    env_file:
+      - ./api-server/.env
+    environment:
+      BUILD_WORKER_CONCURRENCY: ${BUILD_WORKER_CONCURRENCY:-5}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redis-builder:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:8000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+
+  # The one service published beyond loopback — it plays the role nginx
+  # plays in production (the "public" edge), just on a plain host port
+  # instead of 80/443 behind TLS.
+  reverse-proxy:
+    build:
+      context: ./reverse-proxy
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./reverse-proxy/.env
+    ports:
+      - "${REVERSE_PROXY_PORT:-8080}:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data_local:
+  redis_data_local:
+  redis_builder_data_local:
+  minio_data_local:
+
+networks:
+  default:
+    # Kept identical to the production network name — DockerDeploymentEngine
+    # hardcodes `docker run --network dreamer-local` regardless of which
+    # compose file brought the platform up.
+    name: dreamer-local
