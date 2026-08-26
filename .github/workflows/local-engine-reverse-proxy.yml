@@ -1,0 +1,46 @@
+name: Local Engine Reverse Proxy
+
+on:
+  push:
+    paths:
+      - "local-engine/reverse-proxy/**"
+      - ".github/workflows/local-engine-reverse-proxy.yml"
+  pull_request:
+    paths:
+      - "local-engine/reverse-proxy/**"
+      - ".github/workflows/local-engine-reverse-proxy.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Validate & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: local-engine/reverse-proxy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: local-engine/reverse-proxy/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check
+        run: node --check index.js
+
+      - name: Run tests
+        run: npm test

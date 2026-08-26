@@ -1,0 +1,80 @@
+name: Local Engine API Server
+
+on:
+  push:
+    paths:
+      - "api-server/**"
+      - "tests/**"
+      - ".github/workflows/local-engine-api-server.yml"
+  pull_request:
+    paths:
+      - "api-server/**"
+      - "tests/**"
+      - ".github/workflows/local-engine-api-server.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Build & Typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-server
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  test:
+    name: Automated tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api-server/package-lock.json
+            tests/package-lock.json
+
+      - name: Install api-server dependencies
+        working-directory: api-server
+        run: npm ci
+
+      - name: Install test dependencies
+        working-directory: tests
+        run: npm ci
+
+      - name: Run tests
+        working-directory: tests
+        run: npm test
