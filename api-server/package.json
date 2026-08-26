@@ -1,0 +1,49 @@
+{
+  "name": "api-server",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "worker": "tsx src/workers/build.worker.ts",
+    "worker:dev": "tsx watch src/workers/build.worker.ts",
+    "typecheck": "tsc --noEmit",
+    "db:execute": "prisma db execute --file prisma/unsupported.sql"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^5.81.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.3.0",
+    "ioredis": "^5.11.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.21.0",
+    "random-word-slugs": "^0.1.7",
+    "resend": "^6.18.1",
+    "socket.io": "^4.8.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.9.3",
+    "@types/pg": "^8.20.0",
+    "prisma": "^7.8.0"
+  }
+}

@@ -1,10 +1,25 @@
 #!/usr/bin/env bash
-# Obtains a certificate covering BOTH the apex domain and the wildcard —
-# a plain `*.domain.com` cert does NOT cover the bare `domain.com` (the
-# dashboard itself lives there), so both names have to be requested
-# together, in one cert, which is only possible via a DNS-01 challenge
-# (HTTP-01 can't prove ownership of a wildcard at all — there's no single
-# file path that answers for every possible subdomain).
+# local-engine — see docs/architecture/local-engine-auth-and-networking.md
+# "The samanp.xyz example, concretely". Requests a WILDCARD-ONLY cert
+# (*.${DOMAIN}) — deliberately NOT the apex domain anymore, unlike the
+# cloud engine's version of this script. Nothing on this box serves the
+# apex (nginx has no ${DOMAIN} server block at all — see
+# nginx/templates/dreamer.conf.template): only *.${DOMAIN} (deployed apps,
+# custom domains) and, optionally, hooks.${DOMAIN}. Requesting the apex
+# too would be pointless and would need the operator to prove control of a
+# domain whose apex they may have deliberately left pointed elsewhere
+# (e.g. an existing Vercel/Netlify site at the bare domain).
+#
+# A wildcard SAN is only obtainable via DNS-01 (HTTP-01 can't prove
+# ownership of a wildcard — there's no single file path that answers for
+# every possible subdomain).
+#
+# --cert-name "${DOMAIN}" pins the on-disk lineage name explicitly (not
+# left to certbot's own default-from-first-domain logic, which is murkier
+# for a wildcard-only request than a documented, load-bearing path should
+# rely on) — this is what makes nginx's hardcoded
+# /etc/letsencrypt/live/${DOMAIN}/ path always correct regardless of
+# certbot version behavior.
 #
 # Certs land in a HOST bind mount (./certbot/letsencrypt), not a Docker
 # named volume — this is deliberate: a bind mount path is identical
@@ -29,7 +44,7 @@ cert_already_issued() {
 }
 
 issue_via_cloudflare() {
-  log_step "Requesting a wildcard certificate for ${DOMAIN} + *.${DOMAIN} via Cloudflare DNS-01"
+  log_step "Requesting a wildcard-only certificate for *.${DOMAIN} via Cloudflare DNS-01"
 
   local cf_ini="${REPO_ROOT}/certbot/cloudflare.ini"
   printf 'dns_cloudflare_api_token = %s\n' "${CLOUDFLARE_TOKEN}" > "${cf_ini}"
@@ -43,13 +58,13 @@ issue_via_cloudflare() {
     --dns-cloudflare \
     --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
     --dns-cloudflare-propagation-seconds 30 \
-    -d "${DOMAIN}" \
+    --cert-name "${DOMAIN}" \
     -d "*.${DOMAIN}" \
     --email "${EMAIL}" \
     --agree-tos \
     --non-interactive
 
-  log_ok "Certificate issued for ${DOMAIN} and *.${DOMAIN}"
+  log_ok "Certificate issued for *.${DOMAIN}"
 }
 
 issue_via_manual_dns() {
@@ -70,7 +85,7 @@ issue_via_manual_dns() {
     certonly \
     --manual \
     --preferred-challenges dns \
-    -d "${DOMAIN}" \
+    --cert-name "${DOMAIN}" \
     -d "*.${DOMAIN}" \
     --email "${EMAIL}" \
     --agree-tos

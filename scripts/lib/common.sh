@@ -7,6 +7,11 @@
 
 set -euo pipefail
 
+if [[ -n "${_DREAMER_COMMON_SOURCED:-}" ]]; then
+  return 0
+fi
+_DREAMER_COMMON_SOURCED=1
+
 # --- logging -----------------------------------------------------------
 # Colored, prefixed output — install.sh runs a LOT of steps in sequence
 # (OS check, Docker install, secret generation, cert issuance, compose up,
@@ -36,7 +41,7 @@ require_root() {
   # all need root. Failing fast with a clear message here beats a
   # confusing "permission denied" forty lines into the Docker install step.
   if [[ "${EUID}" -ne 0 ]]; then
-    fatal "This script needs root — re-run it as: sudo ./scripts/install.sh ..."
+    fatal "This script needs root — re-run it as: sudo ./install.sh ..."
   fi
 }
 
@@ -57,7 +62,7 @@ require_command() {
 validate_domain() {
   local domain="$1"
   if [[ -z "${domain}" ]]; then
-    fatal "No domain provided. Usage: ./scripts/install.sh --domain yourdomain.com"
+    fatal "No domain provided. Usage: ./install.sh --domain yourdomain.com"
   fi
   if [[ "${domain}" == http* ]]; then
     fatal "Pass a bare domain (e.g. singularitydev.xyz), not a URL — got: ${domain}"

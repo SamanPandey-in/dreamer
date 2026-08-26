@@ -1,43 +1,47 @@
-# Self-hosting Dreamer on a VPS/EC2 box
+# Self-hosting Dreamer on your VPS/EC2 box
 
-This covers running the Dreamer **platform itself** — the dashboard,
-`api-server`, `reverse-proxy`, and its own Postgres/Redis — on a single
-box you control, with no managed cloud database or cache required. It's
-a separate concern from [deploying user apps](./AWS-Console-Setup-Guide.md),
-which still goes out to AWS (ECS + Lambda) regardless of where this
-control plane runs — you can self-host the dashboard here and still have
-it deploy user projects to AWS, that's the normal, expected setup.
+This covers running the entire platform — the dashboard, `api-server`,
+`build-worker`, the reverse proxy, and its own Postgres/Redis/MinIO — on
+a single box you control, with no external services required anywhere in
+the setup: no GitHub App to register, no email provider account, nothing
+to sign up for beyond owning your domain. Builds run in throwaway Docker
+containers, static output lands in MinIO, server-rendered apps run as
+Docker containers — all local to this machine.
 
 ## Prerequisites
 
-- A VPS or EC2 instance running Ubuntu or Debian, with a public IP.
-- Root (or `sudo`) access.
-- Ports **80** and **443** open and not already in use by another web
-  server (if something else is already bound to port 80, stop it first —
-  the installer doesn't try to detect or work around this for you).
-- A domain you control the DNS for. Any registrar/DNS provider works for
-  the manual fallback; **Cloudflare specifically** gets you a fully
-  unattended install (see below).
+- **A VPS** you have root SSH access to. Ubuntu/Debian assumed (the
+  installer uses `apt`). 2 vCPU / 4 GB RAM is a reasonable floor —
+  Postgres, Redis, MinIO, and the control-plane services all run
+  continuously; each build and each running dynamic app adds to that on
+  top.
+- **A domain you control**, with access to its DNS. You'll point *only*
+  `*.yourdomain.com` (the wildcard) at the box's IP — the bare apex is
+  left alone, so an existing site there keeps working untouched. See
+  [Wildcard Domains](./reverse-proxy/wildcard-domains.md) for why.
+- **Ports 80 and 443 open** to the internet on that box. Check your
+  provider's firewall/security-group rules, not just the OS firewall
+  (this trips people up more often than the OS side does).
+- Optional but strongly recommended: **a Cloudflare-managed zone** for
+  your domain, so TLS issuance can be fully unattended (see below).
+  Without it, you do one interactive step during install.
 
 ## Quick start
 
 ```bash
-git clone <your-fork-of-dreamer>
+git clone https://github.com/SamanPandey-in/dreamer.git
 cd dreamer
-sudo ./scripts/install.sh --domain yourdomain.com --cloudflare-token YOUR_CF_TOKEN
+sudo chmod +x ./install.sh
+sudo ./install.sh --domain yourdomain.com --cloudflare-token YOUR_CF_TOKEN
 ```
 
-That's the whole thing. One command, and by the end of it you'll have:
-Docker installed, every secret this stack needs generated, a real
-wildcard TLS certificate issued, and Postgres/Redis/api-server/frontend/
-reverse-proxy/nginx all running as containers on this box.
+Make sure to point your given domain's DNS record A (IPv4) or AAAA (IPv6) for *.yourdomain.com at your VPS/EC2 box's IP address, else this won't work.
 
-**No Cloudflare?** Drop `--cloudflare-token` and the script falls back to
-an interactive manual DNS-01 flow — it'll pause partway through and show
-you a TXT record to create with whatever DNS provider you use, then
-continue once you've added it. Works with any provider; the tradeoff is
-it can't auto-renew unattended the way the Cloudflare path can (see
-**Renewal** below).
+No Cloudflare token? Drop the flag — `install.sh` falls back to an
+interactive certificate flow: it pauses partway through and shows you a
+DNS TXT record to create by hand, then continues once you've added it.
+Either way, when it finishes the whole stack is up and ready to deploy.
+Continue to "Reaching the dashboard" below.
 
 ### Getting a Cloudflare API token
 
@@ -46,130 +50,269 @@ the **Edit zone DNS** template, scoped to the specific zone for your
 domain. That scoped token, not your Global API Key, is what
 `--cloudflare-token` wants.
 
-## What the script actually does, in order
+## What `install.sh` actually does
 
-1. Installs Docker Engine + the Compose plugin, if not already present.
-2. Generates `.env.deploy` (compose-level config) and per-service `.env`
-   files (`apps/api-server/.env`, `apps/reverse-proxy/.env`) — random
-   secrets for JWT signing and token encryption, Postgres/Redis wired to
-   the internal container network, and clearly-marked `TODO` placeholders
-   for the two things it genuinely can't generate for you (see below).
-3. Issues one TLS certificate covering **both** `yourdomain.com` and
-   `*.yourdomain.com` — a plain wildcard cert alone doesn't cover the bare
-   apex, and the dashboard lives at the apex, so both have to be in the
-   same certificate, via a DNS-01 challenge (the only challenge type that
-   can prove ownership of a wildcard at all).
-4. Builds and starts everything with
-   `docker compose -f docker-compose.prod.yml up -d --build`.
-5. Runs database migrations.
-6. Installs a daily cron job for certificate renewal.
-7. Prints exactly what's left for you to do (steps below).
+Worth understanding before you run it as root:
 
-## Finish the setup
+1. **Installs Docker** if it isn't already present.
+2. **Generates every secret** the stack needs — Postgres password,
+   MinIO root password, JWT signing keys, the token-encryption key —
+   and writes `.env.deploy`, `api-server/.env`, `reverse-proxy/.env`.
+   This step **refuses to overwrite** any of those three files if they
+   already exist (see "Re-running the installer" below for why).
+3. **Obtains a wildcard-only TLS certificate** for `*.yourdomain.com`
+   via a DNS-01 challenge (the only challenge type that can prove
+   ownership of a wildcard at all) — deliberately NOT including the bare
+   apex, since nothing on this box serves it. With `--cloudflare-token`
+   this is fully unattended; without one, certbot runs interactively and
+   waits for you to create the TXT record it shows you.
+4. **Builds the `build-engine` image** (`dreamer-build-engine:local`).
+   This is deliberately not a long-running compose service — it's
+   launched fresh per build, and exits when done.
+5. **Brings up the full stack** — nine containers via
+   `docker compose up -d --build`. Only nginx publishes public ports.
+6. **Runs database migrations**, retrying up to 5 times in case Postgres
+   is still starting.
+7. **Installs a daily cron job** (`/etc/cron.d/...`) that runs
+   `scripts/renew-certs.sh` — a no-op most days; renewal only actually
+   happens within 30 days of expiry.
+8. **Prints a summary**: the SSH tunnel command to reach the dashboard,
+   plus reminders that the git token and push-to-deploy webhook are
+   both optional, in-app next steps.
 
-The script prints these at the end too — repeated here for reference.
+## Reaching the dashboard (it's not public)
 
-**1. DNS.** Point both of these at your box's public IP (the script
-detects and prints it):
-```
-A     yourdomain.com      -> <your box's IP>
-A     *.yourdomain.com    -> <your box's IP>
-```
+The dashboard has **no public hostname at all** — deliberate, not an
+oversight: the control plane is where deployments get created/deleted
+and credentials live, so it's bound to loopback only. From your own
+machine:
 
-**If you're on Cloudflare, both records need to be "DNS only" (grey
-cloud), not proxied (orange cloud).** This isn't optional — Cloudflare's
-proxy terminates TLS at *their* edge using *their* certificate, which
-means it never forwards the raw handshake through to the certificate this
-script just issued for you on your own box. If you've read the
-[JioFiber IPv6 post](/blog/jiofibre-ipv6) on this same portfolio, this is
-the exact same failure mode as Problem 1 in that post, just showing up in
-a different project — a proxied record silently redirects traffic
-somewhere other than your own server before TLS is even negotiated.
-
-**2. A GitHub OAuth App.** The installer can't create this for you — go
-to https://github.com/settings/developers → **New OAuth App**:
-- Homepage URL: `https://yourdomain.com`
-- Authorization callback URL: `https://api.yourdomain.com/api/auth/github/callback`
-
-Paste the generated Client ID/Secret into `apps/api-server/.env`
-(`GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`) — everything else in that
-file the installer already generated correctly; don't touch the
-JWT/ENCRYPTION_KEY lines.
-
-**3. Restart api-server** to pick up what you just pasted in:
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.deploy restart api-server
+ssh -L 3000:localhost:3000 -L 8000:localhost:8000 root@your-vps-ip
 ```
 
-Until you do this, `api-server` will be crash-looping — that's expected,
-not a bug. `env.ts` deliberately fails fast on a missing required
-variable at boot rather than letting the app start in a half-configured
-state (check with `docker compose -f docker-compose.prod.yml logs
-api-server` if you want to see it happen).
+Leave that running, then open **http://localhost:3000** in your own
+browser. The first thing you'll see is the one-time setup screen — name,
+email, password — which creates the single admin account. It only ever
+works once: reload after and you'll get the normal login screen instead
+(see [Authentication](./auth/README.md) for the whole model).
 
-**4. Visit `https://yourdomain.com`.** Once DNS has propagated (can take
-a few minutes, sometimes longer depending on your registrar/previous TTL
-values), that's your dashboard.
+Want the dashboard reachable without an SSH tunnel every time (a
+Tailscale/VPN address, or you've decided the stricter default isn't
+worth it for your setup)? That's a deliberate deviation from what ships
+by default — add your own nginx server block or compose port binding,
+with the understanding that you're putting the control plane on the
+network behind nothing but its login form.
 
-**5. (Only if you plan to deploy user apps.)** Fill in the `AWS_*` /
-`ECS_*` / `ECR_*` / `LAMBDA_*` section of `apps/api-server/.env` — see
-[docs/AWS-Console-Setup-Guide.md](./AWS-Console-Setup-Guide.md). This is
-entirely unrelated to where the platform itself runs; user app builds and
-deployments go through AWS regardless.
+## Set your git Personal Access Token
+
+Optional, and only needed to deploy **private** repos — public repos
+clone and deploy with no token at all.
+
+1. GitHub → Settings → Developer settings → Personal access tokens →
+   **Fine-grained tokens** (or classic, either works) → Generate new
+   token.
+2. Scope: **Contents: Read-only** is enough (plus **Metadata:
+   Read-only**, which fine-grained tokens require automatically). If you
+   also want [push-to-deploy](#optional-push-to-deploy-on-git-push) to
+   auto-register its webhook for you later, add **Webhooks: Read and
+   write** too — otherwise you'll add the webhook by hand, which needs
+   no extra scope.
+3. In the dashboard: **Settings → Git** → paste the token → Save. It's
+   encrypted at rest (AES-256-GCM) the same way env vars are.
+
+That's the whole credential model — see
+[Authentication](./auth/README.md#git-access-one-personal-access-token-no-github-app)
+for how it's stored and used.
+
+## Optional: push-to-deploy on `git push`
+
+Off by default — manual **Redeploy** from the dashboard always works
+regardless. Turn this on only if you want a push to automatically
+trigger a build. It's the one feature that needs a public endpoint
+(GitHub's servers have to reach yours), which is why it's opt-in:
+
+1. Generate a shared secret: `openssl rand -hex 32`.
+2. Add it to `api-server/.env`:
+   ```
+   GITHUB_WEBHOOK_SECRET=<the value you just generated>
+   ENABLE_PUSH_DEPLOY=true
+   API_PUBLIC_URL=https://hooks.yourdomain.com
+   ```
+3. Add the matching line to `.env.deploy` (read by `docker-compose.yml`
+   directly, not by the app):
+   ```
+   ENABLE_PUSH_DEPLOY=true
+   ```
+4. Restart the containers that need to pick this up:
+   ```bash
+   docker compose --env-file .env.deploy up -d nginx api-server build-worker
+   ```
+5. On GitHub → repo Settings → Webhooks → Add webhook:
+   - Payload URL: `https://hooks.yourdomain.com/api/webhooks/github`
+   - Content type: `application/json`
+   - Secret: the same value from step 1
+   - Events: just **Pushes**
+
+`hooks.yourdomain.com` is covered by the wildcard certificate you
+already have — nothing extra to issue. nginx proxies *only* that exact
+path; every other route 404s at the edge before ever reaching
+`api-server`, whether or not push-to-deploy is enabled.
+
+## Verify the install
+
+```bash
+docker compose --env-file .env.deploy ps
+```
+
+All nine services should show `Up` (or `Up (healthy)` for postgres,
+redis, minio). Then do the real end-to-end check — containers being up
+isn't the same thing as the platform working:
+
+- With the SSH tunnel open, visit `http://localhost:3000` — the setup
+  screen (first run) or login screen should load.
+- Log in, connect a repository (set the PAT first if it's private), and
+  deploy it. For a static site, once `RUNNING`, check the objects landed
+  in MinIO:
+  ```bash
+  docker compose --env-file .env.deploy exec minio \
+    mc ls local/dreamer-outputs/__outputs/<your-project-slug>/
+  ```
+- For an SSR deploy, confirm a container came up:
+  ```bash
+  docker ps --filter "name=dreamer-app-"
+  ```
+  and that `https://<project-slug>.yourdomain.com` actually renders —
+  publicly, over the internet, no tunnel needed (this is the one thing
+  that's SUPPOSED to be public).
+
+## Day-2 operations
+
+**Logs** (any service):
+```bash
+docker compose --env-file .env.deploy logs -f api-server
+docker compose --env-file .env.deploy logs -f build-worker
+```
+
+**Restart a service** after changing its `.env`:
+```bash
+docker compose --env-file .env.deploy restart api-server build-worker
+```
+
+**Update to a new version of the code**:
+```bash
+git pull
+docker compose --env-file .env.deploy up -d --build
+docker compose --env-file .env.deploy run --rm --entrypoint sh api-server \
+  -c "npx prisma migrate deploy"   # only if the update includes a schema migration
+```
+
+**Rebuild the build-engine image** (if `build-engine/` itself changed):
+```bash
+docker build -t dreamer-build-engine:local build-engine
+```
+
+**Back up Postgres**:
+```bash
+docker compose --env-file .env.deploy exec postgres \
+  pg_dump -U dreamer dreamer > backup-$(date +%F).sql
+```
+
+**Back up MinIO** (deployment output — regenerable by redeploying, but
+faster to restore than to rebuild everything):
+```bash
+docker run --rm -v <this-repo>/local-engine_minio_data:/data -v "$(pwd)":/backup \
+  alpine tar czf /backup/minio-backup-$(date +%F).tar.gz -C /data .
+```
+
+**Rotate a secret** (e.g. you suspect `ENCRYPTION_KEY` leaked): edit
+`api-server/.env` directly, restart `api-server`/`build-worker`.
+Rotating `ENCRYPTION_KEY` specifically makes the stored git token
+undecryptable — you'll need to re-enter it in Settings.
 
 ## Renewal
 
-`scripts/install.sh` installs `/etc/cron.d/dreamer-cert-renewal`, running
-`scripts/renew-certs.sh` daily at 03:00. `certbot renew` itself only
-actually renews within 30 days of expiry, so most days this is a no-op —
-harmless to run daily.
-
-If you used the manual DNS-01 fallback (no `--cloudflare-token`), this
-cron job can't renew unattended — it needs a fresh interactive TXT record
-each time, the same as the initial issuance did. Either switch to a
-supported DNS provider's API-based challenge, or re-run
+The cron job from step 7 runs `scripts/renew-certs.sh daily at 03:00`;
+renewal itself only fires within 30 days of expiry, so most days it's a
+no-op. If you used the manual DNS-01 fallback (no Cloudflare token),
+this can't renew unattended — re-run
 `./scripts/lib/issue-certificate.sh yourdomain.com you@yourdomain.com`
-by hand roughly every 60 days.
+by hand roughly every 60 days, creating the TXT record it asks for.
 
 ## Re-running the installer
 
-Safe to run again — every generated `.env` file is written once and never
-overwritten on a later run (regenerating `ENCRYPTION_KEY` would make
-every already-encrypted GitHub token in your database undecryptable, and
+Safe to run again — every generated `.env` file is written once and
+never overwritten on a later run. This matters more than it looks:
 regenerating `JWT_ACCESS_SECRET` would invalidate every active login
-session). If you genuinely want a specific file regenerated, delete that
-one file yourself first, then re-run.
+session, and regenerating `ENCRYPTION_KEY` would make every
+already-encrypted secret in the database undecryptable. If you genuinely
+want a specific file regenerated, delete that one file yourself first,
+then re-run.
 
 ## Uninstalling
 
 ```bash
-./scripts/uninstall.sh          # stops containers, keeps your data/secrets/certificate
-./scripts/uninstall.sh --purge  # also deletes Postgres/Redis volumes, .env files, and the TLS certificate — irreversible
+cd local-engine
+docker compose --env-file .env.deploy down -v   # -v also removes named volumes (Postgres/Redis/MinIO data — irreversible)
+rm -rf certbot/letsencrypt
+rm /etc/cron.d/dreamer-local-engine-cert-renewal
 ```
+
+Omit `-v` if you might come back — that flag deletes every database,
+deployment output, and running app's data permanently.
 
 ## Troubleshooting
 
-**Cert issuance hangs or fails with a Cloudflare token provided** — double
-check the token's scope is **Zone → DNS → Edit** on the specific zone for
-your domain, not a token scoped to a different zone or a read-only scope.
+**Dashboard won't load through the tunnel** — confirm the tunnel is
+actually up (`ssh -L 3000:localhost:3000 -L 8000:localhost:8000 ...`)
+and that you're opening `http://localhost:3000`, not a public hostname —
+there isn't one for the dashboard by design.
 
-**`docker compose ... up` fails immediately on nginx** — nginx's config
-references certificate files that don't exist yet; this means step 3
-(cert issuance) didn't actually complete before step 4 ran. Check
-`certbot/letsencrypt/live/yourdomain.com/fullchain.pem` exists; if not,
-re-run `./scripts/lib/issue-certificate.sh yourdomain.com you@yourdomain.com [cf-token]` by hand and look at its output directly.
+**TLS issuance fails / times out** — almost always DNS: the DNS-01
+challenge needs your domain's nameservers to actually be Cloudflare's
+(for the token path), or the TXT record correctly created *before*
+pressing Enter (for the interactive path) with a minute to propagate.
 
-**Dashboard loads but shows an API/connection error** — almost always
-either DNS for `api.yourdomain.com` hasn't propagated yet, or `api-server`
-is still crash-looping on the GitHub OAuth placeholders (step 2 above).
-`docker compose -f docker-compose.prod.yml logs api-server` tells you
-which.
+**Forgot the admin password** — no email-based reset exists (nothing in
+this stack sends email); reset it directly from the server:
+```bash
+docker compose --env-file .env.deploy exec api-server \
+  npx tsx scripts/reset-admin-password.ts your-new-password
+```
+This also signs out every existing session for the account, same as an
+in-app password change does.
 
-**Build logs / realtime updates don't show up on the deployment detail
-page, but the rest of the dashboard works fine** — `curl -I
-https://api.yourdomain.com/socket.io/` should come back with something
-other than a plain 404 HTML page. api-server serves REST and Socket.IO
-from the same port (8000) now, so there's no second port to mis-route to
-— if this still 404s, check `NEXT_PUBLIC_SOCKET_URL` on the frontend
-actually points at `api.yourdomain.com` and not a stale `:9002` value
-left over from an old `.env`.
+**"Set a git Personal Access Token in Settings" when deploying a private
+repo** — expected. Public repos need no token at all.
+
+**A push doesn't trigger a redeploy** — check `ENABLE_PUSH_DEPLOY=true`
+is set in BOTH `api-server/.env` AND `.env.deploy` (nginx reads the
+latter), that you restarted `nginx`/`api-server`/`build-worker` after
+setting them, then check **Webhook → Recent Deliveries** on the repo's
+own settings page — a non-2xx response there tells you exactly what was
+rejected (usually a secret mismatch between `GITHUB_WEBHOOK_SECRET` and
+what you pasted into GitHub's form).
+
+**A deploy is stuck in `BUILDING` forever** —
+```bash
+docker ps -a --filter "name=dreamer-build-"
+docker logs dreamer-build-<deployment-id>
+```
+The build container's own logs (not `api-server`'s) show what actually
+failed inside the build — a bad install/build command, a missing
+`output: 'standalone'` for a dynamic Next.js app, etc.
+
+**A dynamic app deploy failed but the previous version is still live** —
+that's by design: a new container that never passes its health check is
+discarded and the previous one keeps serving (see
+[dynamic deployments](./deployments/dynamic-deployments.md)). Check
+`docker logs dreamer-app-<slug>-staging-*` for why the new one didn't
+come up (most commonly: the app doesn't bind to `0.0.0.0:3000`, or
+crashes on a missing env var).
+
+**Ran out of disk space** — old build containers and unused images
+accumulate. Clean up with:
+```bash
+docker system prune -f
+docker image prune -af
+```

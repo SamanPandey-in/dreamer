@@ -1,12 +1,33 @@
+# Self-hosted stack for the Dreamer LOCAL ENGINE — same nginx+certbot
+# control-plane pattern as the repo's own docker-compose.prod.yml, plus:
+#   - MinIO, standing in for AWS S3 (static-site output storage)
+#   - api-server / build-worker get the host Docker socket mounted, since
+#     DockerDeploymentEngine (deployment-engine.ts) shells out to `docker
+#     build` / `docker run` directly instead of calling ECS RunTask —
+#     same pattern as dploy's internal/pipeline/docker_exec.go.
+#
+# NOT included as a long-running service: build-engine. Like the cloud
+# version, it's launched on-demand per build — DockerDeploymentEngine runs
+# it with `docker run` instead of ECS RunTask. Build its image once before
+# your first deploy:
+#   docker build -t dreamer-build-engine:local build-engine
+#
+# Security posture: nginx publishes 80/443 for the public internet — see
+# nginx/templates for exactly what it routes (deployed apps + custom
+# domains only, by default). frontend and api-server ALSO publish host
+# ports, but bound to 127.0.0.1 only — reachable from the VPS itself (or
+# over an SSH tunnel), never from the public internet. Everything else —
+# postgres, redis, minio, build-worker, reverse-proxy — is reachable only
+# over the private compose network. See
+# docs/architecture/local-engine-auth-and-networking.md Decision 4.
+
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dreamer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dreamer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set — see .env.example}
       POSTGRES_DB: ${POSTGRES_DB:-dreamer}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -14,54 +35,74 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dreamer}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  # NEW — dedicated Redis instance for BullMQ only (queues + workers).
-  # Kept as its own container/volume so it can be resized, moved to its own
-  # host, or given a different eviction policy independently of `redis`
-  # above (which carries the route cache, metrics counters, pub/sub, and
-  # Streams) — see apps/api-server/src/lib/queue.ts's own comment for the
-  # full reasoning. Same image/healthcheck shape as `redis`, different port
-  # so both can run side by side on one host in local dev.
   redis-builder:
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - "6380:6379"
     volumes:
       - redis_builder_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  # S3-compatible object store, replaces AWS S3 for static-site output.
+  # @aws-sdk/client-s3 talks to this unmodified given S3_ENDPOINT_URL +
+  # S3_FORCE_PATH_STYLE — see lib/s3-client.ts.
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-dreamer}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set — see .env.example}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-dreamer} ${MINIO_ROOT_PASSWORD} &&
+      mc mb -p local/${S3_BUCKET:-dreamer-outputs} &&
+      mc anonymous set download local/${S3_BUCKET:-dreamer-outputs}
+      "
 
   api-server:
     build:
-      context: ./apps/api-server
+      context: ./api-server
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "8000:8000"
     env_file:
-      - ./apps/api-server/.env
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-dreamer}:${POSTGRES_PASSWORD:-dreamer}@postgres:5432/${POSTGRES_DB:-dreamer}
-      REDIS_URL: redis://redis:6379
-      REDIS_BUILDER_URL: redis://redis-builder:6379
+      - ./api-server/.env
+    # Dashboard's API — loopback-only, same reasoning as frontend below.
+    # See docs/architecture/local-engine-auth-and-networking.md Decision 4.
+    # The ONE exception is /api/webhooks/github, which nginx can also reach
+    # container-to-container over the compose network when
+    # ENABLE_PUSH_DEPLOY=true — that path never needs this host port at all.
+    ports:
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,22 +110,25 @@ services:
         condition: service_healthy
       redis-builder:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      # Lets DockerDeploymentEngine's `docker build`/`docker run` calls
+      # (issued FROM inside this container) actually reach the HOST's
+      # Docker daemon — containers it starts become siblings of this one,
+      # not nested inside it. Same reasoning as dploy running its worker
+      # directly on the host rather than sandboxed away from Docker.
+      - /var/run/docker.sock:/var/run/docker.sock
 
   build-worker:
     build:
-      context: ./apps/api-server
+      context: ./api-server
       dockerfile: Dockerfile
     command: ["npm", "run", "worker"]
     restart: unless-stopped
     env_file:
-      - ./apps/api-server/.env
+      - ./api-server/.env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-dreamer}:${POSTGRES_PASSWORD:-dreamer}@postgres:5432/${POSTGRES_DB:-dreamer}
-      REDIS_URL: redis://redis:6379
-      REDIS_BUILDER_URL: redis://redis-builder:6379
-      # Independently tunable from api-server's own request-handling
-      # capacity — this caps how many ECS RunTaskCommand calls are ever
-      # in flight at once, regardless of how many deploys get requested.
       BUILD_WORKER_CONCURRENCY: ${BUILD_WORKER_CONCURRENCY:-5}
     depends_on:
       postgres:
@@ -93,46 +137,77 @@ services:
         condition: service_healthy
       redis-builder:
         condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   frontend:
     build:
-      context: ./apps/frontend
+      context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
-        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
     restart: unless-stopped
+    # Dashboard — local-engine binds this to the VPS's own loopback only,
+    # never a public interface. See
+    # docs/architecture/local-engine-auth-and-networking.md Decision 4.
+    # Reach it with `ssh -L 3000:localhost:3000 user@your-vps`, then open
+    # http://localhost:3000 on YOUR machine. nginx below never routes any
+    # public hostname to this service.
     ports:
-      - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
-      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:8000}
+      - "127.0.0.1:3000:3000"
 
   reverse-proxy:
     build:
-      context: ./apps/reverse-proxy
+      context: ./reverse-proxy
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "9000:9000"
     env_file:
-      - ./apps/reverse-proxy/.env
-
-  build-engine:
-    build:
-      context: ./apps/build-engine
-      dockerfile: Dockerfile
-    profiles:
-      - task
-    env_file:
-      - ./apps/build-engine/.env
-    environment:
-      REDIS_URL: redis://redis:6379
+      - ./reverse-proxy/.env
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN must be set — see .env.example}
+      # local-engine — see docs/architecture/local-engine-auth-and-networking.md
+      # Decision 4. Off by default: nginx serves ONLY *.${DOMAIN} (deployed
+      # apps + custom domains) and answers for nothing else at all — no
+      # bare ${DOMAIN}, no api.${DOMAIN}. Set to "true" to additionally
+      # expose hooks.${DOMAIN}, routing ONLY /api/webhooks/github to
+      # api-server, for GitHub push-to-deploy (see
+      # webhooks/github-webhook.controller.ts). Nothing else on api-server
+      # is EVER reachable through nginx, regardless of this flag.
+      ENABLE_PUSH_DEPLOY: ${ENABLE_PUSH_DEPLOY:-false}
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./certbot/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - frontend
+      - api-server
+      - reverse-proxy
 
 volumes:
   postgres_data:
   redis_data:
   redis_builder_data:
+  minio_data:
+
+networks:
+  default:
+    # Explicit, deterministic name (not the compose-project-name-derived
+    # default) so DockerDeploymentEngine's `docker run --network
+    # dreamer-local` (api-server/.env's DOCKER_NETWORK) always joins the
+    # right network regardless of what directory/project name this stack
+    # was brought up under. Every service above already joins this via
+    # Compose's implicit default network — nothing else needs to change.
+    name: dreamer-local

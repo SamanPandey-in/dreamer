@@ -1,84 +1,45 @@
 # Rendered from this template by nginx's own official image at container
 # start (any file under /etc/nginx/templates/*.template gets envsubst'd
 # into /etc/nginx/conf.d/*.conf automatically — no custom entrypoint
-# script needed). ${DOMAIN} is the only variable actually substituted;
-# every other "$..." below is a normal nginx runtime variable and is left
-# alone, since it was never set as a real container environment variable.
+# script needed). ${DOMAIN} and ${ENABLE_PUSH_DEPLOY} are the variables
+# actually substituted; every other "$..." below is a normal nginx runtime
+# variable and is left alone.
 #
-# Three logical destinations, one certificate (issued by
-# scripts/lib/issue-certificate.sh covering both ${DOMAIN} and
-# *.${DOMAIN} as SANs in a single cert):
-#   ${DOMAIN}, www.${DOMAIN}   -> frontend            (the dashboard)
-#   api.${DOMAIN}               -> api-server          (REST + Socket.IO)
-#   *.${DOMAIN}  (everything else) -> reverse-proxy    (deployed apps)
+# local-engine network exposure — see
+# docs/architecture/local-engine-auth-and-networking.md Decision 4. This
+# file is deliberately NOT symmetric with the cloud engine's version: the
+# dashboard (frontend + api-server's REST/dashboard API) has NO server
+# block here at all — no ${DOMAIN}, no www.${DOMAIN}, no api.${DOMAIN}.
+# It's reachable only via docker-compose.yml's 127.0.0.1-bound ports
+# (SSH tunnel from the operator's own machine), never through this public
+# listener. The only things this file ever routes publicly are:
+#
+#   *.${DOMAIN}         -> reverse-proxy   (deployed apps + custom domains)
+#   hooks.${DOMAIN}      -> api-server, ONLY /api/webhooks/github
+#                            (opt-in: ENABLE_PUSH_DEPLOY=true)
+#
+# nginx always prefers the most specific server_name match regardless of
+# the order server blocks appear in the file, so hooks.${DOMAIN} (exact)
+# safely takes priority over the *.${DOMAIN} (wildcard) block below it,
+# and nothing else on api-server is ever reachable through this listener —
+# not projects, not env vars, not the git PAT, not auth — regardless of
+# ENABLE_PUSH_DEPLOY.
 
 # Plain HTTP -> HTTPS redirect for every hostname this domain covers.
 server {
     listen 80;
     listen [::]:80;
-    server_name ${DOMAIN} *.${DOMAIN};
+    server_name *.${DOMAIN};
     return 301 https://$host$request_uri;
 }
 
-# --- Dashboard (the Dreamer frontend itself) -----------------------------
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name ${DOMAIN} www.${DOMAIN};
-
-    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
-
-    location / {
-        proxy_pass http://frontend:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-# --- api-server: REST API + Socket.IO realtime gateway -------------------
-# api-server now serves BOTH REST and Socket.IO from the SAME listener on
-# port 8000 (see apps/api-server/src/index.ts and
-# src/realtime/socket.server.ts) — Socket.IO intercepts requests under its
-# own /socket.io/ path before they reach Express's router. That means one
-# location block for everything, proxying to one upstream port; no more
-# splitting by path to two different ports the way this file used to.
-# NEXT_PUBLIC_SOCKET_URL and NEXT_PUBLIC_API_BASE_URL can be — and now
-# should be — the exact same URL (https://api.${DOMAIN}).
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name api.${DOMAIN};
-
-    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
-
-    location / {
-        proxy_pass http://api-server:8000;
-        proxy_http_version 1.1;
-        # Required for Socket.IO's WebSocket upgrade under /socket.io/ —
-        # harmless no-ops for ordinary REST requests, so one location block
-        # can serve both instead of splitting by path.
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-# --- Wildcard: every deployed app (project-slug.${DOMAIN}) ---------------
-# Matches anything that isn't ${DOMAIN}/www.${DOMAIN}/api.${DOMAIN} above —
-# nginx always prefers the most specific server_name match regardless of
-# the order server blocks appear in the file, so this catch-all is safe
-# to have last. Hands off entirely to reverse-proxy, which already does
-# its own STATIC (S3) vs DYNAMIC (Lambda Function URL) routing per
-# request — this block's only job is getting the request onto the
-# private compose network and preserving the original Host header so
-# reverse-proxy knows which subdomain was actually requested.
+# --- Wildcard: every deployed app (project-slug.${DOMAIN}) + custom domains ---
+# Matches anything under *.${DOMAIN} — hands off entirely to reverse-proxy,
+# which already does its own STATIC (MinIO) vs DYNAMIC (container) routing
+# per request, and its own custom-domain lookup. This block's only job is
+# getting the request onto the private compose network and preserving the
+# original Host header so reverse-proxy knows which subdomain/domain was
+# actually requested.
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
@@ -96,5 +57,44 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+    }
+}
+
+# --- Optional: GitHub push-to-deploy webhook receiver -----------------------
+# ENABLE_PUSH_DEPLOY must be "true" for this block to do anything real.
+# When it's "false" (the default), every request here hits the bare 444
+# below instead of ever reaching api-server — nginx's own "close the
+# connection, send nothing back" pseudo-status — so hooks.${DOMAIN}
+# answers for literally nothing on a fresh install.
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name hooks.${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+    # ONLY this exact path is ever proxied — everything else on
+    # hooks.${DOMAIN} (including api-server's other routes, if someone
+    # tried to guess a path) hits the bare 444 below instead.
+    location = /api/webhooks/github {
+        # envsubst substitutes this to the literal text "true"/"false" at
+        # container start — the plain string compare below is a normal
+        # nginx runtime check against that substituted value, not a map:
+        # map's source argument must itself be an nginx variable, which a
+        # build-time-substituted literal isn't.
+        set $push_deploy_enabled "${ENABLE_PUSH_DEPLOY}";
+        if ($push_deploy_enabled != "true") {
+            return 444;
+        }
+        proxy_pass http://api-server:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        return 444;
     }
 }

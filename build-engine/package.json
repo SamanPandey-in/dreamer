@@ -1,0 +1,17 @@
+{
+  "name": "build-engine",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1071.0",
+    "ioredis": "^5.11.1",
+    "mime-types": "^3.0.2"
+  }
+}

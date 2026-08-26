@@ -1,0 +1,22 @@
+# Dreamer (Local Engine)
+
+> Dreamer is a Vercel/Railway-style Platform-as-a-Service. Connect a GitHub repo and get a live URL in minutes. This is the self-hosted build: every piece — API server, build engine, reverse proxy — runs on your own VPS via Docker, with no cloud provider account required anywhere in the stack.
+
+Dreamer clones a repo, auto-detects its framework, builds it as either a static site or a server-rendered dynamic app, containerizes it, provisions a wildcard subdomain, streams build logs in real time, and redeploys automatically on every push to the production branch (pinned to the exact commit pushed, via a GitHub App webhook — not a polling-based or manual trigger).
+
+Built by Saman Pandey ([github.com/SamanPandey-in](https://github.com/SamanPandey-in)).
+
+## Docs
+
+- [Overview](/docs): what Dreamer is and how the pieces fit together
+- [Architecture Overview](/docs/architecture): API server, build engine, reverse proxy, and how a deploy flows through them
+- [Authentication](/docs/auth): GitHub OAuth login + GitHub App-based repo access
+- [Projects & Import Wizard](/docs/projects): connecting a repo and configuring a build
+- [Framework Detection](/docs/framework-detection): how Dreamer identifies what it's building
+- [Deployments Overview](/docs/deployments): the deployment lifecycle
+- [Static Deployments](/docs/deployments/static): static-site build and hosting path
+- [Dynamic (SSR) Deployments](/docs/deployments/dynamic): server-rendered app build and hosting path
+- [Reverse Proxy](/docs/reverse-proxy): how requests get routed to the right deployment
+- [Wildcard Domains](/docs/wildcard-domains): per-project subdomain provisioning
+
+Setting up your own instance: see this repo's top-level `README.md` and `install.sh`.
