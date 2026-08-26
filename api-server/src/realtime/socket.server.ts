@@ -1,7 +1,7 @@
 import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import { verifyAccessToken } from '../auth/auth.tokens';
-import { assertDeploymentOwnership } from '../deployments/deployment.service'; // concrete file — see §3.6 DASHBOARD_BACKEND_IMPL.md
+import { assertDeploymentOwnership } from '../deployments/deployment.service';
 import { env } from '../lib/env';
 
 interface AuthedSocket extends Socket {
@@ -14,29 +14,19 @@ export function roomFor(deploymentId: string): string {
 
 /**
  * One Socket.IO server for the whole process, created once and handed to
- * log-relay.ts below — the only thing that ever emits through it.
+ * log-relay.ts — the only thing that ever emits through it.
  *
- * Attached to the SAME http.Server as the Express app (see src/index.ts),
- * not given its own port. This used to listen on its own port (9002) —
- * that only worked in local dev, where every port on localhost is directly
- * reachable. Render (and most PaaS providers, and Vercel's own edge) only
- * forward external traffic to ONE port per service: whatever's in the PORT
- * env var. Port 9002 was simply never reachable from the internet once
- * deployed, so the browser's socket.io-client sat there endlessly retrying
- * a connection that could never succeed — every 'log'/'status' push was
- * silently lost, and the only way to see current state was a hard reload
- * (which goes through the REST API on the port that IS public). Sharing
- * the HTTP server fixes this structurally: Socket.IO intercepts requests
- * under its own `path` before they reach Express's router, so both HTTP
- * REST calls and the WebSocket upgrade now go over the one port every
- * platform actually exposes.
+ * Attached to the SAME http.Server as the Express app (see src/index.ts), not
+ * given its own port: hosting environments only forward external traffic to
+ * one port per service. Socket.IO intercepts requests under its own `path`
+ * before Express's router, so REST calls and the WebSocket upgrade share the
+ * one publicly exposed port.
  */
 export function createSocketServer(httpServer: HttpServer): Server {
   const io = new Server(httpServer, { cors: { origin: env.FRONTEND_URL, credentials: true } });
 
-  // Auth happens ONCE, at connection time — not re-checked per event. A
-  // socket that never presented a valid access token never even reaches the
-  // 'subscribe' handler below; Socket.IO rejects the connection outright.
+  // Auth happens ONCE, at connection time — a socket that never presented a
+  // valid access token never even reaches the 'subscribe' handler below.
   io.use((socket: AuthedSocket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) return next(new Error('UNAUTHORIZED'));
@@ -52,13 +42,9 @@ export function createSocketServer(httpServer: HttpServer): Server {
 
   io.on('connection', (socket: AuthedSocket) => {
     socket.on('subscribe', async (deploymentId: string) => {
-      // The access token only proves WHO is asking — not that they're
-      // allowed to watch THIS deployment's logs. Skipping this re-check is
-      // the multi-tenant version of an IDOR bug: any logged-in user could
-      // otherwise read any other user's build output by guessing a UUID and
-      // emitting 'subscribe' with it — exactly the gap the unauthenticated
-      // prototype (app/demo/page.tsx's socket.emit('subscribe', ...)) had,
-      // harmlessly, before there were multiple users to leak data between.
+      // The access token only proves WHO is asking — not that they may watch
+      // THIS deployment. Without this ownership check any logged-in user
+      // could read another user's build output by guessing a UUID (IDOR).
       try {
         await assertDeploymentOwnership(deploymentId, socket.userId!);
         socket.join(roomFor(deploymentId));

@@ -14,23 +14,15 @@ export function isRenderTlsConfigured(): boolean {
 }
 
 /**
- * Registers a domain as a Custom Domain on this api-server's own Render
- * service. This is the SAME automation
- * docs/reverse-proxy/wildcard-domains.md's worked example already relies
- * on for `*.singularitydev.xyz` — Render issues and auto-renews a
- * Let's-Encrypt-backed certificate per domain with no certbot, no cron, no
- * further action here. The caller (custom-domain.service.ts) only calls
- * this AFTER the domain's ownership TXT record has already been verified —
- * Render will happily accept a domain whose DNS doesn't point here yet, it
- * just won't finish issuing until it does, so there's no ordering hazard
- * either way, but verifying first keeps us from asking Render to track a
- * domain that turns out not to belong to this user at all.
+ * Registers a domain as a Custom Domain on the Render service hosting this
+ * API — Render issues and auto-renews a Let's Encrypt certificate per
+ * domain, no certbot, no cron. Only called AFTER the domain's ownership TXT
+ * record has been verified: Render accepts unverified domains (it just won't
+ * finish issuing until DNS points here), but verifying first avoids asking it
+ * to track a domain that may not belong to this user at all.
  *
- * Render's own dashboard shows subsequent verification/certificate status
- * for whatever gets registered here; this platform doesn't poll or mirror
- * that back into sslStatus today (see custom-domain.service.ts) — sslStatus
- * moves to 'issuing' the moment this call succeeds and stays there until a
- * human checks Render's dashboard or a future webhook/poll is added.
+ * sslStatus moves to 'issuing' when this call succeeds and isn't polled back
+ * today (see custom-domain.service.ts).
  */
 export async function registerRenderCustomDomain(domain: string): Promise<void> {
   const response = await fetch(`${RENDER_API_BASE}/services/${env.RENDER_SERVICE_ID}/custom-domains`, {

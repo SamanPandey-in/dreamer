@@ -8,17 +8,13 @@ import type {
 } from './github-repo.types';
 
 /**
- * GET /api/github/repos — the wizard's "Import Git Repository" list (step
- * 1). local-engine: lists every repo the operator's stored PAT can see
- * (`GET /user/repos`) — see
- * docs/architecture/local-engine-auth-and-networking.md Decision 2. No
- * installation concept anymore: one token, every repo it has access to.
+ * GET /api/github/repos — the wizard's "Import Git Repository" list (step 1):
+ * every repo the operator's stored PAT can see (`GET /user/repos`).
  */
 export async function listReposHandler(req: Request, res: Response) {
   const accessToken = await getGitAccessToken(req.user!.id);
   if (!accessToken) {
-    // Not an error — the wizard's UI falls back to "search public repos by
-    // name" (below) when this comes back empty, same as it always could.
+    // Not an error — the wizard falls back to searching public repos by name.
     res.status(200).json({ repos: [] });
     return;
   }
@@ -29,8 +25,8 @@ export async function listReposHandler(req: Request, res: Response) {
 
 /**
  * GET /api/github/public-repos?query=... — search ANY public GitHub repo by
- * name. Deliberately works with NO token set at all — see
- * github-repo.service.ts's searchPublicRepos doc comment.
+ * name. Works with NO token set at all — see searchPublicRepos in
+ * github-repo.service.ts.
  */
 export async function searchPublicReposHandler(req: Request, res: Response) {
   const { query } = req.query as unknown as SearchPublicReposQuery;

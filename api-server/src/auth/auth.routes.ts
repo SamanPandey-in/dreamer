@@ -29,8 +29,7 @@ import {
 
 export const authRouter = Router();
 
-// local-engine: single-admin setup instead of open registration — see
-// docs/architecture/local-engine-auth-and-networking.md Decision 1.
+// Single-admin setup instead of open registration
 authRouter.get('/setup-status', setupStatusHandler);
 authRouter.post('/setup', setupRateLimiter, validate(setupSchema), setupHandler);
 
@@ -45,7 +44,6 @@ authRouter.get('/sessions', requireAuth, listSessionsHandler);
 authRouter.delete('/sessions/:sessionId', requireAuth, revokeSessionHandler);
 authRouter.post('/change-password', requireAuth, validate(changePasswordSchema), changePasswordHandler);
 
-// Git PAT (Settings page) — see
-// docs/architecture/local-engine-auth-and-networking.md Decision 2.
+// Git PAT (Settings page)
 authRouter.put('/git-token', requireAuth, validate(setGitTokenSchema), setGitTokenHandler);
 authRouter.delete('/git-token', requireAuth, clearGitTokenHandler);

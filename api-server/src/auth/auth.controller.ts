@@ -12,12 +12,8 @@ function sessionMeta(req: Request): SessionMeta {
 }
 
 // Derive cross-site-ness from FRONTEND_URL vs COOKIE_DOMAIN rather than
-// NODE_ENV, so the cookie settings are correct even if NODE_ENV isn't set
-// to 'production' on the host. local-engine's dashboard is loopback-only
-// (see docs/architecture/local-engine-auth-and-networking.md Decision 4),
-// so in the default install this is always the "local dev" case below —
-// COOKIE_DOMAIN only matters if an operator deliberately exposes the
-// dashboard on a real hostname later.
+// NODE_ENV, so cookie settings stay correct even if NODE_ENV isn't set to
+// 'production' on the host.
 function isLocalDev(): boolean {
   const hostname = new URL(env.FRONTEND_URL).hostname;
   return hostname === 'localhost' || hostname === '127.0.0.1';
@@ -54,11 +50,8 @@ function clearRefreshCookie(res: Response) {
 // Setup + login
 
 /**
- * POST /api/auth/setup — local-engine's one-time admin creation. See
- * docs/architecture/local-engine-auth-and-networking.md Decision 1 and
- * auth.service.ts#setupAdmin's doc comment: this permanently 409s the
- * instant one user exists, same shape as Coolify/CapRover's first-run
- * screen.
+ * POST /api/auth/setup — one-time admin creation. Permanently 409s the
+ * instant any user exists (see auth.service.ts#setupAdmin).
  */
 export async function setupHandler(req: Request, res: Response) {
   const { accessToken, refreshToken, user } = await authService.setupAdmin(req.body, sessionMeta(req));
@@ -131,8 +124,7 @@ export async function changePasswordHandler(req: Request, res: Response) {
   res.status(204).send();
 }
 
-// Git PAT (Settings page) — see
-// docs/architecture/local-engine-auth-and-networking.md Decision 2.
+// Git PAT (Settings page)
 
 export async function setGitTokenHandler(req: Request, res: Response) {
   await authService.setGitToken(req.user!.id, req.body.personalAccessToken, sessionMeta(req));

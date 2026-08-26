@@ -13,10 +13,8 @@ interface AuditOptions {
 }
 
 /**
- * Shared AuditLog writer for everything outside auth/ (which keeps its own
- * private copy — not migrated here, since auth.service.ts is explicitly
- * off-limits for this change). If we ever do want to de-duplicate that one
- * too, it's a drop-in swap: same signature, same table.
+ * Shared AuditLog writer for everything outside auth/ (auth.service.ts keeps
+ * its own private copy — same signature, same table).
  */
 export async function audit(
   userId: string | null,

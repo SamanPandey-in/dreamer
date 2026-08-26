@@ -5,9 +5,9 @@ import { logger } from '../lib/logger';
 export const METRICS_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes — keep in sync with metrics-recorder.js
 
 /**
- * NEW. This is the ONLY consumer of the Redis keys apps/reverse-proxy's
- * metrics-recorder.js writes on every proxied request. Key layout (must
- * stay in sync with metrics-recorder.js):
+ * The ONLY consumer of the Redis keys reverse-proxy/metrics-recorder.js
+ * writes on every proxied request. Key layout (must stay in sync with
+ * metrics-recorder.js):
  *
  *   metrics:active-intervals                           Set<"{projectId}:{intervalStart}">
  *   metrics:{projectId}:{intervalStart}:requests        INCR counter
@@ -18,15 +18,12 @@ export const METRICS_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes — keep in sync 
  *   metrics:{projectId}:{intervalStart}:rt_max          plain SET, replaced when a slower request is seen this interval
  *
  * `intervalStart` is `Math.floor(Date.now() / METRICS_INTERVAL_MS) * METRICS_INTERVAL_MS`
- * — the epoch-ms start of the 5-minute window the request landed in. A
- * plain integer (not an ISO string) specifically so splitting a member on
- * the LAST ':' is unambiguous — an ISO timestamp has colons in it too, a
- * UUID projectId never does.
+ * — the epoch-ms start of the window the request landed in. A plain integer
+ * (not an ISO string) specifically so splitting a member on the LAST ':' is
+ * unambiguous: an ISO timestamp contains colons too, a UUID projectId never
+ * does.
  *
- * Run on an interval from src/index.ts (same pattern as
- * reconcileOrphanedQueuedDeployments — see that file's own comment for why
- * this codebase prefers a plain setInterval over a BullMQ repeatable job
- * for this kind of "sweep something periodically" task).
+ * Run on an interval from src/index.ts.
  */
 export async function flushMetrics(): Promise<void> {
   const members = await redis.smembers('metrics:active-intervals');
@@ -45,9 +42,9 @@ export async function flushMetrics(): Promise<void> {
     const base = `metrics:${member}`;
 
     try {
-      // Plain additive counters: safe to read-then-delete every flush cycle
-      // and INCREMENT the Postgres row, because a counter's value since the
-      // last flush is exactly what got added to Redis since the last flush.
+      // Additive counters: safe to read-then-delete every flush cycle and
+      // INCREMENT the Postgres row — a counter's value since the last flush
+      // is exactly what got added to Redis since the last flush.
       const results = (await redis
         .multi()
         .getdel(`${base}:requests`)
@@ -62,15 +59,13 @@ export async function flushMetrics(): Promise<void> {
 
       const [requests, s2xx, s3xx, s4xx, s5xx, bytes, rtSum, rtMax] = results.map(([, v]) => Number(v) || 0);
 
-      // visitors is NOT a plain counter — HyperLogLog cardinality doesn't
-      // add up across time-sliced samples of the same set (a visitor who
-      // makes requests in two different flush windows within the same
-      // interval would get double-counted if we incremented per-flush
-      // PFCOUNT deltas the way we do for requests above). So instead: read
-      // the CURRENT cumulative cardinality non-destructively (PFCOUNT
-      // doesn't delete the key), and SET (not increment) the Postgres
-      // column to that absolute value every flush. Only delete the HLL key
-      // once the interval has fully elapsed, after one final read.
+      // visitors is NOT a plain counter: HyperLogLog cardinality doesn't add
+      // up across time-sliced samples of the same set (a visitor active in
+      // two flush windows within one interval would be double-counted by
+      // per-flush increments). Instead: read the CURRENT cumulative
+      // cardinality non-destructively (PFCOUNT), and SET (not increment) the
+      // Postgres column to that absolute value each flush. Delete the HLL key
+      // only once the interval has fully closed, after one final read.
       const intervalHasClosed = now >= intervalStartMs + METRICS_INTERVAL_MS;
       const visitorCount = await redis.pfcount(`${base}:visitors`);
 
@@ -100,12 +95,10 @@ export async function flushMetrics(): Promise<void> {
           status5xx: { increment: s5xx },
           bytesTransferred: { increment: BigInt(bytes) },
           responseTimeSumMs: { increment: BigInt(rtSum) },
-          // NOT incremented and NOT blindly set here — a later flush's max
-          // could legitimately be lower than an earlier flush's max within
-          // the SAME interval, and overwriting would silently lose the
-          // true peak. The GREATEST() raw update right below is what
-          // actually reconciles this correctly for both the create and
-          // update branch of this upsert.
+          // NOT incremented and NOT blindly set — a later flush's max can
+          // legitimately be lower than an earlier flush's max within the
+          // SAME interval; GREATEST() below reconciles both branches of this
+          // upsert correctly.
         },
       });
 
@@ -122,8 +115,8 @@ export async function flushMetrics(): Promise<void> {
         await redis.srem('metrics:active-intervals', member);
       }
     } catch (err) {
-      // One bad interval (e.g. a project deleted mid-flush, FK violation on
-      // upsert) must never stop the rest of the sweep.
+      // One bad interval (project deleted mid-flush, FK violation on upsert)
+      // must never stop the rest of the sweep.
       logger.error('Failed to flush metrics interval', { member, err });
     }
   }

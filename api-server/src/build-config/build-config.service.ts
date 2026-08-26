@@ -5,16 +5,13 @@ import type { DetectedBuildConfig } from './build-config.types';
 
 /**
  * Resolves the wizard's "Continue" click on the root-directory step into a
- * full detected build config — one round trip to GitHub for the root
- * listing, one more for package.json (if present), and a third, conditional
- * one for next.config.*'s source (only when a Next.js config file was
- * actually found — every other framework's detection never needs a second
- * file read).
+ * full detected build config — up to three GitHub calls: the root listing,
+ * package.json (if present), and next.config.*'s source (only when a Next.js
+ * config file was actually found).
  *
  * Deliberately returns a DetectedBuildConfig, never writes anything to the
- * database — see the "resolving config" section of the build-config guide:
- * detection output is always staged as editable form state first, and only
- * becomes a stored Project row when the user submits the wizard.
+ * database — detection output is always staged as editable form state first,
+ * and only becomes a stored Project row when the user submits the wizard.
  */
 export async function resolveDetectedBuildConfig(
   accessToken: string | undefined,
@@ -46,11 +43,9 @@ export async function resolveDetectedBuildConfig(
 
   const packageManager = detectPackageManager(rootFiles);
 
-  // Package manager detection overrides the preset's generic
-  // `npm install` default — framework tells us WHAT to build, lockfile
-  // presence tells us HOW to install. The preset's buildCommand/
-  // outputDirectory are framework-specific and stay as-is regardless of
-  // which package manager built them.
+  // Package-manager detection overrides the preset's generic `npm install`
+  // default — framework tells us WHAT to build, lockfile presence tells us
+  // HOW to install. Build command/output stay framework-specific.
   return {
     framework: {
       id: preset.id,

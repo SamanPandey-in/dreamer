@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { validate } from '../middleware/validate.middleware';
 import { projectDeploymentsRouter } from '../deployments';
-import { projectEnvVariablesRouter } from '../env-variables'; // NEW
-import { projectMetricsRouter } from '../metrics'; // NEW
-import { projectCustomDomainsRouter } from '../domains'; // NEW
+import { projectEnvVariablesRouter } from '../env-variables';
+import { projectMetricsRouter } from '../metrics';
+import { projectCustomDomainsRouter } from '../domains';
 import {
   createProjectHandler,
   deleteProjectHandler,
@@ -16,9 +16,7 @@ import { createProjectSchema, projectIdParamSchema, updateProjectSchema } from '
 export const projectsRouter = Router();
 
 // requireAuth is applied ONCE, where this router is mounted in app.ts —
-// every route under /api/projects requires a logged-in user. Unlike
-// /api/auth (where /register, /login, /github are intentionally public),
-// nothing here ever is, so there's no per-route case to handle.
+// every route under /api/projects requires a logged-in user.
 
 projectsRouter.post('/', validate(createProjectSchema), createProjectHandler);
 projectsRouter.get('/', listProjectsHandler);
@@ -26,10 +24,9 @@ projectsRouter.get('/:projectId', validate(projectIdParamSchema), getProjectHand
 projectsRouter.patch('/:projectId', validate(updateProjectSchema), updateProjectHandler);
 projectsRouter.delete('/:projectId', validate(projectIdParamSchema), deleteProjectHandler);
 
-// Composition, not duplication: deployments/ owns its own validation and
-// handlers for everything under .../deployments; this router only owns
-// where that sub-router gets mounted.
+// Composition, not duplication: sub-routers own their own validation and
+// handlers; this router only owns where they mount.
 projectsRouter.use('/:projectId/deployments', projectDeploymentsRouter);
-projectsRouter.use('/:projectId/env-variables', projectEnvVariablesRouter); // NEW
-projectsRouter.use('/:projectId/metrics', projectMetricsRouter); // NEW
-projectsRouter.use('/:projectId/domains', projectCustomDomainsRouter); // NEW
+projectsRouter.use('/:projectId/env-variables', projectEnvVariablesRouter);
+projectsRouter.use('/:projectId/metrics', projectMetricsRouter);
+projectsRouter.use('/:projectId/domains', projectCustomDomainsRouter);

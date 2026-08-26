@@ -36,9 +36,9 @@ function emit(level: Level, message: string, meta?: Record<string, unknown>) {
     source: ctx?.source,
     ...meta,
   };
-  // One JSON line per log — trivially greppable by correlationId today,
-  // and directly ingestible by any log aggregator (CloudWatch, Datadog,
-  // etc.) later without changing a single call site.
+  // One JSON line per log — trivially greppable by correlationId and
+  // directly ingestible by any log aggregator later without changing a
+  // single call site.
   const line_str = JSON.stringify(line, (_key, value) => (value instanceof Error ? serializeError(value) : value));
   if (level === 'error') console.error(line_str);
   else if (level === 'warn') console.warn(line_str);

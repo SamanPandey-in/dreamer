@@ -1,15 +1,14 @@
 /**
- * NEW. Constants for the durable Redis Stream that carries `status` and
+ * Constants for the durable Redis Stream that carries `status` and
  * `image_ready` events — the two DeploymentEvent types that drive a
  * Deployment row's status column and therefore can't be silently dropped.
  * (`log` and `commit_info` stay on the plain `deployment:*` Pub/Sub channel
  * — see log-relay.ts's psubscribe branch — because losing a log line or
  * commit metadata is cosmetic, not a stuck deployment.)
  *
- * MUST match apps/build-engine/redis.js's STREAM_KEY exactly — same
- * by-hand-sync caveat as CHANNEL/realtime.types.ts already have, since
- * build-engine is a separate plain-Node app with no shared package to
- * enforce this for you.
+ * MUST match build-engine/redis.js's STREAM_KEY exactly — kept in sync by
+ * hand, since build-engine is a separate plain-Node app with no shared
+ * package to enforce this for you.
  */
 export const DEPLOYMENT_EVENTS_STREAM_KEY = 'deployment-events-stream';
 
@@ -21,5 +20,5 @@ export const DEPLOYMENT_EVENTS_STREAM_KEY = 'deployment-events-stream';
  */
 export const DEPLOYMENT_EVENTS_GROUP = 'log-relay-group';
 
-/** Approx trim on every XADD (build-engine side) — see redis.js's STREAM_MAXLEN comment. */
+/** Approximate trim applied on every XADD — kept in sync with build-engine/redis.js's STREAM_MAXLEN. */
 export const DEPLOYMENT_EVENTS_STREAM_MAXLEN = 100_000;

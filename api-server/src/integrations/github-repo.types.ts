@@ -1,10 +1,5 @@
 import { z } from 'zod';
 
-// local-engine: no installationId anymore — repo access is a single
-// operator-wide PAT (see docs/architecture/local-engine-auth-and-networking.md
-// Decision 2). GET /api/github/repos takes no query params at all now; it's
-// just "list everything the stored PAT can see."
-
 export const searchPublicReposSchema = z.object({
   query: z.object({
     query: z.string().min(1).max(200).trim(),

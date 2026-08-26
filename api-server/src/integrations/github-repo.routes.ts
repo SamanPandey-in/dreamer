@@ -11,8 +11,6 @@ import {
 /** Mounted at /api/github in app.ts. requireAuth applied at the mount point. */
 export const githubRepoRouter = Router();
 
-// local-engine: every repo the operator's stored PAT can see — no
-// installationId param anymore, see github-repo.controller.ts.
 githubRepoRouter.get('/repos', listReposHandler);
 // Any public repo, by name — works with no PAT set at all.
 githubRepoRouter.get('/public-repos', validate(searchPublicReposSchema), searchPublicReposHandler);

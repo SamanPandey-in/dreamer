@@ -2,16 +2,14 @@ import { z } from 'zod';
 
 /**
  * The subset of GitHub's push event payload this handler actually reads —
- * deliberately narrow, same reasoning as integrations/github-repo.service.ts's
- * RepoEntry: GitHub's real payload has dozens of fields (commits[],
- * head_commit.author, compare URL, etc.) we never need, and narrowing here
- * means a future payload shape change can't silently break something
- * downstream that was never supposed to depend on it.
+ * GitHub's real payload has dozens of fields (commits[], head_commit.author,
+ * compare URL, etc.) we never need; narrowing here means a future payload
+ * shape change can't silently break something downstream that was never
+ * supposed to depend on it.
  *
- * local-engine: this is a plain classic repo webhook now, not an App-owned
- * one (see docs/architecture/local-engine-auth-and-networking.md Decision
- * 3) — no `installation` field to rely on anymore. `repository.id` alone
- * is the lookup key (github-webhook.service.ts's findProjectsForPush).
+ * This is a plain classic repo webhook, not an App-owned one, so there is no
+ * `installation` field to rely on — `repository.id` alone is the lookup key
+ * (github-webhook.service.ts's findProjectsForPush).
  */
 export const githubPushPayloadSchema = z.object({
   ref: z.string(), // "refs/heads/main"

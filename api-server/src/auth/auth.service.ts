@@ -22,11 +22,9 @@ import type {
 } from './auth.types';
 import type { Prisma, User } from '../generated/prisma/client';
 
-// A real bcrypt hash of a string nobody will ever type as a password.
-// Used so failed-login timing is identical whether the email exists or not —
-// without this, an attacker can use response time alone to enumerate which
-// emails are registered. Kept even in single-admin mode: there's still
-// exactly one real account, and this costs nothing to keep.
+// Real bcrypt hash of a string nobody will ever type as a password, used
+// for non-existent users so failed-login timing is identical whether the
+// email exists — without it, response time alone enumerates registered emails.
 const DUMMY_PASSWORD_HASH = '$2b$12$ScfAwMBjElP/t9LDXIjNZuBTpu1OoHwB8Y5mIsjxquQk6t8xOd0da';
 
 export function toPublicUser(user: User): PublicUser {
@@ -50,22 +48,16 @@ async function audit(
   });
 }
 
-// A "new sign-in" means a successful login from a device/location we haven't
-// seen before. Compare the incoming request against the user's existing
-// active sessions; a match on both IP and user-agent means we've seen this
-// device before. (No email notification sent for this anymore — see
-// docs/architecture/local-engine-auth-and-networking.md Decision 1: nothing
-// in local-engine sends email. Kept as an audit-log signal only.)
+// A "new sign-in" is a successful login whose IP + user-agent match none of
+// the user's active sessions. Audit-log signal only — nothing sends email.
 async function isUnrecognizedSignIn(userId: string, meta: SessionMeta): Promise<boolean> {
   const sessions = await listSessionsForUser(userId);
   return !sessions.some((s) => s.ipAddress === meta.ipAddress && s.userAgent === meta.userAgent);
 }
 
-// Single-admin setup — local-engine only. See
-// docs/architecture/local-engine-auth-and-networking.md Decision 1. Refuses
-// to run a second time: once any User row exists, this is permanently a
-// 409, and the ONLY way to create more users would be a direct DB
-// operation nobody is meant to script for a single-operator box.
+// Single-admin setup. Refuses to run a second time: once any User row
+// exists, this is permanently a 409 — creating more users would require
+// direct DB access.
 export async function setupAdmin(input: SetupInput, meta: SessionMeta) {
   const existingCount = await prisma.user.count();
   if (existingCount > 0) {
@@ -94,8 +86,7 @@ export async function login(input: LoginInput, meta: SessionMeta) {
   const user = await prisma.user.findUnique({ where: { email: input.email } });
 
   // Always run a bcrypt comparison — even for a non-existent user — so
-  // response timing can't be used to enumerate registered emails. See
-  // DUMMY_PASSWORD_HASH above.
+  // response timing can't be used to enumerate registered emails.
   const isValid = await verifyPassword(input.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
 
   if (!user || !isValid) {
@@ -131,11 +122,10 @@ export async function refresh(rawRefreshToken: string, meta: SessionMeta) {
 }
 
 /**
- * Identity-only lookup from the refresh cookie — no rotation, no new
- * session, no new cookie to set. For call sites that need "who is this"
- * on a request they can't put a CSRF token on (a plain top-level GET),
- * where refresh()'s side effect of minting a fresh session is exactly
- * what a forged cross-site request could otherwise abuse.
+ * Identity-only lookup from the refresh cookie — no rotation, no new session.
+ * For plain GETs that can't carry a CSRF token, where refresh()'s side
+ * effect of minting a fresh session is exactly what a forged cross-site
+ * request could otherwise abuse.
  */
 export async function resolveUserFromRefreshToken(rawRefreshToken: string): Promise<PublicUser> {
   const user = await verifySessionUser(rawRefreshToken);
@@ -191,10 +181,8 @@ export async function changePassword(userId: string, input: ChangePasswordInput,
   await audit(userId, 'user.password_changed', meta);
 }
 
-// Git PAT — local-engine's replacement for the GitHub App installation
-// flow. See docs/architecture/local-engine-auth-and-networking.md
-// Decision 2, and lib/git-credentials.ts for how this is read back at
-// build/browse time.
+// Git PAT — encrypted at rest (AES-256-GCM via encryptForStorage); read
+// back at build/browse time by lib/git-credentials.ts.
 
 export async function setGitToken(userId: string, personalAccessToken: string, meta: SessionMeta): Promise<void> {
   await prisma.user.update({

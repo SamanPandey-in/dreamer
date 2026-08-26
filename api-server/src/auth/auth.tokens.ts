@@ -9,9 +9,8 @@ const REFRESH_SECRET_BYTES = 64;
 const BCRYPT_SALT_ROUNDS = 12; // matches the cost factor documented on User.passwordHash in schema.prisma
 
 // Access token
-// Short-lived (15 min), stateless, signed JWT. Never written to the DB —
-// verifying it is just a signature check, which is what makes it fast enough
-// to run on every single request without hitting Postgres.
+// Short-lived, stateless, signed JWT — never written to the DB. Verifying
+// it is just a signature check, so it's cheap enough for every request.
 
 export function signAccessToken(userId: string, email: string): string {
   const payload: Pick<AccessTokenPayload, 'sub' | 'email'> = { sub: userId, email };
@@ -37,11 +36,10 @@ export function verifyPassword(password: string, hash: string): Promise<boolean>
 
 // ── Refresh tokens (long-lived, stateful — one UserSession row per device) ─
 //
-// The raw token handed to the browser is `${sessionId}.${secret}`.
-// We persist only bcrypt(secret) as UserSession.tokenHash — never the raw
-// secret. Encoding the sessionId in the token lets /refresh do a single
-// indexed lookup by id instead of bcrypt-comparing against every session in
-// the table (bcrypt is deliberately slow; that doesn't scale past one row).
+// The raw token handed to the browser is `${sessionId}.${secret}`; only
+// bcrypt(secret) is persisted. Encoding the sessionId in the token lets
+// /refresh do a single indexed lookup instead of bcrypt-comparing against
+// every session row (bcrypt is deliberately slow).
 
 export interface SessionMeta {
   ipAddress?: string;
@@ -104,19 +102,10 @@ export async function rotateSession(rawToken: string, meta: SessionMeta) {
 
   if (!session.user.isActive) return null;
 
-  // Rotate: the old refresh token must never work again, even for a
-  // legitimate request that's still in flight with the old value cached.
-  //
-  // deleteMany (not delete): two refresh requests for the same session can
-  // race here (double-fired effect, multiple tabs, a retried request right
-  // after a redirect chain). Whichever loses the race would previously hit
-  // this line after the winner had already deleted the row, and Prisma's
-  // delete() throws P2025 ("no record found") for a delete-by-id that
-  // matches nothing — an unhandled 500 instead of the ordinary "invalid
-  // session" outcome. deleteMany() returns a count instead of throwing, so
-  // we can tell "someone already rotated this session" apart from a real
-  // error and fall through to the same null-return every other invalid-
-  // session case here uses.
+  // Rotate: the old refresh token must never work again. deleteMany (not
+  // delete) because two refreshes for the same session can race — the loser
+  // finds zero rows and returns the same generic null, instead of Prisma's
+  // delete() throwing P2025 and surfacing an unhandled 500.
   const { count } = await prisma.userSession.deleteMany({ where: { id: session.id } });
   if (count === 0) return null;
 
@@ -128,12 +117,11 @@ export async function rotateSession(rawToken: string, meta: SessionMeta) {
 
 /**
  * Same validation as rotateSession (raw token -> DB row -> bcrypt compare ->
- * active-user check) but WITHOUT rotating anything — no delete, no new
- * session row, no new refresh token. For callers that only need to know
- * "who is this cookie's owner" on a plain GET they can't protect with a
- * CSRF token, where minting a fresh session as a side effect of a
- * forgeable cross-site request is itself the vulnerability. Returns null
- * for ANY failure, same as rotateSession, for the same generic-401 reason.
+ * active-user check) but WITHOUT rotating anything. For callers that only
+ * need "who owns this cookie" on a plain GET they can't protect with a CSRF
+ * token — minting a fresh session as a side effect of a forgeable cross-site
+ * request would itself be the vulnerability. Returns null for ANY failure,
+ * same generic-401 reason as rotateSession.
  */
 export async function verifySessionUser(rawToken: string) {
   const unpacked = unpackRefreshToken(rawToken);

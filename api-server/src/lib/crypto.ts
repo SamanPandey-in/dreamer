@@ -62,7 +62,7 @@ export function decryptFromStorage(packed: string): string {
 }
 
 /**
- *  NEW. EnvVariable and DeploymentEnvSnapshot have separate `value` + `iv`
+ * EnvVariable and DeploymentEnvSnapshot have separate `value` + `iv`
  * columns (no third column for the auth tag) — so here the IV stays in its
  * own column as-is, and only ciphertext+authTag share `value`, joined by the
  * same `:` delimiter for the same reason as above (both halves are base64,

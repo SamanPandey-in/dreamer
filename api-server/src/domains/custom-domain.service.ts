@@ -14,14 +14,10 @@ const VERIFICATION_TOKEN_BYTES = 16;
 const VERIFICATION_TXT_PREFIX = '_dreamer-verify';
 
 function cnameTarget(): string {
-  // Every custom domain CNAMEs to the SAME reserved host, one level under
-  // BASE_DOMAIN — not to BASE_DOMAIN itself, because BASE_DOMAIN's bare
-  // apex routes to the dashboard on a self-hosted install (see
-  // nginx/templates/dreamer.conf.template), not to reverse-proxy.
-  // `cname.${BASE_DOMAIN}` is just another label under the SAME
-  // `*.${BASE_DOMAIN}` wildcard everything else already resolves through,
-  // so it needs no dedicated DNS record or certificate of its own — one
-  // fixed, documented target, reused by every project's custom domain.
+  // Every custom domain CNAMEs to the SAME reserved host one level under
+  // BASE_DOMAIN — not the apex itself, which routes to the dashboard. It
+  // rides the same *.BASE_DOMAIN wildcard everything else resolves through,
+  // so it needs no dedicated DNS record or certificate of its own.
   return `cname.${env.BASE_DOMAIN}`;
 }
 
@@ -68,11 +64,8 @@ export async function addCustomDomain(
 ): Promise<PublicCustomDomain> {
   await assertProjectOwnership(projectId, userId);
 
-  // A domain pointed at BASE_DOMAIN itself (or a bare `{slug}.BASE_DOMAIN`)
-  // is already routable for free — accepting it as a "custom" domain would
-  // let it collide with the wildcard's own routing and the reverse-proxy's
-  // exact-match-first lookup (see deployment-lookup.js) in a way that has
-  // no useful outcome for the user.
+  // A domain under BASE_DOMAIN is already routable for free — accepting it
+  // as "custom" would collide with the wildcard's own routing.
   if (domainName === env.BASE_DOMAIN || domainName.endsWith(`.${env.BASE_DOMAIN}`)) {
     throw new BadRequestError(
       `"${domainName}" is already served by this platform and can't be added as a custom domain`,
@@ -95,11 +88,9 @@ export async function addCustomDomain(
 
     return toPublicCustomDomain(domain);
   } catch (err) {
-    // @unique on `domain` — someone (this user or, deliberately, ANY user,
-    // since domain names aren't scoped per-account) already has this exact
-    // domain registered. Surfacing the generic conflict rather than "taken
-    // by user X" avoids confirming to a caller which OTHER account owns a
-    // given domain.
+    // @unique on `domain` — P2002 means anyone already registered it (any
+    // user: domains aren't scoped per-account). The generic conflict avoids
+    // confirming to a caller which OTHER account owns a domain.
     if (typeof err === 'object' && err !== null && 'code' in err && err.code === 'P2002') {
       throw new ConflictError(`"${domainName}" is already registered to a project`, 'CUSTOM_DOMAIN_TAKEN');
     }
@@ -108,17 +99,11 @@ export async function addCustomDomain(
 }
 
 /**
- * Proof of ownership BEFORE this domain can ever be used for routing —
- * without this, adding a domain nobody actually controls would be enough
- * to hijack traffic (and any cookies/auth flows) for it the moment someone
- * else's DNS happened to already point here, or once they pointed it here
- * later without knowing this project had claimed it first. `verified` is
- * exactly what deployment-lookup.js's custom-domain branch checks before
- * it will route a single request — this is the only function that ever
- * sets it to true.
- *
- * Looks up the TXT record itself (doesn't trust a client-supplied "yes I
- * added it") — DNS resolution is the actual proof; nothing else is.
+ * SECURITY: proof of ownership BEFORE the domain can ever be used for
+ * routing — only VERIFIED domains are routed, so claiming a domain nobody
+ * controls can't hijack its traffic. Looks up the TXT record itself rather
+ * than trusting a client-supplied "yes I added it" — DNS resolution is the
+ * actual proof.
  */
 export async function verifyCustomDomain(domainId: string, userId: string, meta: AuditMeta): Promise<PublicCustomDomain> {
   const existing = await findOwnedCustomDomain(domainId, userId);
@@ -130,9 +115,8 @@ export async function verifyCustomDomain(domainId: string, userId: string, meta:
   try {
     records = await resolveTxt(recordHost);
   } catch {
-    // NXDOMAIN, no TXT records, resolver timeout — all the same outcome
-    // from the caller's point of view: "not verified yet", not a 500. The
-    // record commonly just hasn't propagated yet.
+    // NXDOMAIN, no TXT records, resolver timeout — all mean "not verified
+    // yet" (the record usually just hasn't propagated), not a server error.
     throw new BadRequestError(
       `No TXT record found at ${recordHost} yet. DNS changes can take a few minutes to propagate — try again shortly.`,
       'CUSTOM_DOMAIN_NOT_VERIFIABLE'
@@ -160,11 +144,9 @@ export async function verifyCustomDomain(domainId: string, userId: string, meta:
 
   if (isRenderTlsConfigured()) {
     // Fire-and-log, not fire-and-forget-silently: TLS provisioning is a
-    // nice-to-have layered on top of verification, not a precondition for
-    // it — the domain is already correctly verified and will already
-    // route traffic (over plain HTTP) even if Render's API call below
-    // fails. Failing the whole verify() call over a Render hiccup would
-    // incorrectly roll back a DNS fact that's already true.
+    // nice-to-have layered on top of verification — the domain is already
+    // verified and will route traffic even if this call fails. Failing the
+    // whole verify() would incorrectly roll back a DNS fact that's true.
     registerRenderCustomDomain(existing.domain).catch(async (err) => {
       logger.error('Render custom-domain registration failed', { domain: existing.domain, error: String(err) });
       await prisma.customDomain.update({ where: { id: existing.id }, data: { sslStatus: 'error' } }).catch(() => {});

@@ -6,7 +6,7 @@ import { BadRequestError, ConflictError, NotFoundError } from '../lib/errors';
 import { decryptFromColumn } from '../lib/crypto';
 import { getSingleOperatorGitAccessToken } from '../lib/git-credentials';
 import { deleteS3Prefix } from '../lib/s3-client';
-import { assertProjectOwnership } from '../projects/project.service'; // concrete file, not the barrel — see §0.5
+import { assertProjectOwnership } from '../projects/project.service'; // concrete file, not the barrel
 import { deploymentEngine } from './deployment-engine';
 import { buildQueue } from '../lib/queue';
 import { logger } from '../lib/logger';
@@ -28,17 +28,17 @@ export const ACTIVE_STATUSES: DeploymentStatus[] = ['QUEUED', 'LAUNCHING', 'BUIL
 export const TERMINAL_STATUSES: DeploymentStatus[] = ['RUNNING', 'STOPPED', 'FAILED', 'CANCELLED'];
 
 /**
- *  NEW. Distinct from TERMINAL_STATUSES above on purpose — that one answers
- * "will any more realtime events ever arrive" (RUNNING counts as terminal
- * there; the build is over). This one answers "can the Stop button still do
- * anything" — and RUNNING very much can: it's the live site.
+ * Distinct from TERMINAL_STATUSES on purpose — that one answers "will any
+ * more realtime events ever arrive" (RUNNING counts as terminal there);
+ * this one answers "can the Stop button still do anything" — and RUNNING
+ * very much can: it's the live site.
  */
 export const NON_STOPPABLE_STATUSES: DeploymentStatus[] = ['STOPPED', 'FAILED', 'CANCELLED'];
 
-/**  NEW. Build states where the build container itself is still alive and killable via stopBuildTask. */
+/** Build states where the build container is still alive and killable via stopBuildTask. */
 const IN_FLIGHT_BUILD_STATUSES: DeploymentStatus[] = ['BUILDING', 'UPLOADING', 'STARTING'];
 
-/**  NEW. A rollback target must have actually finished — rolling back TO a FAILED or still-QUEUED row would just reproduce whatever didn't work. */
+/** A rollback target must have actually finished — rolling back TO a FAILED or still-QUEUED row would reproduce whatever didn't work. */
 const ROLLBACK_TARGET_STATUSES: DeploymentStatus[] = ['RUNNING', 'STOPPED'];
 
 function toPublicDeployment(deployment: Deployment): PublicDeployment {
@@ -74,7 +74,7 @@ function toPublicDeployment(deployment: Deployment): PublicDeployment {
 
 function toPublicLogLine(log: DeploymentLog): PublicLogLine {
   return {
-    id: log.id.toString(), // bigint -> string, see the PublicLogLine comment in deployment.types.ts
+    id: log.id.toString(), // bigint -> string
     level: log.level,
     message: log.message,
     sequence: log.sequence,
@@ -84,12 +84,9 @@ function toPublicLogLine(log: DeploymentLog): PublicLogLine {
 }
 
 /**
- * Deployment.slug is still `@unique` and generated independently here — but
- * it no longer drives the S3 prefix or the live subdomain. That's
- * project.slug now (see createDeployment below, and project.service.ts's
- * name-derived slug generation). This survives purely as a per-deployment
- * internal label, useful in logs/history ("deployment fuzzy-cat-42
- * failed"), deliberately decoupled from anything user-facing.
+ * Per-deployment internal label only — project.slug drives the output
+ * prefix and the live subdomain. Still unique, purely so logs/history stay
+ * readable ("deployment fuzzy-cat-42 failed").
  */
 async function generateUniqueDeploymentSlug(): Promise<string> {
   for (let attempt = 0; attempt < SLUG_MAX_ATTEMPTS; attempt++) {
@@ -113,18 +110,13 @@ export async function assertDeploymentOwnership(deploymentId: string, userId: st
 }
 
 /**
- * Fetches every EnvVariable scoped to `environment` for a project and
- * decrypts each one — the one place outside env-variables.service.ts that
- * ever decrypts a real secret value, and it does so for exactly the reason
- * env-variables.service.ts's own revealEnvVariable() does: the build
- * actually needs the plaintext, not the masked placeholder. Unlike reveal(),
- * this is never user-triggered and never returns the value to any client —
- * it goes straight into the build container's own environment
- * (deployment-engine.ts) and nowhere else.
- *
- * RESERVED_ENV_KEY_PREFIXES (env-variables.types.ts) already rejects a
- * colliding key at CREATE time, so by the time a row reaches this query
- * it's guaranteed safe to merge into the same environment array as the
+ * Fetches every EnvVariable scoped to `environment` and decrypts each one —
+ * the one place outside env-variables.service.ts that ever decrypts a real
+ * secret value, because the build needs the plaintext. Never user-triggered,
+ * never returns a value to any client: it goes straight into the build
+ * container's environment (deployment-engine.ts) and nowhere else.
+ * RESERVED_ENV_KEY_PREFIXES (env-variables.types.ts) rejects colliding keys
+ * at create time, so these are safe to merge into the same env array as the
  * platform's own MinIO, GIT, and build-config vars.
  */
 async function resolveProjectEnvVarsForEnvironment(
@@ -142,16 +134,16 @@ async function resolveProjectEnvVarsForEnvironment(
 }
 
 /**
- *  NEW (refactor). The shared body of "create a Deployment row and launch
- * it" — both createDeployment (public API: branch only) and
- * rollbackDeployment (internal: branch + a pinned commitHash) call this, so
- * the transaction/audit/build-launch logic exists exactly once.
+ * Shared body of "create a Deployment row and launch it" — both
+ * createDeployment (public API: branch only) and rollbackDeployment
+ * (internal: branch + a pinned commitHash) call this, so the
+ * transaction/audit/build-launch logic exists exactly once.
  */
 interface CreateDeploymentOptions {
   branch?: string;
   /** Only ever set by rollbackDeployment. */
   commitHash?: string;
-  triggeredBy: string; // 'manual' | 'api' | 'rollback' | (future) 'webhook'
+  triggeredBy: string; // 'manual' | 'api' | 'rollback' | 'webhook'
 }
 
 async function createDeploymentInternal(
@@ -162,15 +154,11 @@ async function createDeploymentInternal(
 ): Promise<PublicDeployment> {
   const project = await assertProjectOwnership(projectId, userId);
 
-  // SECURITY — deliberately not writing an actual access token into the job
-  // below: BullMQ job data is written verbatim into Redis and kept around
-  // for up to 500 completed / 1,000 failed jobs (see lib/queue.ts) —
-  // nothing bearer-credential-shaped belongs in it. This just fails fast,
-  // with a clear error, if a private-repo deploy is requested with no PAT
-  // configured at all — build.worker.ts decrypts the PAT itself
-  // (lib/git-credentials.ts), immediately before the docker run call that
-  // needs it, and it's never written back into the job. See
-  // docs/architecture/local-engine-auth-and-networking.md Decision 2.
+  // SECURITY — no credential ever travels in the job payload: BullMQ job
+  // data is persisted verbatim into Redis (see lib/queue.ts). This just
+  // fails fast, with a clear error, if a private-repo deploy is requested
+  // with no PAT configured — build.worker.ts decrypts the PAT itself right
+  // before the docker run call that needs it.
   if (project.isPrivate) {
     const gitAccessToken = await getSingleOperatorGitAccessToken();
     if (!gitAccessToken) {
@@ -185,9 +173,8 @@ async function createDeploymentInternal(
   const slug = await generateUniqueDeploymentSlug();
   const environment: 'PRODUCTION' | 'PREVIEW' = branch === project.defaultBranch ? 'PRODUCTION' : 'PREVIEW';
 
-  // Resolved once per deploy, not per build-engine invocation. Reading
-  // env vars here (rather than inside deployment-engine.ts) keeps
-  // DockerDeploymentEngine free of any direct Prisma/crypto dependency — it
+  // Resolved once per deploy, here rather than inside deployment-engine.ts,
+  // so DockerDeploymentEngine keeps no direct Prisma/crypto dependency — it
   // stays a pure "take a BuildJob, talk to Docker" abstraction.
   const userEnvVars = await resolveProjectEnvVarsForEnvironment(projectId, environment);
   const deployment = await prisma.$transaction(async (tx) => {
@@ -202,12 +189,9 @@ async function createDeploymentInternal(
         status: 'QUEUED',
         outputPrefix: `__outputs/${project.slug}/`,
         commitHash: opts.commitHash,
-        // NEW — copied from the project's own detection result (set once,
-        // at project-creation time, by the wizard — see project.service.ts's
-        // createProject) rather than re-detected on every deploy. A redeploy
-        // of an existing project doesn't re-fetch package.json from GitHub
-        // just to label itself; it inherits what the project was already
-        // determined to be.
+        // Copied off the project's own detection result (set once, at
+        // project-creation time) rather than re-detected on every deploy —
+        // a redeploy doesn't re-fetch package.json just to label itself.
         type: project.detectedDeploymentType,
         framework: project.detectedFramework,
       },
@@ -228,46 +212,38 @@ async function createDeploymentInternal(
 
   await audit(userId, 'deployment.create', meta, { resourceType: 'deployment', resourceId: deployment.id });
 
-  // NEW — starts log-relay.ts's Redis Stream consumer (if it isn't
-  // already running) the instant this deployment is queued, in THIS same
-  // request, rather than waiting up to LOG_RELAY_RECONCILE_INTERVAL_MS for
-  // the periodic reconciliation below to notice. See consumer-lifecycle.ts's
-  // own comment for the full design — this is the primary trigger, that
-  // reconciliation is the safety net.
+  // Starts log-relay.ts's Redis Stream consumer immediately (primary
+  // trigger); the periodic reconcileLogRelayActivity() sweep below is the
+  // safety net — see consumer-lifecycle.ts.
   ensureConsumerRunning();
 
   try {
-    // Actually launching the build container now happens in src/workers/build.worker.ts,
-    // not here — this just hands the job off to BullMQ/Redis, which is fast
-    // and doesn't depend on MinIO being responsive. jobId: deployment.id means
-    // a duplicate enqueue for the same deployment (e.g. a caller retrying a
-    // timed-out request) is a no-op rather than a second build container.
+    // Enqueue only — the actual launch happens in src/workers/build.worker.ts.
+    // jobId: deployment.id makes a duplicate enqueue for the same deployment
+    // (e.g. a caller retrying a timed-out request) a no-op rather than a
+    // second build container.
     await buildQueue.add(
       'launch-build',
       {
         deploymentId: deployment.id,
         projectSlug: project.slug,
         projectId,
-        // The worker decrypts the operator's PAT itself (see
-        // build.worker.ts) using isPrivate alone; no secret travels through
-        // the job payload. See the SECURITY comment above.
+        // Worker decrypts the PAT itself using isPrivate alone — no secret
+        // travels through the job payload (see SECURITY above).
         isPrivate: project.isPrivate,
         repoUrl: project.repoUrl,
         branch,
         commitHash: opts.commitHash,
-        // NEW — the project's resolved build config, read straight off the
-        // row assertProjectOwnership already fetched above. null on any
-        // field is a legitimate, common case (a project whose config was
-        // never set, or never edited from Settings) — deployment-engine.ts
-        // forwards null through as an empty string, and build-engine's
-        // script.js falls back to its own hardcoded default for that field.
+        // Build config read straight off the already-fetched project row.
+        // null on any field is legitimate — deployment-engine.ts forwards it
+        // through as '' and build-engine falls back to its own default.
         rootDirectory: project.rootDirectory,
         installCommand: project.installCommand,
         buildCommand: project.buildCommand,
         outputDirectory: project.outputDirectory,
         userEnvVars,
-        // NEW — see BuildJob's comment in deployment-engine.ts: this is what
-        // actually decides which branch of build-engine's script.js runs.
+        // Decides which branch of build-engine's script.js runs — see
+        // BuildJob.deploymentType in deployment-engine.ts.
         deploymentType: project.detectedDeploymentType,
         framework: project.detectedFramework,
       },
@@ -289,24 +265,13 @@ async function createDeploymentInternal(
   }
 }
 
-// FIX — "queued but never consumed" recovery. createDeploymentInternal
-// above writes the Deployment row as QUEUED and THEN calls buildQueue.add;
-// the only thing that flips status away from QUEUED again is
-// build.worker.ts's processor actually picking the job up (see its atomic
-// UPDATE ... WHERE status = 'QUEUED' claim). If the enqueue call itself
-// never reaches BullMQ — a Redis blip between the DB write and the
-// buildQueue.add call, a process restart mid-request, anything that isn't
-// a clean thrown-and-caught error — the row is left stuck at QUEUED
-// forever with no job in Redis to ever pick it up, and no error anywhere
-// to explain why. This has no way to distinguish itself from "queued and
-// legitimately waiting behind CONCURRENCY other jobs," which is exactly
-// why it's a periodic reconciliation rather than a tighter timeout: a job
-// that DOES have a BullMQ entry is left alone no matter how old it is.
-//
-// STALE_QUEUE_GRACE_MS gives a normal enqueue (DB write -> buildQueue.add,
-// same request) room to finish before this is allowed to touch a row —
-// this only ever acts on rows old enough that a normal enqueue would long
-// since have completed.
+// Recovery for "queued but never consumed": the row is written QUEUED before
+// buildQueue.add runs, so an enqueue that never reaches Redis (blip between
+// DB write and add, restart mid-request) strands it with no job to pick it
+// up — indistinguishable from legitimately waiting behind other jobs, hence
+// an age-based sweep rather than a timeout: any row that DOES have a BullMQ
+// entry is left alone no matter how old. STALE_QUEUE_GRACE_MS gives a normal
+// in-flight enqueue room to complete first.
 const STALE_QUEUE_GRACE_MS = 2 * 60 * 1000; // 2 minutes
 
 export async function reconcileOrphanedQueuedDeployments(): Promise<void> {
@@ -366,31 +331,22 @@ export async function reconcileOrphanedQueuedDeployments(): Promise<void> {
   }
 }
 
-// NEW — every status a deployment can be in WHILE log-relay.ts's Redis
-// Stream consumer should be actively polling for events about it. Terminal
-// statuses (RUNNING, STOPPED, FAILED, CANCELLED, ERROR) are the complement:
-// nothing further will ever arrive on the stream for a deployment once it
-// reaches one of those, so a deployment sitting in one of THOSE contributes
-// nothing to whether polling should be running. SLEEPING/WAKING included
-// defensively even though nothing in this codebase sets them today (see
-// their own dead-code note on the DeploymentStatus enum in schema.prisma)
-// — costs nothing to include, and avoids silently breaking this the day
-// scale-to-zero actually gets built.
+// Every status a deployment can be in WHILE log-relay.ts's stream consumer
+// should be actively polling. Terminal statuses are the complement: nothing
+// further will ever arrive on the stream past them. SLEEPING/WAKING included
+// defensively — nothing sets them today, but including them costs nothing
+// and avoids silently breaking the day scale-to-zero lands.
 const LOG_RELAY_ACTIVE_STATUSES: DeploymentStatus[] = [
   'QUEUED', 'LAUNCHING', 'BUILDING', 'UPLOADING', 'STARTING', 'SLEEPING', 'WAKING',
 ];
 
 /**
- * The safety net for consumer-lifecycle.ts's start/stop gating — see that
- * file's own comment for the full design and why this specifically reads
- * Postgres (never Redis) to decide. Two jobs, both cheap and idempotent:
- * (1) catch a process restart that landed while some OTHER deployment
- * (created by an earlier boot of this process, or — if api-server is ever
- * scaled to multiple replicas — by a different one) is still mid-flight,
- * since ensureConsumerRunning()'s instant-start only fires in the request
- * that CREATES a deployment, not on every subsequent restart; (2)
- * eventually stop polling once genuinely nothing is active anywhere,
- * bounded by however often src/index.ts calls this.
+ * Safety net for consumer-lifecycle.ts's start/stop gating — deliberately
+ * reads Postgres, never Redis, to decide. Two cheap, idempotent jobs: (1)
+ * catch a restart while some OTHER deployment is still mid-flight (the
+ * instant-start in ensureConsumerRunning() only fires in the request that
+ * CREATES a deployment); (2) eventually stop polling once nothing is active
+ * anywhere.
  */
 export async function reconcileLogRelayActivity(): Promise<void> {
   const activeCount = await prisma.deployment.count({ where: { status: { in: LOG_RELAY_ACTIVE_STATUSES } } });
@@ -411,17 +367,13 @@ export async function createDeployment(
 }
 
 /**
- * Called exclusively from webhooks/github-webhook.service.ts once a push to
- * a project's production branch has passed every skip check
- * (autoDeployEnabled, branch match, no build already in flight — see
- * ACTIVE_STATUSES above). `ownerId` is always the PROJECT OWNER's id here,
- * not a request-authenticated caller — there's no logged-in user on a
- * webhook delivery, so the caller resolves it from the project row itself.
- *
- * commitHash is always set, always payload.after from the push event —
- * passing it pins the build to the EXACT pushed commit, never a re-fetched
- * branch HEAD that could have moved again by the time the build starts
- * (same mechanism rollbackDeployment already uses to pin a rebuild).
+ * Called exclusively from webhooks/github-webhook.service.ts once a push has
+ * passed every skip check (autoDeployEnabled, branch match, no build already
+ * in flight — see ACTIVE_STATUSES above). `ownerId` is always the PROJECT
+ * OWNER's id, resolved from the project row — there's no logged-in user on a
+ * webhook delivery. commitHash (always payload.after) pins the build to the
+ * EXACT pushed commit, never a re-fetched branch HEAD that could have moved
+ * by build time.
  */
 export async function createWebhookDeployment(
   projectId: string,
@@ -452,15 +404,11 @@ export async function hasActiveDeployment(projectId: string): Promise<boolean> {
 }
 
 /**
- *  NEW. "Roll back" = rebuild the exact commit the target deployment ran,
- * as a brand-new Deployment row — not a copy of the old row's id/slug/engine
- * handles, and not a re-point of traffic at old build output. Nothing keeps
- * a per-deployment artifact cache around to re-point at (every deploy
- * overwrites the same project-scoped output prefix — see outputPrefix's
- * comment in schema.prisma), so this is the same thing Vercel's own
- * rollback does for any provider that doesn't keep a full build-artifact
- * cache per deployment indefinitely: rebuild, from the known-good commit,
- * right now.
+ * Roll back = rebuild the exact commit the target ran, as a brand-new
+ * Deployment row — not a re-point of traffic at old build output. There's
+ * no per-deployment artifact cache to re-point at (every deploy overwrites
+ * the same project-scoped output prefix — see outputPrefix's comment in
+ * schema.prisma), so rebuilding from the known-good commit is the mechanism.
  */
 export async function rollbackDeployment(
   deploymentId: string,
@@ -500,30 +448,23 @@ export async function rollbackDeployment(
 }
 
 /**
- *  NEW. See Part 1 §3b for the DB trigger this respects: STOPPED is only a
- * legal target from BUILDING/UPLOADING/STARTING/RUNNING (after the trigger
- * extension) — QUEUED routes to the pre-existing CANCELLED instead, and the
- * three terminal statuses are rejected before any transition is attempted.
- *
- * QUEUED and LAUNCHING are handled specially (see below) rather than
- * falling into the generic transitionDeploymentStatus(..., 'STOPPED') call
- * at the bottom — a build that's still QUEUED or LAUNCHING may not have an
- * build container to stop yet (or may get one any millisecond), so there's nothing
- * safe to call deploymentEngine.stopBuildTask() on yet. See
- * build.worker.ts's cancelRequested handling for the other half of this —
- * it's the one that actually owns finishing a cancel that lands during
- * LAUNCHING.
+ * STOPPED is only a legal target from BUILDING/UPLOADING/STARTING/RUNNING —
+ * QUEUED routes to CANCELLED instead, and terminal statuses are rejected
+ * before any transition is attempted. QUEUED and LAUNCHING are handled
+ * specially (below) rather than falling into the generic STOPPED transition:
+ * there may be no build container to stop yet (or one may land any
+ * millisecond). build.worker.ts's cancelRequested handling owns finishing a
+ * cancel that lands during LAUNCHING.
  */
 export async function stopDeployment(
   deploymentId: string,
   userId: string,
   meta: AuditMeta
 ): Promise<PublicDeployment> {
-  // Annotated as the plain Deployment type (not
-  // Awaited<ReturnType<typeof assertDeploymentOwnership>>, which includes
-  // stateTransitions) because this gets reassigned below to a plain
-  // findUniqueOrThrow() result with no include — both shapes are
-  // structurally compatible with plain Deployment, just not with each other.
+  // Annotated as plain Deployment (not Awaited<ReturnType<typeof
+  // assertDeploymentOwnership>>, which includes stateTransitions): this gets
+  // reassigned below to a bare findUniqueOrThrow() result with no include —
+  // both shapes fit plain Deployment, just not each other.
   let deployment: Deployment = await assertDeploymentOwnership(deploymentId, userId);
 
   if (NON_STOPPABLE_STATUSES.includes(deployment.status)) {
@@ -534,16 +475,12 @@ export async function stopDeployment(
   }
 
   if (deployment.status === 'QUEUED') {
-    // Atomic claim, racing directly against build.worker.ts's own
-    // QUEUED -> LAUNCHING claim on this exact row (same WHERE clause,
-    // opposite target status). Postgres serializes concurrent UPDATEs to
-    // one row: whichever of the two commits first "wins," and the loser's
-    // WHERE re-evaluates against what the winner already committed and
-    // matches zero rows. That's what makes this safe without an explicit
-    // lock — the row itself is the lock — and it closes the gap the
-    // previous version had: read status === 'QUEUED', THEN remove the
-    // BullMQ job, THEN write CANCELLED left a window where the worker
-    // could already have started launching in between those steps.
+    // Atomic claim, racing build.worker.ts's own QUEUED -> LAUNCHING claim
+    // on this exact row (same WHERE clause, opposite target status). Postgres
+    // serializes concurrent UPDATEs to one row: exactly one side wins and the
+    // loser matches zero rows — safe without an explicit lock, where a
+    // read-status-then-cancel sequence would leave a window for the worker to
+    // start launching in between.
     const claimed = await prisma.deployment.updateMany({
       where: { id: deploymentId, status: 'QUEUED' },
       data: { status: 'CANCELLED', stoppedAt: new Date() },
@@ -559,10 +496,9 @@ export async function stopDeployment(
           triggeredBy: 'user',
         },
       });
-      // Cleanup only, at this point — the claim above is what actually
-      // guarantees the worker will never launch this job (its own claim
-      // against the same row can no longer succeed); removing it from
-      // BullMQ just keeps the queue tidy.
+      // Cleanup only — the claim above already guarantees the worker can
+      // never launch this job; removing it from BullMQ just keeps the queue
+      // tidy.
       await buildQueue.remove(deploymentId).catch((err) => {
         logger.error('Failed to remove queued build job', { deploymentId, err });
       });
@@ -579,10 +515,9 @@ export async function stopDeployment(
 
   if (deployment.status === 'LAUNCHING') {
     // No build container id necessarily exists yet (and one may land any
-    // millisecond) — the only safe move is to flag intent and let
-    // build.worker.ts finish the job the moment it actually has a
-    // container to stop (or knows the launch failed outright). See its
-    // cancelRequested handling for both outcomes.
+    // millisecond) — flag intent and let build.worker.ts's cancelRequested
+    // handling finish the cancel once there's a container to stop (or the
+    // launch failed outright).
     await prisma.deployment.update({ where: { id: deploymentId }, data: { cancelRequested: true } });
     await audit(userId, 'deployment.cancel', meta, { resourceType: 'deployment', resourceId: deploymentId });
     const current = await prisma.deployment.findUniqueOrThrow({ where: { id: deploymentId } });
@@ -593,19 +528,16 @@ export async function stopDeployment(
     try {
       await deploymentEngine.stopBuildTask(deployment.buildContainerId);
     } catch (err) {
-      // The container may have already exited on its own a moment before
-      // this call landed — proceed to mark the row STOPPED regardless;
-      // don't leave it stuck mid-flight in the DB just because Docker's
-      // view and ours raced.
+      // The container may have already exited on its own — proceed to STOPPED
+      // regardless; don't strand the row mid-flight because Docker's view and
+      // ours raced.
       logger.error('docker rm on build container failed', { deploymentId, err });
     }
   } else if (deployment.status === 'RUNNING') {
-    // Whichever type this is, "stopping" a RUNNING deployment only makes
-    // sense if it's the one the project is CURRENTLY serving — both types
-    // share one live slot per project (STATIC's one output prefix,
-    // DYNAMIC's one app container — see appContainerName's comment), so
-    // stopping an old, already-superseded RUNNING row must never touch
-    // whatever the project is serving right now.
+    // "Stopping" a RUNNING deployment only makes sense if it's the one the
+    // project is CURRENTLY serving — both types share one live slot per
+    // project — so an old, already-superseded RUNNING row must never touch
+    // whatever is live right now.
     const project = await prisma.project.findUnique({
       where: { id: deployment.projectId },
       select: { slug: true, activeDeploymentId: true },
@@ -613,17 +545,13 @@ export async function stopDeployment(
 
     if (project?.activeDeploymentId === deploymentId) {
       if (deployment.type === 'DYNAMIC') {
-        // Falls back to re-deriving the name from the project slug for a
-        // row that predates appContainerName being populated (shouldn't
-        // happen post-migration, but costs nothing to be defensive about —
-        // same instinct as the STATIC branch's `?? __outputs/{slug}/` fallback).
+        // Defensive fallback to the derived name if the column is empty.
         const containerName = deployment.appContainerName ?? `dreamer-app-${project.slug}`;
         try {
           await deploymentEngine.stopDynamicApp(containerName);
         } catch (err) {
-          // Same reasoning as the BUILDING/UPLOADING/STARTING branch above:
-          // don't leave the row stuck RUNNING in the DB just because
-          // Docker's view and ours raced or the container was already gone.
+          // As above: don't leave the row stuck RUNNING because Docker's view
+          // and ours raced or the container was already gone.
           logger.error('app container teardown failed', { deploymentId, err });
         }
       } else {
@@ -734,7 +662,7 @@ export interface TransitionOptions {
   url?: string;
   triggeredBy?: string;
   metadata?: Prisma.InputJsonValue;
-  uploadedFileCount?: number; //  NEW
+  uploadedFileCount?: number;
 }
 
 export async function transitionDeploymentStatus(
@@ -770,7 +698,7 @@ export async function transitionDeploymentStatus(
       errorMessage: opts.errorMessage,
       errorCode: opts.errorCode,
       errorStep: opts.errorStep,
-      uploadedFileCount: opts.uploadedFileCount, //  NEW
+      uploadedFileCount: opts.uploadedFileCount,
       ...timestampPatch,
     },
   });
@@ -799,12 +727,10 @@ export async function transitionDeploymentStatus(
 }
 
 /**
- *  NEW. The only function that writes commitHash/commitMessage/commitAuthor
- * — same single-writer discipline as transitionDeploymentStatus above, kept
- * SEPARATE from it (not folded in) because this isn't a status change:
- * build-engine reports commit info once, early, independent of whatever
- * status transitions happen around it. Called from realtime/log-relay.ts
- * when a `commit_info` event arrives.
+ * Sole writer of commitHash/commitMessage/commitAuthor, kept separate from
+ * transitionDeploymentStatus because this isn't a status change — build-
+ * engine reports commit info once, early, independent of surrounding status
+ * transitions. Called from realtime/log-relay.ts on a `commit_info` event.
  */
 export interface CommitInfo {
   commitHash: string;
@@ -824,17 +750,16 @@ export async function recordCommitInfo(deploymentId: string, info: CommitInfo): 
 }
 
 /**
- * The dynamic hand-off point - called from log-relay.ts when
- * build-engine's docker-build.js publishes `image_ready` (see realtime.types.ts).
- * Turns a freshly-built local image into a live, publicly reachable
- * container via deploymentEngine.deployDynamicApp() then transitions the
- * deployment to RUNNING - or FAILED, symmetric with how a launchBuildTask
- * failure is handled in createDeploymentInternal above.
+ * Hand-off point — called from log-relay.ts when build-engine's
+ * docker-build.js publishes `image_ready` (see realtime.types.ts). Turns a
+ * freshly-built local image into a live, publicly reachable container via
+ * deploymentEngine.deployDynamicApp(), then transitions to RUNNING — or
+ * FAILED, symmetric with a launchBuildTask failure.
  *
- * Runs AFTER build-engine's own task has already exited (its `docker
- * build` was its last step) - this is why the `docker run` call happens
- * over here, in api-server, rather than in build-engine itself: the build
- * container's job is done the moment the image exists locally.
+ * Runs AFTER the build container has exited (`docker build` was its last
+ * step), which is why the `docker run` happens here rather than in
+ * build-engine: the build container's job is done the moment the image
+ * exists locally.
  */
 export async function handleImageReady(
   deploymentId: string,
@@ -844,9 +769,8 @@ export async function handleImageReady(
   if (!deployment) return null;
 
   // Persist the built image URI immediately, independent of whether the
-  // container deploy that follows succeeds — if deployDynamicApp throws
-  // below, a retried/rolled-back deploy (or a human debugging in the
-  // dashboard) still sees exactly which image was built, not a blank column.
+  // container deploy below succeeds — retries/human debugging still see
+  // exactly which image was built, not a blank column.
   await prisma.deployment.update({
     where: { id: deploymentId },
     data: { imageUri: event.imageUri, imageSizeBytes: event.imageSizeBytes },
@@ -871,10 +795,9 @@ export async function handleImageReady(
   }
 
   try {
-    // Re-resolved here rather than threaded through from createDeploymentInternal
-    // — this runs minutes later, in a completely separate async hop
-    // (Redis pub/sub -> log-relay), so there's no in-memory value to reuse;
-    // same reasoning as why launchBuildTask resolves them fresh too.
+    // Re-resolved here rather than threaded through from
+    // createDeploymentInternal — this runs minutes later in a separate async
+    // hop (Redis pub/sub -> log-relay), so no in-memory value survives.
     const userEnvVars = await resolveProjectEnvVarsForEnvironment(deployment.projectId, deployment.environment);
 
     const handle = await deploymentEngine.deployDynamicApp({

@@ -18,20 +18,15 @@ const MAX_SLUG_LENGTH = 63; // Project.slug is @db.VarChar(63) — a DNS label l
 const SLUG_SUFFIX_LENGTH = 6; // "-a1b2c3" — short enough to stay readable, long enough that two retries colliding is effectively impossible
 const SLUG_MAX_ATTEMPTS = 5;
 
-// A handful of subdomains/paths that would be confusing or actively
-// dangerous for a user to claim as their own project's identifier — checked
-// the same way a taken slug is, so a user who names their project "API"
-// silently gets "api-a1b2c3" instead of a 500 or, worse, actually claiming it.
+// Subdomains/paths a user must not claim as their project's identifier —
+// checked like a taken slug, so naming a project "API" yields "api-a1b2c3"
+// instead of colliding with platform routing.
 const RESERVED_SLUGS = new Set(['www', 'api', 'app', 'admin', 'dashboard', 'staging', 'static']);
 
 /**
  * Matches https://github.com/owner/repo(.git) and git@github.com:owner/repo.git.
- * Still used for display/clone-URL purposes even though repoFullName is no
- * longer what the webhook handler looks projects up by — that's
- * repositoryId now (see webhooks/github-webhook.service.ts's
- * findProjectsForPush). A project created via the wizard's repo picker gets
- * repoFullName straight from GitHub's response instead of this regex; this
- * is the fallback for the rare case repoUrl was typed by hand.
+ * Fallback for hand-typed repoUrl — the wizard's repo picker sets
+ * repoFullName straight from GitHub's API response instead.
  */
 function parseRepoFullName(repoUrl: string): string | null {
   const match = repoUrl.match(/github\.com[/:]([^/]+)\/([^/.]+)/i);
@@ -58,9 +53,7 @@ function toPublicProject(project: Project): PublicProject {
     detectedFramework: project.detectedFramework,
     detectedDeploymentType: project.detectedDeploymentType,
     autoDeployEnabled: project.autoDeployEnabled,
-    // A push can only ever trigger a deploy once this project actually
-    // points at a specific repo's numeric ID — that's the whole check now
-    // that there's no per-project installation to also be suspended/removed.
+    // A push can only trigger a deploy while the project links a repositoryId.
     autoDeployReady: project.repositoryId !== null,
     repositoryId: project.repositoryId,
     createdAt: project.createdAt,
@@ -68,13 +61,10 @@ function toPublicProject(project: Project): PublicProject {
 }
 
 /**
- * "My Vite App" -> "my-vite-app". Lowercase, non-alphanumeric runs collapsed
- * to a single hyphen, leading/trailing hyphens trimmed, hard-capped at the
- * DNS label limit. Falls back to a fixed string for the edge case where the
- * name has no ASCII alphanumeric characters at all (e.g. a name that's
- * entirely emoji or non-Latin script) — the random-suffix fallback below
- * still makes that project's slug unique, it just won't be "named" by this
- * function alone.
+ * "My Vite App" -> "my-vite-app": lowercase, non-alphanumeric runs collapsed
+ * to a single hyphen, trimmed, capped at the DNS label limit. Falls back to
+ * a fixed string when the name has no ASCII alphanumerics at all (e.g.
+ * entirely emoji) — the random suffix below still keeps the slug unique.
  */
 function slugifyProjectName(name: string): string {
   const slug = name
@@ -89,11 +79,8 @@ function slugifyProjectName(name: string): string {
 }
 
 function randomSlugSuffix(): string {
-  // crypto.randomBytes, not Math.random() — not because this needs to be
-  // cryptographically unguessable (it's a disambiguation suffix, not a
-  // secret), but because Node's CSPRNG is already imported elsewhere in
-  // this codebase and there's no reason to reach for a weaker generator
-  // just because the stakes here happen to be lower.
+  // randomBytes for consistency with the rest of the codebase — the suffix
+  // is a disambiguator, not a secret.
   return randomBytes(Math.ceil(SLUG_SUFFIX_LENGTH / 2))
     .toString('hex')
     .slice(0, SLUG_SUFFIX_LENGTH);
@@ -106,22 +93,17 @@ async function isSlugAvailable(slug: string): Promise<boolean> {
 }
 
 /**
- * The project's slug IS its name, slugified — not a random string unrelated
- * to what the user actually called their project. This is what shows up on
- * the dashboard card under the project name and it should read as "the
- * project's identifier," not "a dice roll." A random suffix only ever
- * appears as a fallback, and only on the exact name that collided — so the
- * common case (a project name nobody else has used yet) gets a clean slug,
- * and collisions degrade gracefully instead of erroring.
+ * The slug IS the user's project name, slugified — a random suffix appears
+ * only as a collision fallback, so the common case gets a clean, readable
+ * slug and collisions degrade gracefully instead of erroring.
  */
 async function generateUniqueProjectSlug(name: string): Promise<string> {
   const base = slugifyProjectName(name);
 
   if (await isSlugAvailable(base)) return base;
 
-  // Collision (or a reserved word) — fall back to `base-xxxxxx`. Truncate
-  // the base first so the suffixed candidate still fits inside
-  // MAX_SLUG_LENGTH even when `base` was already near the limit on its own.
+  // Collision (or reserved word) — fall back to `base-xxxxxx`. Truncate the
+  // base first so the suffixed candidate still fits MAX_SLUG_LENGTH.
   const truncatedBase = base.slice(0, MAX_SLUG_LENGTH - (SLUG_SUFFIX_LENGTH + 1));
 
   for (let attempt = 0; attempt < SLUG_MAX_ATTEMPTS; attempt++) {
@@ -142,11 +124,8 @@ export async function createProject(
 ): Promise<PublicProject> {
   const slug = await generateUniqueProjectSlug(input.name);
 
-  // The wizard always sends a frameworkPresetId (even "static" for "we
-  // couldn't detect anything") — this only stays undefined for a
-  // hypothetical future non-wizard creation path, where UNKNOWN/STATIC is
-  // the same safe default createDeploymentInternal already falls back to
-  // for every project created before this feature existed.
+  // Only undefined for a non-wizard creation path; UNKNOWN/STATIC is the
+  // same safe default the deployment pipeline falls back to.
   const preset = input.frameworkPresetId ? getPresetById(input.frameworkPresetId) : null;
 
   const project = await prisma.project.create({
@@ -159,16 +138,10 @@ export async function createProject(
       repoFullName: parseRepoFullName(input.repoUrl),
       defaultBranch: input.defaultBranch ?? 'main',
       isPrivate: input.isPrivate ?? false,
-      // See project.types.ts's createProjectSchema doc comment. Recording
-      // repositoryId is the entire "connect for auto-deploy" step now — see
-      // docs/architecture/local-engine-auth-and-networking.md Decision 3
-      // for the manually-configured-webhook flow this feeds.
       repositoryId: input.repositoryId ?? null,
-      // NEW — set by the new-project wizard's framework-detection step (see
-      // build-config/). Stored as a SNAPSHOT of whatever the user confirmed
-      // at creation time, not a live pointer back to the detector — if
-      // detection logic improves later, already-created projects keep the
-      // config they were actually built with until someone edits Settings.
+      // Snapshot of what the user confirmed at creation time — if detection
+      // logic improves later, existing projects keep the config they were
+      // actually built with until someone edits Settings.
       rootDirectory: input.rootDirectory,
       buildCommand: input.buildCommand,
       installCommand: input.installCommand,
@@ -184,11 +157,9 @@ export async function createProject(
 }
 
 /**
- * The dashboard home page query. One round trip for every project the user
- * owns, plus just enough of its most recent deployment to render a status
- * badge — no N+1 query per card. `take: 1` per project relies on the
- * `[projectId, createdAt(sort: Desc)]` index already defined on Deployment
- * in schema.prisma for exactly this access pattern.
+ * Dashboard home query: one round trip for every project plus just enough
+ * of its most recent deployment for a status badge — no N+1 per card.
+ * `take: 1` relies on the [projectId, createdAt Desc] index on Deployment.
  */
 export async function listProjectsForUser(userId: string): Promise<ProjectWithLatestDeployment[]> {
   const projects = await prisma.project.findMany({
@@ -245,13 +216,9 @@ export async function getProjectById(projectId: string, userId: string): Promise
 }
 
 /**
- * Exported specifically for deployment.service.ts to call — see §0.5 for why
- * that import goes through this concrete file and never through
- * projects/index.ts. Returns the full row (not PublicProject) because
- * deployment.service.ts needs repoUrl and defaultBranch, which aren't on the
- * public DTO's typical client-facing shape but absolutely are here since
- * this function is for internal, same-process use only — never wire this up
- * to an HTTP route directly.
+ * Exported for deployment.service.ts. Returns the full row (not
+ * PublicProject) because internal callers need repoUrl/defaultBranch —
+ * same-process use only, never wire directly to an HTTP route.
  */
 export async function assertProjectOwnership(projectId: string, userId: string): Promise<Project> {
   return findOwnedProject(projectId, userId);
@@ -291,23 +258,12 @@ export async function updateProject(
 
 /**
  * Soft delete — keeps every Deployment/DeploymentLog/AuditLog row intact
- * (the FK is onDelete: Cascade only for a HARD delete; this never issues
- * one). Only listProjectsForUser filters deletedAt: null, so the history
- * stays queryable directly by ID if you ever need to investigate "what was
- * this project before it was deleted."
- *
- * Also tears down the project's live S3 output — a "deleted" project
- * shouldn't keep serving traffic at its subdomain, and (since project.slug
- * is the actual S3 prefix now) leaving it behind would mean a NEW project
- * that happens to land on the same slug later inherits stale content from
- * this one until its first successful deploy overwrites it. Best-effort and
- * non-blocking: an S3 hiccup logs an error but doesn't stop the delete — the
- * user asked to delete a project, not to block on MinIO being reachable now.
- *
- * Nothing GitHub-side to clean up anymore — unlike the per-repo-webhook
- * version of this function (before the GitHub App migration), there's no
- * webhook that belongs to this Project specifically; the App's single
- * webhook keeps existing for every other project regardless.
+ * (only listProjectsForUser filters deletedAt: null, so history stays
+ * queryable by ID). Also tears down the project's deployed output under its
+ * slug prefix: a deleted project shouldn't keep serving traffic, and a new
+ * project landing on the same slug later must not inherit stale content.
+ * Best-effort and non-blocking — a storage hiccup logs an error but doesn't
+ * stop the delete.
  */
 export async function softDeleteProject(projectId: string, userId: string, meta: AuditMeta): Promise<void> {
   const project = await findOwnedProject(projectId, userId);

@@ -2,15 +2,12 @@ import { DeleteObjectsCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/c
 import { env } from './env';
 
 // One S3 client for the lifetime of the process — same rationale as
-// lib/prisma.ts: construct once, reuse everywhere, rather than paying
-// connection/credential-resolution overhead per call.
+// lib/prisma.ts: construct once, reuse everywhere.
 //
-// This talks to MinIO (docker-compose.yml), never real AWS S3 — MinIO
-// just speaks the same S3 protocol, which is why @aws-sdk/client-s3 is
-// still the right client. forcePathStyle is the one setting that
-// actually matters for MinIO: it doesn't support virtual-hosted-style
-// bucket addressing (`bucket.host/key`), only path-style
-// (`host/bucket/key`).
+// Talks to MinIO (docker-compose.yml), never real AWS S3 — MinIO speaks the
+// S3 protocol, which is why @aws-sdk/client-s3 works. forcePathStyle is the
+// setting that matters for MinIO: it doesn't support virtual-hosted-style
+// bucket addressing (`bucket.host/key`), only path-style (`host/bucket/key`).
 export const s3Client = new S3Client({
   region: env.AWS_REGION,
   credentials: {
@@ -22,12 +19,11 @@ export const s3Client = new S3Client({
 });
 
 /**
- * Deletes every object under a given prefix in MinIO. Used by
- * projects/project.service.ts's softDeleteProject to tear down a
- * project's live static output when it's deleted. Paginates
- * ListObjectsV2 and batches DeleteObjects in groups of up to 1000 keys
- * (the S3 API's own per-request limit — MinIO honors the same cap), so
- * this works whether the project had 3 files or 30,000.
+ * Deletes every object under a given prefix in MinIO. Used by project
+ * deletion to tear down a project's live static output. Paginates
+ * ListObjectsV2 and batches DeleteObjects in groups of up to 1000 keys (the
+ * API's per-request cap), so this works whether the project had 3 files or
+ * 30,000.
  */
 export async function deleteS3Prefix(prefix: string): Promise<void> {
   let continuationToken: string | undefined;

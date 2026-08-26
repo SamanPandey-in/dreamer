@@ -5,18 +5,11 @@ const ENV_KEY_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const ENVIRONMENT_TARGETS = ['PRODUCTION', 'PREVIEW', 'DEVELOPMENT'] as const;
 
 /**
- * Names the build-engine container always receives from the platform itself
- * (deployment-engine.ts's containerOverrides.environment) — see the build
- * config guide's Part 5 risk note. A user-defined env var sharing one of
- * these names would land in the same container `environment` map as the
- * platform's own value for it, and a naive merge's behavior on
- * duplicate names is not a contract worth relying on. Rejecting the
- * collision at creation time is far cheaper to reason about than debugging
- * "why did my build get a stale AWS_REGION" after the fact.
- *
- * Prefixes, not exact names, because GIT_ACCESS_TOKEN today could become
- * GIT_ACCESS_TOKEN_V2 tomorrow — blocking the whole namespace the platform
- * operates in is more durable than maintaining an exact-match list by hand.
+ * SECURITY: prefixes of names the platform itself injects into every build
+ * container. A user variable sharing one would collide in the same
+ * environment map, whose duplicate-name merge behavior isn't a contract to
+ * rely on — reject the collision at creation time. Prefixes (not exact
+ * names) stay durable as the platform's injected set evolves.
  */
 const RESERVED_ENV_KEY_PREFIXES = ['AWS_', 'GIT_', 'REDIS_', 'DEPLOYMENT_', 'PROJECT_', 'ROOT_DIRECTORY', 'INSTALL_COMMAND', 'BUILD_COMMAND', 'OUTPUT_DIRECTORY', 'COMMIT_HASH', 'BRANCH'];
 

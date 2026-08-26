@@ -8,13 +8,10 @@ import { UnauthorizedError } from '../lib/errors';
  * On success, attaches { id, email } to req.user for downstream handlers.
  *
  * The TOKEN_EXPIRED code is distinct from INVALID_TOKEN on purpose: the
- * frontend's fetch/axios interceptor checks for exactly this code to decide
- * whether it's safe to attempt a silent refresh, vs. redirecting straight to
- * /login for a token that's simply garbage.
+ * frontend checks for exactly this code to decide whether it's safe to
+ * attempt a silent refresh, vs. redirecting straight to /login for a token
+ * that's simply garbage.
  */
-
-// TOKEN_EXPIRED -> then we refresh the token and retry the request
-// INVALID_TOKEN -> then we redirect to login
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
 

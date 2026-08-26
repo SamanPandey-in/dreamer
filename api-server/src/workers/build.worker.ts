@@ -11,25 +11,18 @@ const CONCURRENCY = Number(process.env.BUILD_WORKER_CONCURRENCY ?? 5);
 
 /**
  * The only place deploymentEngine.launchBuildTask is called from. Everything
- * up to this point (Deployment row creation, ownership checks, env var
- * resolution) already happened synchronously in deployment.service.ts's
- * createDeploymentInternal — this worker's only job is the slow, Docker-facing
- * part, decoupled so a burst of deploy requests doesn't translate 1:1 into a
- * burst of concurrent RunTaskCommand calls.
+ * up to that point (Deployment row creation, ownership checks, env var
+ * resolution) already happened synchronously in createDeploymentInternal —
+ * this worker's only job is the slow, Docker-facing part, decoupled so a
+ * burst of deploy requests doesn't become a 1:1 burst of container launches.
  *
- * ATOMIC CLAIM (fixes a real race): this used to read the row's status,
- * THEN call Docker, THEN write the container id — with no way to know whether a
- * concurrent Stop had already cancelled it in the meantime, and no way to
- * stop a task that had, by that point, already been launched. Now the very
- * first thing this does is a conditional UPDATE — `WHERE id = ? AND status
- * = 'QUEUED'` — that only succeeds if nothing else has moved the row off
- * QUEUED yet. deployment.service.ts's stopDeployment does the mirror-image
- * conditional UPDATE straight to CANCELLED, on the exact same WHERE clause.
- * Postgres serializes concurrent UPDATEs to one row: whichever of the two
- * commits first wins, and the loser's WHERE re-evaluates against the
- * already-committed value and matches zero rows. That's what makes this
- * genuinely atomic without an explicit lock — the row itself is the lock —
- * and it's what closes the exact gap CodeRabbit flagged in review.
+ * ATOMIC CLAIM: the first thing each job does is a conditional UPDATE —
+ * `WHERE id = ? AND status = 'QUEUED'` — that only succeeds if nothing else
+ * has moved the row off QUEUED yet. deployment.service.ts's stopDeployment
+ * does the mirror-image conditional UPDATE straight to CANCELLED on the
+ * exact same WHERE clause; Postgres serializes concurrent UPDATEs to one
+ * row, so exactly one side wins and a cancelled deployment can never be
+ * launched — the row itself is the lock.
  */
 export function startBuildWorker() {
   const worker = new Worker<BuildJob>(
@@ -42,10 +35,9 @@ export function startBuildWorker() {
         });
 
         if (claim.count === 0) {
-          // Lost the claim — stopDeployment's own conditional UPDATE already
-          // won (or, far less likely, this job somehow got processed twice).
-          // Either way, launching now would be launching something already
-          // cancelled — bail out entirely rather than proceed.
+          // Lost the claim — stopDeployment's conditional UPDATE already won
+          // (or this job got processed twice); launching would mean launching
+          // something already cancelled — bail out.
           logger.warn('Skipping build job: lost the QUEUED claim (already cancelled elsewhere)');
           return;
         }
@@ -57,20 +49,14 @@ export function startBuildWorker() {
           data: { deploymentId: job.data.deploymentId, fromStatus: 'QUEUED', toStatus: 'LAUNCHING', triggeredBy: 'build-worker' },
         });
 
-        // SECURITY — resolved right before the docker run call that needs it,
-        // instead of at enqueue time. job.data (this function's own
-        // argument) is exactly what BullMQ already persisted into Redis as
-        // the job payload — a live credential must never be added to it.
-        // See deployment-engine.ts's launchBuildTask signature and
-        // deployment.service.ts's createDeploymentInternal for the other
-        // ends of this.
+        // SECURITY — decrypted right before the docker run call that needs
+        // it: job.data is exactly what BullMQ persisted into Redis as the job
+        // payload, so a live credential must never be added to it (see
+        // deployment-engine.ts's launchBuildTask signature for the contract).
         //
-        // local-engine — see docs/architecture/local-engine-auth-and-networking.md
-        // Decision 2. No installation-token minting anymore: the operator's
-        // single PAT is decrypted straight from the DB. No expiry to race
-        // against, no "suspended between enqueue and dequeue" case — a PAT
-        // doesn't get revoked out from under a running job the way a GitHub
-        // App installation could.
+        // Operator-wide single PAT, decrypted straight from the DB — no
+        // per-job credential that could expire or be revoked out from under
+        // a running build.
         let gitAccessToken: string | undefined;
         if (job.data.isPrivate) {
           gitAccessToken = await getSingleOperatorGitAccessToken();
@@ -92,18 +78,14 @@ export function startBuildWorker() {
 
         if (withContainerId.cancelRequested) {
           // A Stop landed after this worker won the QUEUED->LAUNCHING claim
-          // but before a container id existed to act on — stopDeployment
-          // could only flag intent (see its cancelRequested branch). This
-          // is that flag being honored, the moment there's actually a
-          // container to stop.
+          // but before a container id existed to act on — this honors the
+          // flagged cancelRequested the moment there's a container to stop.
           //
-          // NOTE: there's a narrow residual window here — if cancelRequested
-          // gets set by a concurrent request in the few-ms gap between this
-          // update() executing and its result being read, this check won't
-          // see it on THIS pass. That's a DB-round-trip-sized window, not the
+          // Accepted residual race: a cancelRequested set in the few-ms gap
+          // between this update() executing and its result being read won't
+          // be seen on THIS pass — a DB-round-trip-sized window, not the
           // seconds-long "docker run in flight" window the atomic claim
-          // above closes — accepted as an acceptable residual rather than
-          // adding a second lock for a gap this narrow.
+          // closes, so no second lock for it.
           logger.info('Cancellation was requested while launching — stopping the container that just started', {
             buildContainerId: handle.buildContainerId,
           });
@@ -112,10 +94,10 @@ export function startBuildWorker() {
           } catch (err) {
             logger.error('Failed to stop late-launched container after cancellation', { err });
           }
-          // log-relay.ts is the sole writer of status changes driven by
-          // events on this channel — publish instead of calling
-          // transitionDeploymentStatus directly, so this gets the same
-          // "persist + push to sockets" handling as every build-engine event.
+          // log-relay.ts is the sole writer of channel-driven status changes —
+          // publish instead of calling transitionDeploymentStatus directly,
+          // so this gets the same "persist + push to sockets" handling as
+          // every build-engine event.
           await publishDeploymentEvent(job.data.deploymentId, {
             type: 'status',
             status: 'STOPPED',
@@ -159,9 +141,9 @@ export function startBuildWorker() {
           return;
         }
 
-        // Nothing ever actually launched in this path (launchBuildTask itself
-        // is what's failing) — CANCELLED is the accurate terminal state if the
-        // user asked to stop it, not STOPPED (which implies something ran).
+        // Nothing ever launched in this path (launchBuildTask itself is
+        // failing) — CANCELLED is the accurate terminal state if the user
+        // asked to stop; STOPPED implies something ran.
         await publishDeploymentEvent(job.data.deploymentId, row.cancelRequested
           ? { type: 'status', status: 'CANCELLED', reason: 'Cancelled by user; the build never successfully launched', triggeredBy: 'user' }
           : {
@@ -173,27 +155,25 @@ export function startBuildWorker() {
               triggeredBy: 'api',
             });
       } catch (finalizeErr) {
-        // If even this fails, the deployment is stuck at LAUNCHING with no
-        // worker ever retrying it again — surface loudly, this needs a human
-        // or an alert, not a silent swallow.
+        // If even this fails, the row is stranded at LAUNCHING with no retry
+        // coming — surface loudly; this needs a human or an alert.
         logger.error('Also failed to record terminal status after exhausting retries', { err: finalizeErr });
       }
     });
   });
 
   worker.on('error', (err) => {
-    // Connection-level errors (e.g. Redis blip, or Redis unreachable at boot)
-    // — BullMQ retries the connection itself, this is just visibility. No
-    // per-job correlation ID available at this point, so it logs without one.
+    // Connection-level errors (e.g. Redis blip) — BullMQ retries the
+    // connection itself; this is visibility only, logged without a per-job
+    // correlation ID (none available here).
     logger.error('Worker-level error', { source: 'build-worker', err });
   });
 
   worker.on('ready', () => {
-    // If this line never shows up in your logs, the worker process either
-    // isn't running at all, or can't reach Redis — see the troubleshooting
-    // note in the top-level README. A queued deployment that never moves
-    // past QUEUED and never shows a container in `docker ps` almost
-    // always means this event never fired.
+    // If this never shows up in your logs, the worker process isn't running
+    // or can't reach Redis — a queued deployment that never moves past QUEUED
+    // and shows no container in `docker ps` almost always means this event
+    // never fired.
     logger.info('Redis connection ready, worker is now consuming jobs', { source: 'build-worker' });
     console.log('Build worker ready, consuming jobs from queue:', BUILD_QUEUE_NAME);
   });

@@ -18,9 +18,8 @@ const RANGE_TO_MS: Record<MetricsRange, number> = {
 
 // Chart bucket width per range — wider ranges get coarser buckets so the
 // series response stays a reasonable size (1h: 12 points, 24h: 48, 7d: 56,
-// 30d: 30) instead of returning every raw 5-minute row for a month. The raw
-// storage granularity (ProjectMetricInterval, 5 min) never changes — only
-// how many raw rows get summed into each returned point.
+// 30d: 30). Raw storage granularity (ProjectMetricInterval, 5 min) never
+// changes; only how many raw rows sum into each returned point.
 const RANGE_TO_BUCKET_MS: Record<MetricsRange, number> = {
   '1h': 5 * 60 * 1000, // native — no downsampling
   '24h': 30 * 60 * 1000,
@@ -49,13 +48,10 @@ function sumTotals(rows: ProjectMetricInterval[]): MetricTotals {
 
   for (const row of rows) {
     totals.requests += row.requestCount;
-    // NOTE — this is a SUM of each interval's independent approximate
-    // distinct-visitor count, not a distinct count across the whole range:
-    // the same visitor active in two different intervals is counted in
-    // both. HyperLogLog cardinalities aren't mergeable after the fact at
-    // this granularity (that would need storing raw HLL sketches per
-    // interval, not just their cardinality). Treat this as an upper bound
-    // on unique visitors, not a verified distinct-visitor count.
+    // SUM of each interval's independent approximate distinct count, NOT a
+    // distinct count across the whole range — HyperLogLog cardinalities
+    // aren't mergeable after the fact at this granularity. An upper bound on
+    // unique visitors, not a verified distinct-visitor count.
     totals.visitors += row.visitorCount;
     totals.status2xx += row.status2xx;
     totals.status3xx += row.status3xx;
@@ -110,15 +106,14 @@ function percentChange(current: number, previous: number): number | null {
 }
 
 /**
- * NEW. Reads ONLY ProjectMetricInterval (never Redis — that's
- * metrics-aggregator.ts's job). Same ownership-check convention as every
- * other project-scoped read in this codebase (assertProjectOwnership 404s
- * if the project doesn't exist or isn't this user's, before any query
- * runs).
+ * Reads ONLY ProjectMetricInterval (Redis ingestion is metrics-aggregator.ts's
+ * job). assertProjectOwnership 404s before any query runs if the project
+ * doesn't exist or isn't this user's — same convention as every other
+ * project-scoped read.
  *
  * Also computes a period-over-period comparison: the current range against
- * the immediately preceding range of equal length (e.g. "last 24h" vs "the
- * 24h before that") — this is what the frontend's %inc/%dec badges read.
+ * the immediately preceding range of equal length — what the frontend's
+ * %inc/%dec badges read.
  */
 export async function getProjectMetrics(
   projectId: string,

@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
-// NEW. Matches project.types.ts's projectIdParamSchema convention (a
-// schema shaped { params: {...} } for validate.middleware.ts), plus a
-// `range` query param bounding how far back to aggregate/chart.
+// Shaped { params }/{ query } for validate.middleware.ts, same convention as
+// project.types.ts; `range` bounds how far back to aggregate/chart.
 export const projectMetricsQuerySchema = z.object({
   params: z.object({ projectId: z.uuid() }),
   query: z.object({
@@ -26,23 +25,20 @@ export interface MetricsSeriesPoint {
 
 export interface MetricTotals {
   requests: number;
-  visitors: number; // sum of per-interval approximate unique visitors — see metrics.service.ts's doc comment for why this is an upper-bound estimate, not an exact distinct count across the whole range
+  visitors: number; // sum of per-interval approx unique visitors — an upper bound, not exact across the range (see metrics.service.ts)
   status2xx: number;
   status3xx: number;
   status4xx: number;
   status5xx: number;
   errorRate: number; // (status4xx + status5xx) / requests, 0 when requests is 0
-  avgResponseTimeMs: number; // true mean: total response-time-ms / total requests, both exact sums — no percentile estimation attempted, since a real p95/p99 isn't recoverable from aggregated sum+count+max (would need storing raw latency samples or a histogram, which this table doesn't)
-  maxResponseTimeMs: number; // exact peak observed in the range (per-interval max, then max-of-maxes)
+  avgResponseTimeMs: number; // true mean (total response-time-ms / total requests) — no p95/p99 recoverable from aggregated sum+count+max
+  maxResponseTimeMs: number; // exact peak in range (max-of-per-interval-maxes)
   bytesTransferred: number;
 }
 
-// Percent change of every comparable total vs. the immediately preceding
-// period of the SAME length (e.g. range=24h compares to the 24h before
-// that). null when the previous period had a zero baseline (e.g. 0
-// requests) — a percent change against zero is undefined, not 0% or
-// infinite, so callers (the frontend badge) should render "—" for null
-// rather than a number.
+// Percent change vs the immediately preceding period of the SAME length.
+// null on a zero previous baseline — percent change against zero is
+// undefined, so callers should render "—" rather than a number.
 export interface MetricComparison {
   requests: number | null;
   visitors: number | null;

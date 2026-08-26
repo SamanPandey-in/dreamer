@@ -6,9 +6,8 @@ export const detectBuildConfigSchema = z.object({
     repoFullName: z.string().min(1).max(512),
     branch: z.string().min(1).max(255).trim(),
     // Empty string means "repo root" — distinct from undefined so the
-    // wizard can always send a value once the root-directory step has
-    // been completed, rather than needing an extra "is this the root?"
-    // branch on the client.
+    // wizard can always send a value once the root-directory step has been
+    // completed, rather than needing an extra "is this the root?" client branch.
     rootDirectory: z.string().max(255).trim().default(''),
   }),
 });

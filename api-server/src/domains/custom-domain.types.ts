@@ -1,9 +1,8 @@
 import { z } from 'zod';
 
-// One DNS label per dot-separated part, each 1-63 chars, letters/digits/hyphens,
-// no leading/trailing hyphen; the whole name under 253 chars — matches the
-// column's own @db.VarChar(253). Deliberately excludes a bare "localhost" or
-// single-label input (a TLD-less hostname is never a real registrable domain).
+// One DNS label per dot-separated part: 1-63 chars, letters/digits/hyphens,
+// no leading/trailing hyphen; whole name under 253 chars (matches
+// @db.VarChar(253)). Requires ≥2 labels, so bare "localhost" is rejected.
 const DOMAIN_REGEX = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/i;
 
 export const domainNameSchema = z

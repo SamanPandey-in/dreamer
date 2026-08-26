@@ -4,8 +4,8 @@ import type { DeploymentType, Framework } from '../generated/prisma/client';
  * Internal identifier for a detectable framework — one row per entry in the
  * PRESETS table below. Deliberately distinct from the Prisma `Framework`
  * enum: this id space is allowed to grow (e.g. splitting "vite" into
- * "vite-react" / "vite-vue" later) without a migration, because
- * `frameworkPresetIdToEnum` is the one place that maps it onto the DB enum.
+ * "vite-react" / "vite-vue" later) without a migration, because mapping onto
+ * the DB enum happens in exactly one place.
  */
 export type FrameworkPresetId = 
   | 'nextjs-ssr'
@@ -24,7 +24,7 @@ export interface FrameworkPreset {
     id: FrameworkPresetId;
     /** Human-readable name shown in the wizard's "Application Preset" dropdown. */
     label: string;
-    /** Maps onto Prisma's DeploymentType enum — STATIC ships to S3, DYNAMIC needs a long-running container build-engine does not implement yet. */
+    /** Maps onto Prisma's DeploymentType enum — STATIC ships static files to the object store, DYNAMIC needs a long-running container. */
     deploymentType: DeploymentType;
     frameworkEnum: Framework;
     defaultInstallCommand: string;
@@ -32,21 +32,19 @@ export interface FrameworkPreset {
     defaultOutputDirectory: string;
 
     /**
-   * True for frameworks build-engine's current S3-static pipeline cannot
-   * serve correctly today (e.g. a default Next.js SSR build needs a
-   * long-running Node process, not a folder of static files). The wizard
-   * surfaces this as a blocking notice rather than silently producing a
-   * deployment that uploads to S3 and 404s on every route.
-   */
+     * True for frameworks whose output needs a runtime this platform cannot
+     * serve correctly today (a long-running Node process, not a folder of
+     * static files). The wizard surfaces this as a blocking notice rather
+     * than silently producing a deployment that 404s on every route.
+     */
     requiresUnsupportedRuntime: boolean;
 }
 
 /**
- * Ordered by nothing in particular — order of detection priority lives in
- * framework-detector.ts, not here. This table only answers "given a preset
- * id, what are its defaults," which is also exactly what the wizard calls
- * when the user manually changes the Application Preset dropdown to
- * something other than what was auto-detected.
+ * Order carries no meaning — detection priority lives in
+ * framework-detector.ts. This table only answers "given a preset id, what
+ * are its defaults," which is also what the wizard consults when the user
+ * manually changes the Application Preset dropdown.
  */
 export const FRAMEWORK_PRESETS: Record<FrameworkPresetId, FrameworkPreset> = {
   'nextjs-static': {
@@ -67,15 +65,6 @@ export const FRAMEWORK_PRESETS: Record<FrameworkPresetId, FrameworkPreset> = {
     defaultInstallCommand: 'npm install',
     defaultBuildCommand: 'npm run build',
     defaultOutputDirectory: '.next',
-    // CHANGED — was true. Next.js SSR now actually deploys, on the
-    // container-based DYNAMIC runtime — see deployDynamicApp() in
-    // deployment-engine.ts and docs/How-I-built-it.md. The requirement
-    // this preset can't express here (next.config.js needs
-    // `output: 'standalone'`) is checked instead at build time by
-    // build-engine's dockerfile-resolver.js, which warns in the build
-    // logs rather than blocking the deploy outright — a text-search check
-    // against the repo's config file is reliable enough to warn on, not
-    // reliable enough to hard-block a deploy on a false positive.
     requiresUnsupportedRuntime: false,
   },
   vite: {
@@ -105,9 +94,8 @@ export const FRAMEWORK_PRESETS: Record<FrameworkPresetId, FrameworkPreset> = {
     frameworkEnum: 'STATIC_HTML',
     defaultInstallCommand: 'npm install',
     defaultBuildCommand: 'npm run build',
-    // Real Angular CLI output nests under dist/<project-name>, which we
-    // can't know without parsing angular.json — outputDirectory is
-    // deliberately left for the user to confirm/correct in the wizard
+    // Real Angular CLI output nests under dist/<project-name>, unknowable
+    // without parsing angular.json — left for the user to confirm/correct
     // rather than guessing a project-name segment we don't have.
     defaultOutputDirectory: 'dist',
     requiresUnsupportedRuntime: false,

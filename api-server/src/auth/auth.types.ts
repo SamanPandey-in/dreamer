@@ -1,10 +1,8 @@
 import { z } from 'zod';
 
-// bcrypt truncates at 72 *bytes*, not 72 characters — a string can pass a
-// 72-char check and still silently lose entropy (or collide with other
-// passwords) if it contains multi-byte UTF-8 (emoji, non-Latin scripts).
-// Shared so changePasswordSchema and setupSchema below apply the same rule
-// with the same message.
+// bcrypt truncates at 72 *bytes*, not 72 characters — multi-byte UTF-8 can
+// pass a 72-char check yet silently lose entropy. Shared so setup and
+// change-password apply the same rule with the same message.
 const passwordByteLimit = z
   .string()
   .min(8, 'Password must be at least 8 characters')
@@ -13,10 +11,8 @@ const passwordByteLimit = z
     message: 'Password must be at most 72 bytes (some characters take up more than one byte)',
   });
 
-// local-engine: replaces the old open registerSchema. Creates the ONE admin
-// account — auth.service.ts#setupAdmin refuses to run this a second time
-// once any user row exists. See
-// docs/architecture/local-engine-auth-and-networking.md Decision 1.
+// Creates the ONE admin account — auth.service.ts#setupAdmin refuses to
+// run a second time once any user row exists.
 export const setupSchema = z.object({
   body: z.object({
     email: z.email().max(320).toLowerCase(),
@@ -70,8 +66,7 @@ export const changePasswordSchema = z.object({
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>['body'];
 
-// Git PAT — set/clear from Settings. See
-// docs/architecture/local-engine-auth-and-networking.md Decision 2.
+// Git PAT — set/clear from Settings.
 export const setGitTokenSchema = z.object({
   body: z.object({
     personalAccessToken: z.string().min(1).max(1024),

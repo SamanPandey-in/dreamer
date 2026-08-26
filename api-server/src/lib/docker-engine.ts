@@ -6,11 +6,10 @@ import { env } from './env';
 const execFileAsync = promisify(execFile);
 
 /**
- * Thin wrapper around the `docker` CLI, reached via the host socket
- * mounted into api-server/build-worker (docker-compose.yml). Same
- * approach as dploy's internal/pipeline/docker_exec.go: shell out with a
- * real argv array (never a shell string — no injection surface from a
- * project slug, branch name, or env var value), no Docker SDK dependency.
+ * Thin wrapper around the `docker` CLI, reached via the host socket mounted
+ * into api-server/build-worker (docker-compose.yml). Shells out with a real
+ * argv array — never a shell string, so a project slug, branch name, or env
+ * var value is never an injection surface — with no Docker SDK dependency.
  */
 
 export interface DockerRunOptions {
@@ -22,7 +21,7 @@ export interface DockerRunOptions {
   volumes?: string[];
   /** Defaults to env.DOCKER_NETWORK. */
   network?: string;
-  /** Resource limits — same defaults dploy's RunReplica uses for app containers. */
+  /** Resource limits passed straight to `docker run` (e.g. "512m", "0.5"). */
   memory?: string;
   cpus?: string;
 }
@@ -55,10 +54,9 @@ export async function dockerRun(opts: DockerRunOptions): Promise<string> {
 }
 
 /**
- * `docker rm -f <nameOrId>`. Idempotent — a container that's already
- * gone (redeploy race, double-click Stop, manual cleanup) is treated as
- * success, not an error — same idempotency discipline as dploy's own
- * StopAndRemoveContainer.
+ * `docker rm -f <nameOrId>`. Idempotent — a container that's already gone
+ * (redeploy race, double-click Stop, manual cleanup) counts as success,
+ * not an error.
  */
 export async function dockerRemove(nameOrId: string): Promise<void> {
   if (!nameOrId) return;
@@ -91,10 +89,9 @@ export async function dockerRename(oldName: string, newName: string): Promise<vo
 /**
  * Polls a URL with a plain HTTP GET until it responds at all (any status
  * code — this checks "is the process up and accepting connections", not
- * "does it return 200") or timeoutMs elapses. Used by
- * DockerDeploymentEngine.deployDynamicApp to confirm a newly-started
- * container is actually serving before tearing down whatever it's
- * replacing — see that method's own comment for why.
+ * "does it return 200") or timeoutMs elapses. Used to confirm a
+ * newly-started container is actually serving before tearing down whatever
+ * it's replacing.
  */
 export async function waitForHttpReady(
   url: string,

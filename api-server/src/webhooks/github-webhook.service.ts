@@ -10,18 +10,16 @@ const BRANCH_REF_PREFIX = 'refs/heads/';
 
 /**
  * GitHub signs every delivery's exact request body as
- * `X-Hub-Signature-256: sha256=<hex hmac>`, using whatever secret the
- * operator pasted into the repo's own webhook settings AND into this box's
- * GITHUB_WEBHOOK_SECRET env var (see
- * docs/architecture/local-engine-auth-and-networking.md Decision 3 — a
- * plain classic repo webhook now, not an App-wide one). If no secret is
- * configured at all, every delivery fails verification — there is
- * deliberately no "skip verification" fallback: an unset secret should
- * mean push-deploy simply doesn't work yet, not that it works unverified.
+ * `X-Hub-Signature-256: sha256=<hex hmac>`, using the secret shared between
+ * the repo's webhook settings and this server's GITHUB_WEBHOOK_SECRET env var
+ * (docs/architecture/local-engine-auth-and-networking.md Decision 3). If no
+ * secret is configured at all, every delivery fails verification —
+ * deliberately no "skip verification" fallback: an unset secret should mean
+ * push-deploy doesn't work yet, not that it works unverified.
  *
  * timingSafeEqual over the raw digest bytes, not the two hex strings —
- * comparing hex strings char-by-char with a naive === reopens the same
- * timing side-channel this exists to prevent.
+ * comparing hex strings char-by-char with naive === reopens the same timing
+ * side-channel this exists to prevent.
  */
 export function verifyGithubSignature(rawBody: Buffer, signatureHeader: string | undefined): boolean {
   if (!signatureHeader || !signatureHeader.startsWith('sha256=')) return false;
@@ -35,14 +33,10 @@ export function verifyGithubSignature(rawBody: Buffer, signatureHeader: string |
 }
 
 /**
- * `repository.id` is the intended lookup key, but nothing in the schema
- * enforces it as unique on Project — two different projects can both point
- * at the same repo. Returning every match (rather than findFirst, which
- * would pick whichever row Postgres happens to return first and silently
- * leave the other never auto-deploying) means a shared repo just deploys
- * every project that imported it, which is the same "every match reacts"
- * behavior GitHub's own delivery already assumes for webhooks with
- * multiple subscribers.
+ * `repository.id` is the lookup key, but nothing in the schema enforces it as
+ * unique on Project — two projects can both point at the same repo. findMany
+ * (not findFirst, which would silently leave one of them never
+ * auto-deploying) means a shared repo deploys every project that imported it.
  */
 export async function findProjectsForPush(repositoryId: number): Promise<Project[]> {
   return prisma.project.findMany({ where: { repositoryId, deletedAt: null } });
@@ -55,10 +49,10 @@ export interface WebhookDeliveryOutcome {
 }
 
 /**
- * The actual "should this push redeploy?" decision + side effects, once
- * signature verification has already passed and a matching project has
- * been found. Scope is deliberately narrow per this feature's brief:
- * production-branch pushes only — no preview deployments, no PR handling.
+ * The "should this push redeploy?" decision + side effects, once signature
+ * verification has passed and a matching project has been found. Deliberately
+ * narrow scope: production-branch pushes only — no preview deployments, no PR
+ * handling.
  */
 export async function handlePushEvent(
   project: Project,
@@ -97,10 +91,9 @@ async function decideOutcome(project: Project, payload: GithubPushPayload, branc
   }
 
   if (branch !== project.defaultBranch) {
-    // Deliberately not a "preview deployment" path — out of scope for this
-    // feature. A push to any branch other than the configured production
-    // branch is logged (so "why didn't my push deploy" is answerable from
-    // the WebhookDelivery table) and otherwise ignored.
+    // Deliberately not a preview-deployment path — out of scope. A push to
+    // any other branch is logged (so "why didn't my push deploy" is
+    // answerable from the WebhookDelivery table) and otherwise ignored.
     return {
       deploymentTriggered: false,
       skipReason: `Branch "${branch}" is not the production branch ("${project.defaultBranch}")`,
@@ -121,10 +114,9 @@ async function decideOutcome(project: Project, payload: GithubPushPayload, branc
     return { deploymentTriggered: true, deploymentId: deployment.id };
   } catch (err) {
     // Never let a failure to ENQUEUE the build make this handler throw —
-    // GitHub interprets a non-2xx as "redeliver this," and retried
-    // redeliveries of the same push wouldn't fix an underlying problem
-    // like a revoked installation. Log it, record it on the delivery row,
-    // and let the user retry manually (redeploy button) instead.
+    // GitHub interprets non-2xx as "redeliver," and retried redeliveries
+    // wouldn't fix an underlying problem. Log it, record it on the delivery
+    // row, and let the user retry manually instead.
     logger.error('Webhook-triggered deployment failed to enqueue', { projectId: project.id, err });
     return {
       deploymentTriggered: false,

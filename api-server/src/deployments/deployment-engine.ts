@@ -4,54 +4,44 @@ import { dockerRun, dockerRemove, dockerInspectId, dockerRename, waitForHttpRead
 /**
  * Everything deployment.service.ts needs from "whatever actually runs the
  * build" — Dependency Inversion: the high-level module depends on this
- * abstraction; DockerDeploymentEngine depends on it too, by implementing it.
- * (This codebase has exactly one implementation now — the abstraction is
- * kept because deployment.service.ts is written against it, not because
- * a second implementation is expected.)
+ * abstraction; DockerDeploymentEngine implements it. Only one implementation
+ * exists — the abstraction is kept because deployment.service.ts is written
+ * against it.
  */
 export interface DeploymentEngine {
   /**
    * `gitAccessToken` is a separate argument, not part of `job`, on purpose —
    * `job` (BuildJob) is exactly what's stored as BullMQ job data in Redis;
-   * the decrypted token must never be part of that persisted payload. See
-   * build.worker.ts for where it's resolved, and deployment.service.ts's
-   * createDeploymentInternal for why it's kept out of job.data.
+   * the decrypted token must never join that persisted payload. Resolved in
+   * build.worker.ts immediately before this call.
    */
   launchBuildTask(job: BuildJob, gitAccessToken?: string): Promise<EngineHandle>;
 
   /**
-   * Stops an in-flight build task/container. Idempotent — calling it on a
-   * container that already exited does not throw, it just no-ops — which
-   * is exactly the semantics stopDeployment() in deployment.service.ts
-   * wants: it's allowed to call this speculatively without first
-   * re-checking Docker's live state.
+   * Stops an in-flight build container. Idempotent — calling it on a
+   * container that already exited no-ops rather than throws — so
+   * stopDeployment() may call it speculatively without re-checking Docker's
+   * live state.
    */
   stopBuildTask(buildContainerId: string): Promise<void>;
 
   /**
-   * Takes a DYNAMIC deployment's freshly-built local image (see
-   * build-engine's docker-build.js) and turns it into a live, publicly
-   * reachable container. Called from deployment.service.ts's
-   * handleImageReady() — the handler for the `image_ready` event
-   * build-engine publishes once its `docker build` step finishes (see
-   * realtime.types.ts).
+   * Takes a DYNAMIC deployment's freshly-built local image (build-engine's
+   * docker-build.js) and turns it into a live, publicly reachable container.
+   * Called from deployment.service.ts's handleImageReady() — the handler for
+   * the `image_ready` event published once the `docker build` step finishes
+   * (see realtime.types.ts).
    *
-   * Idempotent by design at the "one container per PROJECT" level: if
-   * job.projectSlug already has a running container (a redeploy), this
-   * replaces it — with a health-checked staged swap, not a hard stop-
-   * then-start; see the implementation. This mirrors how STATIC
-   * deployments already share one output prefix per project rather than
-   * accumulating one per deployment.
+   * One container per PROJECT: a redeploy replaces the running container via
+   * a health-checked staged swap, not stop-then-start (mirrors STATIC
+   * sharing one output prefix per project).
    */
   deployDynamicApp(job: DynamicDeployJob): Promise<EngineDynamicHandle>;
 
   /**
-   * Tears down a DYNAMIC deployment's running container. Like
-   * stopBuildTask, this is written to be safely callable even if the
-   * container is already gone (a redeploy may have already replaced it
-   * under a race, or a user double-clicks Stop) — dockerRemove() swallows
-   * "no such container" rather than surfacing it as a failure to the
-   * caller.
+   * Tears down a DYNAMIC deployment's app container. Safely callable even if
+   * the container is already gone (a raced redeploy replaced it, or a
+   * double-clicked Stop) — dockerRemove() swallows "no such container".
    */
   stopDynamicApp(appContainerName: string): Promise<void>;
 }
@@ -64,39 +54,29 @@ export interface BuildJob {
   branch: string;
   /** Set only by rollbackDeployment. Pins the build to this exact commit instead of the branch's current HEAD; see clone-repo.js's runCheckoutIfPinned. */
   commitHash?: string;
-  // local-engine — see docs/architecture/local-engine-auth-and-networking.md
-  // Decision 2. No installationId anymore: there's one operator-wide PAT,
-  // not a per-project link. `isPrivate` is all this job needs to know —
-  // build.worker.ts decrypts the PAT itself (lib/git-credentials.ts) right
-  // before the launchBuildTask call that needs it, same "never persisted
-  // into BullMQ job data" property the old installationId comment
-  // described, just with one less indirection.
+  // Single operator-wide PAT model: `isPrivate` is all this job needs to
+  // know — build.worker.ts decrypts the PAT (lib/git-credentials.ts) right
+  // before the launchBuildTask call that needs it; the token never enters
+  // this persisted payload.
   isPrivate: boolean;
-  // Resolved build config from the Project row (see project.service.ts
-  // and build-config/). null on any field means "build-engine should fall
-  // back to its own default" — see script.js's INSTALL_COMMAND/BUILD_COMMAND/
-  // OUTPUT_DIRECTORY fallbacks, which exist specifically so a project created
-  // before this feature shipped (every column null) keeps building exactly
-  // as it did before, with zero migration needed on the Project table itself.
+  // Build config from the Project row. null on any field means build-engine
+  // falls back to its own default for that field (script.js's
+  // INSTALL_COMMAND/BUILD_COMMAND/OUTPUT_DIRECTORY fallbacks).
   rootDirectory: string | null;
   installCommand: string | null;
   buildCommand: string | null;
   outputDirectory: string | null;
   /**
-   * Decrypted project env vars scoped to this deployment's environment
-   * (PRODUCTION or PREVIEW), resolved by deployment.service.ts right before
-   * calling launchBuildTask. Forwarded into the build container's own
-   * environment, available to the build/runtime exactly like a `.env` file
-   * would be on a normal local build.
+   * Decrypted project env vars scoped to this deployment's environment,
+   * resolved by deployment.service.ts right before launchBuildTask and
+   * forwarded into the build container's own environment.
    */
   userEnvVars: Array<{ name: string; value: string }>;
   /**
-   * Forwarded to build-engine as the DEPLOYMENT_TYPE container env var.
-   * This is the ONLY thing that decides whether script.js takes the
-   * static-upload branch or the local-docker-build branch after the build
-   * finishes — see script.js's `if (DEPLOYMENT_TYPE === 'DYNAMIC')`. Comes
-   * straight off Project.detectedDeploymentType, same as the `type` field
-   * createDeploymentInternal already copies onto the Deployment row itself.
+   * Forwarded as the DEPLOYMENT_TYPE container env var — the ONLY thing that
+   * decides whether build-engine's script.js takes the static-upload branch
+   * or the local-docker-build branch after the build finishes. Straight off
+   * Project.detectedDeploymentType.
    */
   deploymentType: 'STATIC' | 'DYNAMIC' | null;
   /**
@@ -114,7 +94,7 @@ export interface EngineHandle {
 /** What deployDynamicApp needs to build/run the app container. */
 export interface DynamicDeployJob {
   deploymentId: string;
-  /** Project slug, NOT deployment slug — see appContainerName's comment on why the container is keyed per-project. */
+  /** Project slug, NOT deployment slug — the app container is keyed per-project. */
   projectSlug: string;
   /** The local image tag build-engine's docker-build.js just built, e.g. "dreamer-app:my-project". */
   imageUri: string;
@@ -129,9 +109,8 @@ export interface EngineDynamicHandle {
 }
 
 /**
- * The one and only DeploymentEngine implementation. Shells out to the
- * `docker` CLI via lib/docker-engine.ts — same pattern as dploy's
- * internal/pipeline/docker_exec.go — for both build containers and
+ * The one and only DeploymentEngine implementation — shells out to the
+ * `docker` CLI via lib/docker-engine.ts for both build containers and
  * running app containers.
  */
 export class DockerDeploymentEngine implements DeploymentEngine {
@@ -148,9 +127,8 @@ export class DockerDeploymentEngine implements DeploymentEngine {
 
     // Every one of these becomes a container env var build-engine's
     // script.js reads by name — see that file for the read side.
-    // REDIS_URL (not REDIS_BUILDER_URL) forwarded here on purpose —
-    // build-engine's own pub/sub logging is a general-Redis concern, not
-    // a BullMQ one.
+    // REDIS_URL (not REDIS_BUILDER_URL) on purpose: build-engine's own
+    // pub/sub logging is a general-Redis concern, not a BullMQ one.
     const envVars: Record<string, string> = {
       REDIS_URL: env.REDIS_URL,
       GIT_REPOSITORY_URL: job.repoUrl,
@@ -165,9 +143,9 @@ export class DockerDeploymentEngine implements DeploymentEngine {
       OUTPUT_DIRECTORY: job.outputDirectory ?? '',
       DEPLOYMENT_TYPE: job.deploymentType ?? 'STATIC',
       FRAMEWORK: job.framework ?? '',
-      // MinIO — forwarded from this process's own resolved env, so
-      // build-engine's S3 client talks to the same bucket without a
-      // second, separately-maintained set of credentials.
+      // MinIO — forwarded from this process's own resolved env so
+      // build-engine's S3 client talks to the same bucket with no second
+      // set of credentials to maintain.
       AWS_REGION: env.AWS_REGION,
       AWS_ACCESS_KEY_ID: env.AWS_ACCESS_KEY_ID,
       AWS_SECRET_ACCESS_KEY: env.AWS_SECRET_ACCESS_KEY,
@@ -176,20 +154,13 @@ export class DockerDeploymentEngine implements DeploymentEngine {
       S3_BUCKET: env.S3_BUCKET,
       BASE_DOMAIN: env.BASE_DOMAIN,
       ...Object.fromEntries(job.userEnvVars.map((v) => [v.name, v.value])),
-      // NEW — same vars again, JSON-encoded. The flat spread just above
-      // is indistinguishable, key by key, from REDIS_URL/AWS_*/etc.
-      // sitting right next to it in this same envVars record — no prefix
-      // or namespace separates "this project's own config" from "this
-      // platform's own plumbing" once they're both just entries in one
-      // Record<string, string>. That's fine for runStaticBuild(), which
-      // just needs everything present in process.env and never has to
-      // pick the project's vars back out individually. It's NOT fine for
-      // runDynamicBuild(): docker-build.js's nested `docker build` runs
-      // in its own isolated build context and does not inherit this
-      // container's env at all — it needs an explicit list of exactly
-      // which vars to forward as --build-arg, not "process.env minus
-      // some guessed-at reserved prefixes." See script.js's parsing of
-      // this and dockerfile-resolver.js's use of the names.
+      // Same vars again, JSON-encoded. The flat spread above can't be picked
+      // apart from REDIS_URL/AWS_*/etc., which is fine for runStaticBuild()
+      // (everything just lands in process.env) but not for runDynamicBuild():
+      // docker-build.js's nested `docker build` runs in an isolated context
+      // that inherits none of this env, so it needs an explicit list of
+      // exactly which vars to forward as --build-arg. See script.js's
+      // parsing and dockerfile-resolver.js.
       USER_ENV_VARS_JSON: JSON.stringify(job.userEnvVars),
     };
 
@@ -197,16 +168,13 @@ export class DockerDeploymentEngine implements DeploymentEngine {
       image: env.DOCKER_BUILD_ENGINE_IMAGE,
       name: containerName,
       envVars,
-      // Only a DYNAMIC build's runDynamicBuild() actually uses this (to
-      // run `docker build` against the host daemon — see
-      // build-engine/docker-build.js) — mounting it unconditionally for
-      // STATIC builds too is simpler than branching per DEPLOYMENT_TYPE
-      // here, and costs a STATIC build nothing it doesn't already ignore.
+      // Only a DYNAMIC build uses this (`docker build` against the host
+      // daemon — see build-engine/docker-build.js); mounted unconditionally,
+      // simpler than branching per DEPLOYMENT_TYPE.
       volumes: ['/var/run/docker.sock:/var/run/docker.sock'],
     });
 
-    // Opaque handle — stopBuildTask() below hands it straight to
-    // `docker rm -f`. Nothing downstream parses it as anything else.
+    // Opaque handle — stopBuildTask() hands it straight to `docker rm -f`.
     return { buildContainerId: containerId };
   }
 
@@ -216,12 +184,10 @@ export class DockerDeploymentEngine implements DeploymentEngine {
 
   async deployDynamicApp(job: DynamicDeployJob): Promise<EngineDynamicHandle> {
     const containerName = this.appContainerNameFor(job.projectSlug);
-    // Started under a throwaway name first, promoted to containerName
-    // only once confirmed healthy — see the try/catch below. This is
-    // what keeps a redeploy from being a hard stop-then-start: the OLD
-    // container keeps serving traffic (reverse-proxy's route still
-    // resolves to it, since appUrl on the Deployment row hasn't changed
-    // name yet) for the entire time the NEW one is building up / booting.
+    // Started under a throwaway name, promoted to containerName only once
+    // confirmed healthy (try/catch below) — the OLD container keeps serving
+    // traffic the whole time the new one boots, so a redeploy is a staged
+    // swap, never stop-then-start downtime.
     const stagingName = `${containerName}-staging-${Date.now()}`;
 
     const envVars: Record<string, string> = {
@@ -242,10 +208,9 @@ export class DockerDeploymentEngine implements DeploymentEngine {
     try {
       await waitForHttpReady(`http://${stagingName}:3000`);
     } catch (err) {
-      // New container never came up — abort the swap and leave whatever
-      // was previously running (if anything) untouched, rather than
-      // taking a working deployment down for a build that turned out to
-      // be broken at runtime (crashes on boot, wrong PORT binding, etc).
+      // New container never came up — abort the swap, leave whatever was
+      // previously running untouched rather than take a working deployment
+      // down for a build that's broken at runtime (boot crash, bad PORT, etc).
       await dockerRemove(stagingName);
       const reason = err instanceof Error ? err.message : String(err);
       throw new Error(
@@ -254,11 +219,9 @@ export class DockerDeploymentEngine implements DeploymentEngine {
       );
     }
 
-    // New container is confirmed up — NOW it's safe to remove whatever
-    // was previously running under the canonical name. The window
-    // between this remove and the rename just below is a couple of
-    // `docker` CLI calls, not a full container boot — the actual gap a
-    // redeploy causes.
+    // Confirmed up — NOW safe to remove whatever was running under the
+    // canonical name. The gap until the rename below is a couple of `docker`
+    // CLI calls, not a container boot — the actual redeploy downtime.
     const existingId = await dockerInspectId(containerName);
     if (existingId) {
       await dockerRemove(containerName);
@@ -268,11 +231,9 @@ export class DockerDeploymentEngine implements DeploymentEngine {
     return {
       appContainerId: containerId,
       appContainerName: containerName,
-      // Container-to-container DNS on DOCKER_NETWORK — deliberately NO
-      // host port published, matching docker-compose.yml's "only nginx
-      // publishes a host port" posture. reverse-proxy sits on the same
-      // network and proxies here directly — see
-      // apps/reverse-proxy/index.js's DYNAMIC branch.
+      // Container-to-container DNS — deliberately NO host port published,
+      // matching docker-compose.yml's "only nginx publishes a host port"
+      // posture; reverse-proxy sits on the same network and proxies here.
       appUrl: `http://${containerName}:3000`,
     };
   }

@@ -5,35 +5,24 @@ import { createResilientRedisClient } from './redis';
 import type { BuildJob } from '../deployments/deployment-engine';
 
 /**
- * CHANGED — every BullMQ Queue/Worker connection now points at
- * REDIS_BUILDER_URL, a Redis instance dedicated to BullMQ only, instead of
- * sharing REDIS_URL with everything else (route cache, metrics counters,
- * pub/sub, Streams — see lib/redis.ts and realtime/log-relay.ts). This is
- * an isolation/scaling decision, not a correctness one: BullMQ is by far
- * the busiest and most latency-sensitive Redis consumer in this codebase
- * (every deploy blocks on it, workers hold blocking BRPOPLPUSH-style
- * connections open continuously) — a noisy neighbor on a shared instance
- * (a burst of metrics writes, a big pub/sub fanout) can no longer add
- * latency to a build enqueue/dequeue, and BullMQ's own Redis memory usage
- * (job data, retry state) can be capacity-planned and scaled completely
- * independently of the other workloads.
+ * Every BullMQ Queue/Worker connection points at REDIS_BUILDER_URL — a Redis
+ * instance dedicated to BullMQ — instead of sharing REDIS_URL with route
+ * cache, metrics counters, pub/sub, and Streams (see lib/redis.ts,
+ * realtime/log-relay.ts). An isolation/scaling decision, not a correctness
+ * one: BullMQ is by far the busiest and most latency-sensitive Redis
+ * consumer here (every deploy blocks on it, workers hold blocking
+ * connections open continuously), so a noisy neighbor on the shared
+ * instance can't add latency to build enqueue/dequeue, and BullMQ's memory
+ * usage can be capacity-planned independently. Falls back to REDIS_URL when
+ * REDIS_BUILDER_URL isn't set.
  *
- * Falls back to REDIS_URL when REDIS_BUILDER_URL isn't set (see env.ts's
- * own comment on that field) — a single-Redis deployment keeps working
- * unchanged; pointing REDIS_BUILDER_URL at its own instance is what
- * actually splits the two.
- *
- * BullMQ also requires a connection with maxRetriesPerRequest: null (and
- * prefers enableReadyCheck: false) — a constraint the general-purpose
- * `redis` export in lib/redis.ts intentionally doesn't set, which is a
- * second, independent reason every BullMQ Queue/Worker needs its own
- * connection here rather than reusing lib/redis.ts's, on top of now also
- * pointing at a different host entirely. Routed through
- * createResilientRedisClient (lib/redis.ts) for the same reason every raw
- * Redis client in this codebase now is: an unhandled 'error' event on a
- * bare `new Redis(...)` crashes the WHOLE process, build worker included
- * — see that function's own comment for the full story, and
- * src/index.ts's comment for the actual incident that motivated it.
+ * BullMQ also requires maxRetriesPerRequest: null (and prefers
+ * enableReadyCheck: false) — options the general-purpose `redis` export in
+ * lib/redis.ts intentionally doesn't set, an independent second reason every
+ * Queue/Worker builds its own connection here. Routed through
+ * createResilientRedisClient like every raw Redis client: an unhandled
+ * 'error' event on a bare `new Redis(...)` crashes the whole process (see
+ * lib/redis.ts).
  */
 export function createQueueConnection(): Redis {
   return createResilientRedisClient('bullmq', env.REDIS_BUILDER_URL ?? env.REDIS_URL, {

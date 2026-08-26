@@ -2,18 +2,11 @@ import { prisma } from './prisma';
 import { decryptFromStorage } from './crypto';
 
 /**
- * local-engine's entire replacement for lib/github-app.ts (App JWT signing +
- * per-installation token minting/caching). There's one operator, one PAT,
- * stored encrypted on the single User row (see
- * docs/architecture/local-engine-auth-and-networking.md Decision 2) — no
- * token minting, no expiry, no cache to invalidate. This is deliberately
- * this small.
- *
- * Returns undefined (never throws) when no token is set — callers decide
- * for themselves whether that's fatal. It's fine for browsing/cloning a
- * PUBLIC repo (see integrations/github-repo.service.ts's searchPublicRepos
- * doc comment, unchanged from before this migration) and only a problem
- * once something tries to touch a private one.
+ * The operator's PAT, stored encrypted on the User row and decrypted here on
+ * demand — resolved right before the docker run call (or GitHub API call)
+ * that needs it. Returns undefined (never throws) when no token is set:
+ * fine for browsing/cloning PUBLIC repos, only a problem once something
+ * touches a private one. Callers decide whether that's fatal.
  */
 export async function getGitAccessToken(userId: string): Promise<string | undefined> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { personalAccessToken: true } });
@@ -21,11 +14,9 @@ export async function getGitAccessToken(userId: string): Promise<string | undefi
 }
 
 /**
- * Single-tenant convenience: local-engine has exactly one admin account in
- * normal operation (see auth.service.ts#setupAdmin), so build.worker.ts and
- * anywhere else running outside a request's req.user context can resolve
- * "the operator's token" without a userId in hand at all. Returns undefined
- * if setup hasn't run yet or no token has been set — same as
+ * Single-tenant convenience: resolves the operator's token without a userId
+ * in hand — build.worker.ts and anything running outside a request context.
+ * Undefined if setup hasn't run yet or no token is set, same as
  * getGitAccessToken.
  */
 export async function getSingleOperatorGitAccessToken(): Promise<string | undefined> {

@@ -3,11 +3,10 @@ export type PackageManagerId = 'npm' | 'yarn' | 'pnpm' | 'bun';
 export interface PackageManagerInfo {
   id: PackageManagerId;
   /**
-   * `npm ci` requires an exact, present-and-matching lockfile or it hard
-   * fails — correct for reproducible builds, but wrong for a repo that
-   * doesn't have a committed lockfile at all. detectPackageManager() only
-   * ever returns the `ci` variant when it found the lockfile that command
-   * actually needs.
+   * `npm ci` hard-fails without an exact, present-and-matching lockfile —
+   * correct for reproducible builds, wrong for a repo with no committed
+   * lockfile at all. detectPackageManager() only ever returns the `ci`
+   * variant when it found the lockfile that command actually needs.
    */
   installCommand: string;
 }
@@ -22,14 +21,12 @@ const LOCKFILE_TO_PACKAGE_MANAGER: ReadonlyArray<{ lockfile: string; info: Packa
 const DEFAULT_PACKAGE_MANAGER: PackageManagerInfo = { id: 'npm', installCommand: 'npm install' };
 
 /**
- * `rootFiles` is the set of filenames at the chosen root directory (NOT the
- * repo root for a monorepo — the lockfile that matters is whichever one
- * sits next to the package.json that's actually being built). Checked in a
- * fixed, deliberate order: if a repo somehow has more than one lockfile
- * (a half-finished migration between package managers), pnpm/yarn/bun all
- * win over npm — npm's lockfile is the one every tool generates as a
- * side effect even when it isn't the one actually in use, so it's the
- * weakest signal and goes last.
+ * `rootFiles` is the set of filenames at the chosen root directory (for a
+ * monorepo: the lockfile that matters is whichever sits next to the
+ * package.json being built). Checked in a fixed, deliberate order: pnpm/
+ * yarn/bun all win over npm — npm's lockfile is generated as a side effect
+ * by every tool even when it isn't actually in use, making it the weakest
+ * signal.
  */
 export function detectPackageManager(rootFiles: readonly string[]): PackageManagerInfo {
   const fileSet = new Set(rootFiles);

@@ -3,11 +3,10 @@ import { BadRequestError } from '../lib/errors';
 const GITHUB_API_BASE = 'https://api.github.com';
 
 /**
- * Mirrors the subset of GitHub's "Get repository content" response we
- * actually use. GitHub returns extra fields (sha, size, url, html_url, etc.)
- * for every entry — we deliberately narrow to what callers need so a future
- * GitHub API response shape change can't silently leak unexpected fields
- * through to the frontend's root-directory picker.
+ * Mirrors the subset of GitHub's "Get repository content" response we use —
+ * deliberately narrowed from GitHub's full entry shape so an upstream API
+ * change can't silently leak unexpected fields through to the frontend's
+ * root-directory picker.
  */
 export interface RepoEntry {
   name: string;
@@ -28,11 +27,10 @@ interface GithubContentApiFile {
 }
 
 function buildContentsUrl(repoFullName: string, path: string, ref: string): string {
-  // GitHub's contents endpoint treats a leading slash on `path` as a
-  // different (invalid) route, so the root is requested with an empty
-  // path segment, never "/". encodeURIComponent on each path segment
-  // (not the whole path) keeps slashes as path separators while still
-  // escaping spaces/special characters within a folder name.
+  // A leading slash on `path` is a different (invalid) route — the root is
+  // requested with an empty path segment, never "/". Encoding each path
+  // segment (not the whole path) keeps slashes as separators while escaping
+  // spaces/special characters within a folder name.
   const encodedPath = path
     .split('/')
     .filter(Boolean)
@@ -44,21 +42,17 @@ function buildContentsUrl(repoFullName: string, path: string, ref: string): stri
 
 function githubHeaders(accessToken?: string): HeadersInit {
   const headers: Record<string, string> = { Accept: 'application/vnd.github+json' };
-  // Public repo endpoints work perfectly well unauthenticated — GitHub just
-  // rate-limits unauthenticated calls harder (60/hr vs. 5,000/hr). Omitting
-  // the header rather than sending `Bearer undefined` is what makes
-  // "browse a public repo you never granted the App access to" work at all.
+  // Public repo endpoints work unauthenticated — GitHub just rate-limits
+  // harder (60/hr vs. 5,000/hr). Omitting the header rather than sending
+  // `Bearer undefined` is what makes browsing a public repo work at all.
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   return headers;
 }
 
 /**
  * Lists every repo the operator's PAT can see — `GET /user/repos`,
- * authenticated, covering both public and private repos in one call. This
- * is local-engine's entire "Import Git Repository" list (see
- * docs/architecture/local-engine-auth-and-networking.md Decision 2) —
- * replaces the old per-installation repo listing entirely; there's one
- * token, and whatever it can see is the whole list.
+ * authenticated, public and private repos in one call. This is the entire
+ * "Import Git Repository" list: one token, whatever it can see.
  */
 export async function listOwnRepos(accessToken: string): Promise<GithubSearchRepoEntry[]> {
   const PER_PAGE = 100;
@@ -84,12 +78,10 @@ export async function listOwnRepos(accessToken: string): Promise<GithubSearchRep
 }
 
 /**
- * Searches GitHub's public repositories by name — the wizard's "any public
- * GitHub repo" search, useful when browsing a repo the operator's own PAT
- * doesn't own or collaborate on (so it wouldn't show up in listOwnRepos).
- * Deliberately works with NO token at all, same as before — GitHub's
- * search endpoint just rate-limits unauthenticated calls harder (60/hr vs.
- * 5,000/hr with a token attached).
+ * Searches public GitHub repositories by name — for repos the operator's PAT
+ * doesn't own or collaborate on (so they wouldn't show up in listOwnRepos).
+ * Works with NO token at all; unauthenticated search is just rate-limited
+ * harder (60/hr vs. 5,000/hr with a token attached).
  */
 export async function searchPublicRepos(accessToken: string | undefined, query: string): Promise<GithubSearchRepoEntry[]> {
   const PER_PAGE = 20;
@@ -152,16 +144,10 @@ export interface RepoBranch {
 }
 
 /**
- * Lists a repo's branches — GitHub doesn't sort branches by activity the way
- * it does repos/PRs, so this returns whatever order the API gives
- * (alphabetical in practice) with the repo's default branch flagged so
- * callers can float it to the top of a dropdown instead of leaving it
- * wherever it happens to sort.
- *
- * Capped at one page — a branch picker for a repo
- * with 100+ branches is a rare enough case that "show the first 100,
- * default branch included" is a reasonable limit rather than something
- * worth paginating.
+ * Lists a repo's branches, flagged with the default so callers can float it
+ * to the top of a dropdown (GitHub doesn't sort branches by activity).
+ * Capped at one page — a repo with 100+ branches is rare enough that
+ * "show the first 100, default included" beats paginating.
  */
 export async function listBranches(
   accessToken: string | undefined,
@@ -190,9 +176,7 @@ export async function listBranches(
   return data
     .map((branch) => ({ name: branch.name, isDefault: branch.name === defaultBranch }))
     .sort((a, b) => {
-      // Default branch first, then alphabetical — matches the same
-      // "put the obvious choice at the top" convention listRepoDirectory
-      // already uses for directories-before-files.
+      // Default branch first, then alphabetical.
       if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
@@ -200,14 +184,13 @@ export async function listBranches(
 
 /**
  * Lists the immediate children of a directory in a repo at a given ref —
- * used by the new-project wizard's root-directory picker (lazy: one call per
- * expanded folder, never a recursive full-tree fetch) and by the framework
- * detector to check for lockfiles/config files at the chosen root.
+ * powers the wizard's lazy root-directory picker (one call per expanded
+ * folder, never a recursive full-tree fetch) and the framework detector's
+ * lockfile/config checks at the chosen root.
  *
  * GitHub 404s identically for "doesn't exist" and "no access" — same
- * ambiguity build-engine/clone-repo.js already documents for git itself, so
- * the error message here matches that existing tone rather than asserting
- * one cause over the other.
+ * ambiguity build-engine/clone-repo.js already documents for git — so the
+ * error message hedges rather than asserting one cause.
  */
 export async function listRepoDirectory(
   accessToken: string | undefined,
@@ -233,8 +216,8 @@ export async function listRepoDirectory(
   const data = (await res.json()) as GithubContentApiEntry[] | GithubContentApiFile;
 
   // The contents endpoint returns an array for a directory and a single
-  // object for a file — a caller that passes a file path by mistake gets a
-  // clear error instead of `.filter is not a function` further down.
+  // object for a file — a caller passing a file path by mistake gets a clear
+  // error instead of `.filter is not a function` further down.
   if (!Array.isArray(data)) {
     throw new BadRequestError(`"${dirPath}" is a file, not a directory`, 'GITHUB_NOT_A_DIRECTORY');
   }
@@ -243,10 +226,7 @@ export async function listRepoDirectory(
     .filter((entry) => entry.type === 'file' || entry.type === 'dir')
     .map((entry) => ({ name: entry.name, path: entry.path, type: entry.type as 'file' | 'dir' }))
     .sort((a, b) => {
-      // Directories first, then alphabetical within each group — matches
-      // the convention every file browser (Explorer, Finder, VS Code,
-      // GitHub's own UI) already uses, so the root-directory picker's
-      // ordering doesn't surprise anyone.
+      // Directories first, then alphabetical within each group.
       if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
@@ -280,10 +260,9 @@ export async function fetchRepoFile(
     throw new BadRequestError(`"${filePath}" is not a file`, 'GITHUB_NOT_A_FILE');
   }
 
-  // GitHub's contents API always base64-encodes file bodies regardless of
-  // the original file's own encoding — this is the one encoding value the
-  // API ever sends for a `type: "file"` entry, so anything else means the
-  // API contract changed underneath us.
+  // GitHub base64-encodes file bodies regardless of the original file's own
+  // encoding — the only encoding value a `type: "file"` entry ever carries,
+  // so anything else means the API contract changed underneath us.
   if (data.encoding !== 'base64') {
     throw new BadRequestError(`Unexpected encoding "${data.encoding}" for "${filePath}"`, 'GITHUB_READ_FAILED');
   }

@@ -8,12 +8,10 @@ import type { CreateEnvVariableInput, PublicEnvVariable, UpdateEnvVariableInput 
 import type { EnvironmentTarget, EnvVariable } from '../generated/prisma/client';
 
 /**
- * Decrypts only when safe to show in a list — isSecret: false means the
- * value was explicitly marked safe to display, per the model's own comment
- * ("false = shown in UI, true = masked"). A genuinely secret value is never
- * decrypted here — only in revealEnvVariable() below, which is rate-limited
- * and audited specifically because it's the one path that returns a real
- * secret to the client.
+ * SECURITY: decrypts only when safe to show in a list (isSecret: false).
+ * A genuinely secret value is never decrypted here — only in
+ * revealEnvVariable(), which is rate-limited and audited as the one path
+ * that returns a real secret to the client.
  */
 function toPublicEnvVariable(envVar: EnvVariable): PublicEnvVariable {
   return {
@@ -31,11 +29,9 @@ function toPublicEnvVariable(envVar: EnvVariable): PublicEnvVariable {
 }
 
 /**
- * EnvVariable has no userId of its own — same ownership-check pattern as
- * assertProjectOwnership/assertDeploymentOwnership, just one relation
- * further out: EnvVariable → Project → User. Scoping by userId in the WHERE
- * clause itself (not "fetch then compare") is what makes this safe against
- * IDOR — see 00-overview-and-corrections.md §4.
+ * EnvVariable has no userId of its own — ownership flows EnvVariable →
+ * Project → User. Scoping by userId in the WHERE clause itself (not "fetch
+ * then compare") is what keeps this IDOR-safe.
  */
 async function findOwnedEnvVariable(envVariableId: string, userId: string): Promise<EnvVariable> {
   const envVar = await prisma.envVariable.findFirst({
@@ -147,10 +143,9 @@ export async function deleteEnvVariable(envVariableId: string, userId: string, m
 }
 
 /**
- * The one path that ever returns a real secret value to the client.
- * Rate-limited at the route level (env-variables.routes.ts) and audited
- * here — "who revealed which secret, and when" is exactly the kind of
- * question an audit log exists to answer.
+ * SECURITY: the one path that ever returns a real secret value to the
+ * client. Rate-limited at the route level and audited here — "who revealed
+ * which secret, and when" is what the audit log exists to answer.
  */
 export async function revealEnvVariable(
   envVariableId: string,

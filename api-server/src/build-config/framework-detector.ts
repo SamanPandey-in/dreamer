@@ -16,12 +16,9 @@ export interface DetectionInput {
 export interface DetectionResult {
   preset: FrameworkPreset;
   /**
-   * What actually matched, for surfacing in the UI ("Detected via
-   * next.config.js" rather than just "Detected: Next.js") and for
-   * detection-quality telemetry/debugging later — knowing whether real
-   * repos are being caught by the config-file check or falling through to
-   * the dependency check is useful information this result shouldn't throw
-   * away just because the caller doesn't need it today.
+   * What actually matched, e.g. "next.config.js" — surfaced in the UI
+   * ("Detected via next.config.js") and kept for detection-quality
+   * debugging/telemetry.
    */
   matchedOn: string | null;
 }
@@ -38,21 +35,14 @@ function hasFile(rootFiles: readonly string[], ...names: string[]): string | nul
 }
 
 /**
- * Next.js is the one framework on this list that can't be resolved to a
- * single FrameworkPreset from config-file/dependency presence alone — the
- * SAME next.config.js can produce either a static export (output: 'export')
- * or a standard SSR build, and only the former is servable by build-engine's
- * current S3-static pipeline. We resolve this by inspecting the config
- * file's source for the `output: 'export'` literal.
- *
- * This is intentionally a plain substring/regex check, not a JS/TS parse —
- * next.config.js can be CJS, ESM, or TS, and a full parse for one config
- * key is more failure surface than this feature needs. A config that sets
- * `output` dynamically (e.g. from an env var) won't be caught by this
- * check; that's an acceptable false negative — it falls through to the
- * nextjs-ssr preset, which is the safer default since it surfaces the
- * "this needs a different deploy type" notice instead of silently
- * misconfiguring a static deploy that won't actually work.
+ * Next.js is the one framework that can't be resolved to a single preset from
+ * file presence alone: the SAME next.config.js produces either a static export
+ * (output: 'export') or a standard SSR build, and only the former is servable
+ * by the static pipeline. Resolved by scanning the config source for the
+ * literal — deliberately a regex, not a JS/TS parse, since next.config may be
+ * CJS, ESM, or TS, and a full parse for one key is more failure surface than
+ * this needs. A config setting `output` dynamically won't match; that false
+ * negative falls back to nextjs-ssr, the safe default.
  */
 function isNextStaticExport(nextConfigSource: string | null): boolean {
   if (!nextConfigSource) return false;
@@ -67,27 +57,23 @@ export interface NextConfigLookup {
 }
 
 /**
- * Detects which FrameworkPreset best matches a repo, checking signals in
- * order of reliability (strongest first, per the detection guide):
+ * Detects the best-matching preset by signal reliability, strongest first:
  *
  *   1. A framework-specific config file at the root — can't lie about what
- *      build tool is actually wired up, regardless of what's listed in
- *      package.json.
+ *      build tool is wired up.
  *   2. package.json dependencies/devDependencies — reliable but slightly
- *      weaker (a config file can exist without the dependency listed in an
- *      unusual monorepo hoisting setup, and vice versa for a leftover dep).
+ *      weaker (hoisting setups, leftover deps).
  *   3. No match -> the `static` preset, an explicit "we don't know, ask the
  *      user" rather than a wrong guess dressed up as a confident answer.
  *
- * `nextConfig` is optional and fetched separately by the caller (only when
- * a next.config.* file is found) — keeping the static-export sub-check out
- * of this function's required inputs means every other branch stays a pure,
- * synchronous decision with zero I/O.
+ * `nextConfig` is fetched separately by the caller (only when a next.config.*
+ * file was found) so every other branch stays a pure, synchronous decision
+ * with zero I/O.
  */
 export function detectFramework(input: DetectionInput, nextConfig?: NextConfigLookup): DetectionResult {
   const { rootFiles, packageJson } = input;
 
-  // 1. Config files — strongest signal, checked first.
+  // 1. Config files — strongest signal.
   const nextConfigFile = nextConfig?.filename ?? hasFile(rootFiles, 'next.config.js', 'next.config.ts', 'next.config.mjs');
   if (nextConfigFile) {
     const isStaticExport = isNextStaticExport(nextConfig?.source ?? null);
@@ -115,12 +101,11 @@ export function detectFramework(input: DetectionInput, nextConfig?: NextConfigLo
   const nuxtConfigFile = hasFile(rootFiles, 'nuxt.config.js', 'nuxt.config.ts');
   if (nuxtConfigFile) return { preset: FRAMEWORK_PRESETS.nuxt, matchedOn: nuxtConfigFile };
 
-  // 2. package.json dependencies — fallback for repos with no recognized config file.
+  // 2. package.json dependencies.
   if (hasAnyDependency(packageJson, 'next')) {
-    // No next.config.* was found above, so we can't inspect for a static
-    // export flag — default to the SSR preset, which is the conservative
-    // choice (surfaces the unsupported-runtime notice rather than assuming
-    // static behavior we have no evidence for).
+    // No next.config.* was found above, so the static-export flag can't be
+    // inspected — default to the SSR preset, the conservative choice given
+    // no evidence of static behavior.
     return { preset: FRAMEWORK_PRESETS['nextjs-ssr'], matchedOn: 'package.json (next dependency)' };
   }
   if (hasAnyDependency(packageJson, 'vite')) {
