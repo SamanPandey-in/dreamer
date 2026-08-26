@@ -1,11 +1,10 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 
-// Everything under these paths is either an authenticated app view (no
-// content to rank — a logged-out crawler just gets redirected to /login
-// anyway) or a pure API surface. None of it has SEO value, and indexing
-// /project/:id pages specifically would leak project names/slugs into
-// search results for what are effectively private dashboards.
+// Everything under these paths is an authenticated app view (a logged-out
+// crawler just gets redirected to /login anyway) or a pure API surface —
+// no SEO value, and indexing /project/:id pages would leak project
+// names/slugs from private dashboards into search results.
 const DISALLOWED_PATHS = ["/dashboard", "/dashboard/", "/project/", "/api/", "/setup"];
 
 export default function robots(): MetadataRoute.Robots {
@@ -18,13 +17,9 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: DISALLOWED_PATHS,
       },
-      // Explicit AI crawler / answer-engine allow rules. A bare `userAgent:
-      // "*"` rule already covers these (none of them are blocked above),
-      // but naming them explicitly is the difference between "not
-      // forbidden" and "on purpose" — several of these bots are
-      // increasingly the FIRST hop a potential user's question about
-      // Dreamer goes through (an AI answer engine, not a search results
-      // page), so being unambiguous here is worth the extra lines.
+      // AI crawlers named explicitly: technically covered by the "*"
+      // default above, but spelling them out marks access as intentional —
+      // AI answer engines are a primary discovery channel.
       { userAgent: "GPTBot", allow: "/", disallow: DISALLOWED_PATHS }, // OpenAI training + browsing
       { userAgent: "OAI-SearchBot", allow: "/", disallow: DISALLOWED_PATHS }, // ChatGPT search
       { userAgent: "ChatGPT-User", allow: "/", disallow: DISALLOWED_PATHS }, // ChatGPT live browsing on a user's behalf

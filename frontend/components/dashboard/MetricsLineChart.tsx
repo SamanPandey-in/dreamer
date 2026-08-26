@@ -8,7 +8,7 @@ type MetricKey = "requests" | "visitors" | "avgResponseTimeMs" | "errors";
 interface MetricsLineChartProps {
   series: MetricsSeriesPoint[];
   metricKey: MetricKey;
-  color: string; // a Tailwind-compatible hex, e.g. "#3b82f6" — used directly in SVG attrs, which don't understand Tailwind class names
+  color: string;
   formatValue: (value: number) => string;
   formatTimestamp: (iso: string) => string;
 }
@@ -26,12 +26,8 @@ const PADDING_TOP = 16;
 const PADDING_BOTTOM = 28;
 
 /**
- * A deliberately simple hand-rolled SVG line chart rather than pulling in a
- * charting library — this app has zero chart-library dependencies today
- * (see package.json), and one metric line graph doesn't earn adding one.
- * If more chart types are needed later (stacked areas, multi-series
- * overlays), that's the point to reconsider bringing in recharts/visx —
- * not before.
+ * Hand-rolled SVG instead of a chart library: one metric line graph doesn't
+ * justify adding recharts/visx to a dependency tree that currently has none.
  */
 export function MetricsLineChart({ series, metricKey, color, formatValue, formatTimestamp }: MetricsLineChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -84,7 +80,6 @@ export function MetricsLineChart({ series, metricKey, color, formatValue, format
           </linearGradient>
         </defs>
 
-        {/* Horizontal gridlines at 0%, 50%, 100% */}
         {[0, 0.5, 1].map((fraction) => {
           const y = PADDING_TOP + fraction * (HEIGHT - PADDING_TOP - PADDING_BOTTOM);
           return (
@@ -100,7 +95,6 @@ export function MetricsLineChart({ series, metricKey, color, formatValue, format
           );
         })}
 
-        {/* Y axis labels */}
         <text x={4} y={PADDING_TOP + 4} className="fill-zinc-600 text-[10px]">
           {formatValue(maxValue)}
         </text>

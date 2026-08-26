@@ -10,12 +10,11 @@ import { describeApiError, getErrorRequestId } from "@/lib/dashboard-api";
 import { Alert } from "@/components/ui/Alert";
 
 /**
- * The ONE-TIME admin-account creation screen — replaces the old open
- * /register. See docs/architecture/local-engine-auth-and-networking.md
- * Decision 1: this is the whole "sign up" story for local-engine. Once
- * POST /api/auth/setup succeeds here, it can never succeed again — the
- * effect below sends anyone who lands here afterward (including a second
- * browser tab mid-setup) straight to /login instead.
+ * One-time admin-account creation screen — the whole sign-up story (see
+ * docs/architecture/local-engine-auth-and-networking.md Decision 1). Once
+ * POST /api/auth/setup succeeds it can never succeed again, so the effects
+ * below send anyone landing here afterward (e.g. a second tab mid-setup)
+ * straight to /login.
  */
 export default function SetupPage() {
   const router = useRouter();

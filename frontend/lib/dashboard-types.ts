@@ -52,14 +52,13 @@ export interface Project {
   installCommand: string | null;
   outputDirectory: string | null;
   rootDirectory: string | null;
-  // NEW — read-only labels of what the new-project wizard detected at
-  // creation time. See the build-config detection guide.
+  // Read-only labels of what the new-project wizard detected at creation
+  // time (see docs/framework-detection/README.md).
   detectedFramework: Framework | null;
   detectedDeploymentType: DeploymentType | null;
   autoDeployEnabled: boolean;
   // Whether a push can actually trigger a deploy right now: the project
-  // has a linked repositoryId. See the API's project.service.ts
-  // toPublicProject.
+  // has a linked repositoryId.
   autoDeployReady: boolean;
   repositoryId: number | null;
 }
@@ -169,13 +168,12 @@ export interface RepoEntry {
 }
 
 // Mirrors the repo shape listReposHandler/searchPublicReposHandler return.
-// No installationId anymore — see
-// docs/architecture/local-engine-auth-and-networking.md Decision 2: one
-// operator-wide PAT, not per-installation. A repo from listReposHandler
-// (the operator's own PAT) vs. searchPublicReposHandler (any public repo
-// by name) are functionally identical from here on — both work for manual
-// deploy/redeploy immediately, and for push-to-deploy once
-// GITHUB_WEBHOOK_SECRET + ENABLE_PUSH_DEPLOY are configured (see Decision 3).
+// One operator-wide PAT model (see
+// docs/architecture/local-engine-auth-and-networking.md): a repo from the
+// operator's own PAT vs. any public repo searched by name are functionally
+// identical from here on — both work for manual deploy/redeploy immediately,
+// and for push-to-deploy once GITHUB_WEBHOOK_SECRET + ENABLE_PUSH_DEPLOY are
+// configured.
 export interface GithubRepoSummary {
   repositoryId: number;
   fullName: string;
@@ -191,12 +189,10 @@ export interface RepoBranch {
   isDefault: boolean;
 }
 
-// Mirrors FrameworkPresetId from the API's src/build-config/framework-presets.ts.
+// Mirrors FrameworkPresetId from api-server/src/build-config/framework-presets.ts.
 // Kept as a plain string union here (not imported — the frontend has no
-// access to the API's TS source) so adding a new preset on the backend
-// only breaks this file's type-checking if the frontend genuinely needs to
-// know about it (e.g. to render a distinct icon), rather than silently
-// becoming "any string is valid" the way an un-typed string would.
+// access to the API's TS source) so preset changes surface in this file's
+// type-checking instead of silently becoming "any string is valid".
 export type FrameworkPresetId =
   | "nextjs-static"
   | "nextjs-ssr"

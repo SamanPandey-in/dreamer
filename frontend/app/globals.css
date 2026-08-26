@@ -113,7 +113,6 @@ body.authenticated-scrollbar::-webkit-scrollbar-thumb:hover {
 }
 
 :root {
-  /* ...existing --background/--foreground/--accent/--accent-glow unchanged... */
   --radius-card: 10px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }

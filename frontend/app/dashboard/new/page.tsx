@@ -12,8 +12,6 @@ import { NewProjectEnvVarsForm, type StagedEnvVar } from "@/components/new-proje
 type WizardStep =
   | { name: "pick-repo" }
   | { name: "pick-root-directory"; repo: GithubRepoSummary }
-  // NEW — `branch` carries whatever the user picked in the Root Directory
-  // step's branch dropdown, which may differ from repo.defaultBranch.
   | { name: "configure-build"; repo: GithubRepoSummary; rootDirectory: string; branch: string }
   | {
       name: "env-vars-and-deploy";
@@ -25,8 +23,8 @@ type WizardStep =
 
 /**
  * Builds the same https://github.com/owner/repo URL shape createProject's
- * repoUrl field expects, for display/fallback purposes — the authoritative
- * link to a repo is repositoryId (sent alongside this), not repoUrl parsing.
+ * repoUrl field expects, for display/fallback purposes — repositoryId
+ * (sent alongside this) is the authoritative link to a repo.
  */
 function repoUrlFromFullName(fullName: string): string {
   return `https://github.com/${fullName}`;
@@ -54,12 +52,10 @@ function NewProjectWizard() {
     setDeployError(null);
 
     try {
-      // 1. Create the project with the resolved build config — see
-      // createProjectSchema on the API for why every one of these fields
-      // is accepted at creation time now, not just from Settings afterward.
-      // defaultBranch is the branch the user picked in the Root Directory
-      // step — not necessarily repo.defaultBranch — since that's the branch
-      // this project should actually build and deploy from.
+      // 1. Create the project with the resolved build config. defaultBranch
+      // is the branch the user picked in the Root Directory step — not
+      // necessarily repo.defaultBranch — since that's the branch this
+      // project should actually build and deploy from.
       const project = await createProject({
         name: buildConfig.projectName,
         repoUrl: repoUrlFromFullName(repo.fullName),
@@ -76,8 +72,8 @@ function NewProjectWizard() {
       // 2. Create each staged env var against the now-real project id.
       // Sequential, not Promise.all — env-variables.service.ts enforces a
       // unique (projectId, key) constraint, and sequential creation gives
-      // a clean "variable 3 of 5 failed" error if one key is invalid,
-      // rather than a tangle of concurrent rejections to sort through.
+      // one clean failure if a key is invalid, rather than a tangle of
+      // concurrent rejections to sort through.
       for (const envVar of envVars) {
         await createEnvVariable(project.id, {
           key: envVar.key,
@@ -87,8 +83,7 @@ function NewProjectWizard() {
       }
 
       // 3. Kick off the first deployment immediately and land on its
-      // detail page so the build logs stream in just like the previous
-      // wizard flow did before the regression.
+      // detail page so the build logs stream in right away.
       const deployment = await createDeployment(project.id);
       router.push(`/project/${project.id}/deployments/${deployment.id}`);
     } catch (err) {

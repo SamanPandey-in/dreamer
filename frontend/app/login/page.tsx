@@ -147,10 +147,8 @@ function LoginForm() {
   );
 }
 
-// Same outer shape as the real form (logo, heading, card, button) so
-// hydration swaps content in-place with zero layout shift — a blank
-// fallback would otherwise flash for a frame on every static page load,
-// per Next's own guidance on useSearchParams + Suspense.
+// Mirrors the form's outer shape (logo, heading, card) so hydration swaps
+// content in place with zero layout shift while useSearchParams suspends.
 function LoginSkeleton() {
   return (
     <div style={{ width: "100%", maxWidth: "24rem" }}>

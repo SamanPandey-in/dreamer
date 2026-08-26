@@ -14,10 +14,9 @@ export function getAccessToken(): string | null {
 }
 
 /**
- * Lets the AuthProvider's React state stay in sync with this module's token,
- * including when apiFetch silently refreshes it below — without this, a
- * background refresh would update the token used for API calls but never
- * tell the UI, leaving stale state on screen.
+ * Keeps AuthProvider's React state in sync with this module's token — a
+ * background silent refresh would otherwise update the token without ever
+ * notifying the UI.
  */
 export function onAccessTokenChange(listener: (token: string | null) => void): () => void {
   listeners.add(listener);
@@ -51,16 +50,15 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   let res = await doFetch(accessToken);
 
   if (res.status === 401) {
-    // .clone() because the body can only be read once — if this isn't a
-    // refreshable case, the caller still needs to read the original error.
+    // .clone(): the body can only be read once, and the caller still needs
+    // the original error if this isn't a refreshable case.
     const body = await res
       .clone()
       .json()
       .catch(() => null);
 
     if (body?.code === "TOKEN_EXPIRED") {
-      // Coalesce concurrent refreshes — if five requests 401 at once, only one
-      // network call to /refresh happens; the other four await the same promise.
+      // Coalesce concurrent refreshes — parallel 401s share one /refresh call.
       refreshPromise ??= refreshAccessToken().finally(() => {
         refreshPromise = null;
       });

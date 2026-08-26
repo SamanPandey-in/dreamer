@@ -55,14 +55,10 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: "Dreamer — Free Hosting, or Self-Hosted PaaS",
     description: SITE_DESCRIPTION,
-    // No manual `images` entry here on purpose — app/opengraph-image.tsx
-    // below is a Next.js file-convention route that generates this image
-    // dynamically and gets auto-injected into this metadata at build/
-    // request time. A hardcoded `/og.png` path is a silent 404 the moment
-    // that file doesn't exist on disk (which it didn't, before this
-    // change) — link unfurls on Slack/Discord/iMessage/LinkedIn all cache
-    // that broken state, sometimes for weeks. Generating it in code means
-    // it can never drift out of sync with what's actually on disk.
+    // No manual `images` entry — app/opengraph-image.tsx is a file-convention
+    // route auto-injected into this metadata at build/request time. A hardcoded
+    // path would 404 silently if missing on disk, and link unfurls cache that
+    // broken state.
   },
   twitter: {
     card: "summary_large_image",
@@ -87,11 +83,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: SITE_URL,
   },
-  // Search Console / Bing Webmaster verification codes go here once you
-  // have real ones, e.g. `verification: { google: "abc123" }` — deliberately
-  // left out rather than filled with a placeholder, since a fake value
-  // sitting in committed code is easy to forget and ship, and Search
-  // Console will just fail to verify against it silently.
+  // Search Console / Bing verification goes here once real codes exist, e.g.
+  // `verification: { google: "abc123" }` — no placeholder, since a fake value
+  // fails verification silently.
 };
 
 export default function RootLayout({

@@ -22,9 +22,8 @@ export function ProjectProvider({
  * Throws, rather than returning null, if called outside the provider — every
  * page under app/project/[projectId]/ is guaranteed to be inside it (the
  * layout never renders children until the project has loaded), so a null
- * return here would just push an "is it null?" check into six different
- * pages that can never actually observe a null in practice. A loud error in
- * dev is more useful than a silent one at runtime.
+ * return would just push an unobservable "is it null?" check into every
+ * page. A loud error in dev is more useful than a silent one at runtime.
  */
 export function useProject(): ProjectContextValue {
   const ctx = useContext(ProjectContext);

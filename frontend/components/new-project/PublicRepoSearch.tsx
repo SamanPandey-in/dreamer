@@ -8,15 +8,15 @@ import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 
 /**
- * Search ANY public GitHub repo by name — deliberately separate from the
- * PAT-backed repo list above it (RepoPicker.tsx), not a filter on top of
- * it. Works even with no PAT set at all — useful for a repo the operator
- * doesn't own/collaborate on, so it wouldn't show up in that list. See
+ * Searches ANY public GitHub repo by name — deliberately separate from the
+ * PAT-backed repo list above it (RepoPicker.tsx), not a filter on it: works
+ * with no PAT at all, and covers repos the operator doesn't own/collaborate
+ * on so they'd never show up in that list. See
  * docs/architecture/local-engine-auth-and-networking.md Decision 2.
  *
- * This is a plain text query, not a URL paste — matches how the PAT-backed
- * list above it works (pick from a list of names, not paste a link), and
- * means the same repositoryId ends up on the project either way.
+ * Plain text query, not a URL paste — matches how the PAT-backed list works
+ * (pick from names, not links), and the same repositoryId lands on the
+ * project either way.
  */
 export function PublicRepoSearch({ onSelect }: { onSelect: (repo: GithubRepoSummary) => void }) {
   const [query, setQuery] = useState("");

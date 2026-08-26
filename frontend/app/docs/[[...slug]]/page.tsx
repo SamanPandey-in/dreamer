@@ -18,13 +18,9 @@ export function generateStaticParams() {
   }));
 }
 
-// Every doc page used to silently inherit the root layout's site-wide
-// title/description — fine for the homepage, but it meant every single doc
-// page (a dozen-plus URLs) showed up in search results and link previews
-// with the exact same title, which both search engines and AI crawlers
-// read as duplicate/low-quality content. Each page now gets its own title
-// (from docsManifest, already the display name in the sidebar) and its own
-// description (the doc's own first paragraph, via extractDocDescription).
+// Per-page titles/descriptions instead of the root layout's site-wide
+// metadata, which gave every doc URL identical titles in search results and
+// link previews — read by crawlers as duplicate/low-quality content.
 export async function generateMetadata({
   params,
 }: {

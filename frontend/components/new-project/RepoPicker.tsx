@@ -9,9 +9,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { PublicRepoSearch } from "./PublicRepoSearch";
 
-/** Renders "6h ago" / "Jun 21" — recent activity gets a relative time, older
- * activity gets a short absolute date, since "3 months ago" is less useful
- * than just seeing the date at that point. */
+/** Renders "6h ago" / "Jun 21" — relative time while recent, short absolute
+ * date once older, since "3 months ago" is less useful than the date. */
 function formatRepoUpdatedAt(iso: string): string {
   const date = new Date(iso);
   const hoursAgo = (Date.now() - date.getTime()) / (1000 * 60 * 60);
@@ -40,25 +39,23 @@ function RepoRow({ repo, onSelect }: { repo: GithubRepoSummary; onSelect: (repo:
 }
 
 /**
- * No git PAT set yet — see
- * docs/architecture/local-engine-auth-and-networking.md Decision 2. Public
- * repos still work with no token at all, so this isn't a hard stop — just
- * a pointer to Settings, alongside the public-repo search that works
- * regardless.
+ * No git PAT set yet — see docs/architecture/local-engine-auth-and-networking.md
+ * Decision 2. Public repos still work with no token at all, so this isn't a
+ * hard stop — just a pointer to Settings alongside the public-repo search.
  *
- * The two paths get deliberate visual hierarchy: setting up the token is
- * the highlighted callout with its own CTA (it unlocks the full flow —
- * your own repos, private ones included), while public-repo search stays
- * visually quiet below as the zero-setup fallback.
+ * The two paths get deliberate visual hierarchy: the token setup is the
+ * highlighted callout with its own CTA (it unlocks the full flow — your own
+ * repos, private ones included), while public-repo search stays visually
+ * quiet below as the zero-setup fallback.
  */
 function NoGitToken({ onSelect }: { onSelect: (repo: GithubRepoSummary) => void }) {
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold mb-5">Import Git Repository</h1>
 
-      {/* Primary path — set up the PAT. Icon-tile layout mirrors
-          GitTokenPrompt on the destination page, so Settings feels familiar
-          when you land there; #git scrolls straight to that form. */}
+      {/* Primary path — set up the PAT. Icon-tile layout mirrors GitTokenPrompt
+          on the Settings page so it feels familiar; #git scrolls straight to
+          that form. */}
       <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.05] p-4 flex items-start gap-3">
         <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
           <KeyRound className="w-[18px] h-[18px] text-blue-400" />

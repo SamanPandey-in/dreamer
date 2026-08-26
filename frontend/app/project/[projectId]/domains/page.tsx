@@ -51,7 +51,6 @@ export default function DomainsPage() {
   }
 
   return (
-    // now when CUSTOM_DOMAINS_ENABLED is false, we show a stub instead of the actual domain management UI
     !CUSTOM_DOMAINS_ENABLED ? (
       <CustomDomainsDisabled />
     ) : (

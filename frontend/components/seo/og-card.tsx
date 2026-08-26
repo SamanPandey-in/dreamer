@@ -1,16 +1,11 @@
-// Shared between app/opengraph-image.tsx and app/twitter-image.tsx so the
-// two link-preview surfaces (Facebook/LinkedIn/Slack/Discord vs. X) never
-// silently drift apart. Deliberately NOT using next/og's ImageResponse in
-// this file — it just returns the JSX; each route-convention file wraps it
-// in its own ImageResponse call, since that's what Next.js's file-based
-// metadata system actually looks for.
+// Shared by app/opengraph-image.tsx and app/twitter-image.tsx so the two
+// link-preview surfaces (OG vs X) never drift apart. Returns JSX only —
+// each route file wraps it in its own next/og ImageResponse call, which is
+// what Next.js's file-based metadata system looks for.
 //
-// CSS here is restricted to what satori (ImageResponse's renderer) reliably
-// supports: flexbox layout, absolute positioning, solid/gradient
-// backgrounds, borders. Deliberately avoiding `filter: blur()` and
-// `background-clip: text` gradient text — both are common satori footguns
-// that render as a wrong/blank result rather than failing loudly, and this
-// can't be visually spot-checked in this environment before shipping.
+// Styles are limited to what satori renders reliably: flexbox, absolute
+// positioning, solid/gradient backgrounds, borders. `filter: blur()` and
+// `background-clip: text` fail silently instead of loudly, so they're avoided.
 import { SITE_URL } from "@/lib/site";
 
 export function OgCard() {

@@ -9,9 +9,6 @@ const LEVEL_CONFIG: Record<LogLine["level"], { color: string; icon: typeof Alert
   WARN: { color: "text-yellow-400", icon: AlertTriangle },
   SYSTEM: { color: "text-blue-400", icon: Terminal },
   DEBUG: { color: "text-zinc-500", icon: Bug },
-  // INFO is the overwhelming majority of lines (raw build-tool stdout) — no
-  // icon, so the eye isn't drawn to every single line, only the ones that
-  // actually deviate from "normal."
   INFO: { color: "text-zinc-300", icon: null },
 };
 
@@ -61,9 +58,7 @@ export function LogPanel({ logs, isStreaming }: { logs: LogLine[]; isStreaming: 
         <span className="text-xs text-zinc-500 shrink-0">{filteredLogs.length} lines</span>
       </div>
 
-      {/* Level filter chips — the direct payoff of `level` being a real
-          structured field instead of buried in free-text: narrowing to just
-          ERROR lines after a failed build is one click, not a scroll. */}
+      {/* `level` is structured, so narrowing to ERROR after a failed build is one click */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-zinc-800/60 overflow-x-auto">
         {LEVEL_FILTERS.map((level) => (
           <button

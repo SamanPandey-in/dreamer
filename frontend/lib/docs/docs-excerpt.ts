@@ -1,10 +1,9 @@
 // Strips markdown syntax down to plain text and returns the first real
-// paragraph, truncated to a search-result-friendly length — used by
-// app/docs/[[...slug]]/page.tsx's generateMetadata so every doc page gets
-// its own description instead of inheriting the root layout's site-wide
-// one. Deliberately simple (no full markdown AST) since this only needs to
-// be "good enough plain text," not a faithful render — DocsMarkdown already
-// owns the real rendering.
+// paragraph, truncated to a search-result-friendly length — used by doc
+// pages' generateMetadata so every page gets its own description instead of
+// inheriting the root layout's site-wide one. Deliberately simple (no full
+// markdown AST) since DocsMarkdown already owns the real rendering; this
+// only needs to be "good enough plain text."
 const MAX_DESCRIPTION_LENGTH = 155;
 
 function stripMarkdownSyntax(line: string): string {
@@ -27,8 +26,8 @@ export function extractDocDescription(markdown: string): string | undefined {
       continue;
     }
     if (inCodeBlock || line.length === 0) continue;
-    // Skip headings, list markers, and blockquotes — we want the first
-    // sentence of actual prose, not a heading repeating the page title.
+    // Skip headings, list markers, and blockquotes — we want actual prose,
+    // not a heading repeating the page title.
     if (/^(#{1,6}\s|[-*+]\s|>\s|\d+\.\s)/.test(line)) continue;
 
     const text = stripMarkdownSyntax(line);

@@ -35,14 +35,11 @@ export function repoNameFromUrl(repoUrl: string): string {
 }
 
 /**
- * Mirrors `slugifyProjectName` in the API's src/projects/project.service.ts
- * — same lowercase / collapse-non-alphanumeric / trim-hyphens rules — purely
- * so the new-project form can preview what the real slug will look like
- * before submitting. This is a PREVIEW ONLY: it can't know about collisions
- * (no DB access from the browser), so if the exact slug is already taken,
- * the actual created project gets `{preview}-{randomSuffix}` instead — the
- * form's helper text next to this says as much, deliberately, rather than
- * implying the preview is guaranteed.
+ * Mirrors slugifyProjectName in api-server/src/projects/project.service.ts
+ * so the new-project form can preview the real slug before submitting.
+ * PREVIEW ONLY — collisions are resolved server-side with a random suffix
+ * ({preview}-{randomSuffix}), which the form's helper text deliberately
+ * discloses rather than implying the preview is guaranteed.
  */
 export function slugPreview(name: string): string {
   const slug = name

@@ -4,16 +4,14 @@ import { AlertCircle, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 export type AlertVariant = "error" | "warning" | "info" | "success";
 
 const VARIANT_STYLES: Record<AlertVariant, { container: string; icon: string }> = {
-  // Something failed outright — invalid credentials, a link that no longer
-  // works, a request that errored. Red is reserved for this only, so it
-  // still reads as "something's actually wrong" when it shows up.
+  // Outright failure. Red is reserved for this only, so it always reads as
+  // "something's actually wrong".
   error: {
     container: "bg-red-500/10 border-red-500/20 text-red-400",
     icon: "text-red-400",
   },
-  // Action needed before the user can continue, but nothing is broken —
-  // e.g. "verify your email first". Amber, not red, so it doesn't read as
-  // a failure on the user's part.
+  // Action needed before continuing, nothing broken — amber so it doesn't
+  // read as a failure on the user's part.
   warning: {
     container: "bg-amber-500/10 border-amber-500/20 text-amber-300",
     icon: "text-amber-400",
@@ -40,12 +38,10 @@ const VARIANT_ICONS: Record<AlertVariant, typeof AlertCircle> = {
 interface AlertProps {
   variant: AlertVariant;
   children: ReactNode;
-  /**
-   * Support reference shown as small, muted, monospace text below the
-   * message — deliberately never inline with the message itself. A raw ID
-   * sitting in the middle of a sentence reads as a bug, not a feature; on
-   * its own line it reads as "here's what to give support" instead.
-   */
+    /**
+     * Rendered on its own muted monospace line below the message — never
+     * inline, where a raw ID reads as a bug instead of a support reference.
+     */
   requestId?: string;
   className?: string;
 }

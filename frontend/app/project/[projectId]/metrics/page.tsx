@@ -17,9 +17,8 @@ const CHART_METRICS = [
   { key: "avgResponseTimeMs" as const, label: "Avg response time", color: "#f59e0b" },
 ];
 
-// api-server flushes Redis into Postgres every 2 minutes (see
-// src/index.ts's METRICS_FLUSH_INTERVAL_MS) — polling faster than that
-// would just re-fetch the same rows.
+// Matches api-server/src/index.ts METRICS_FLUSH_INTERVAL_MS: metrics only
+// reach Postgres every ~2 min, so polling faster re-fetches identical rows.
 const POLL_INTERVAL_MS = 120_000;
 
 function formatTimestampForRange(iso: string, range: MetricsRange): string {

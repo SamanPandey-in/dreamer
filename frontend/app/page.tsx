@@ -4,13 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./providers";
 
-/**
- * local-engine: no public marketing landing page — see
- * docs/architecture/local-engine-auth-and-networking.md Decision 1. This
- * dashboard is loopback-only and single-operator; the root route just
- * routes straight to whichever real screen applies, same as CapRover/
- * Coolify's own dashboards do at "/".
- */
+
 export default function Home() {
   const router = useRouter();
   const { user, loading, setupStatusLoaded, setupComplete } = useAuth();

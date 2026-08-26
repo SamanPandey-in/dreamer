@@ -18,11 +18,10 @@ interface GitTokenPromptProps {
 }
 
 /**
- * local-engine's replacement for the old GitHub OAuth "Connect" redirect —
- * see docs/architecture/local-engine-auth-and-networking.md Decision 2. No
- * redirect, no consent screen: paste a PAT, save it, done. The token is
- * write-only from here on — AuthUser only ever reports hasGitToken, so
- * there's nothing to prefill; "Update" just overwrites whatever's stored.
+ * Git auth via pasted PAT instead of an OAuth redirect — see
+ * docs/architecture/local-engine-auth-and-networking.md Decision 2. The
+ * token is write-only: AuthUser only reports hasGitToken, so there's
+ * nothing to prefill and "Update" just overwrites whatever's stored.
  */
 export function GitTokenPrompt({ hasToken, onChange, description }: GitTokenPromptProps) {
   const [editing, setEditing] = useState(!hasToken);

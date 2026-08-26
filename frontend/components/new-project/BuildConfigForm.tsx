@@ -14,19 +14,19 @@ export interface BuildConfigValues {
   outputDirectory: string;
 }
 
-/** Turns "my-cool-app" into a reasonable starting project name — repo names are already close to valid project slugs, so this mostly just exists to seed the field with something better than empty. project.service.ts's own slug generation handles uniqueness/sanitization server-side; this is purely a friendly starting point, not validation. */
+/** Seeds the field with something reasonable — repo names are already close to
+ * valid project slugs. project.service.ts handles uniqueness/sanitization
+ * server-side; this is only a friendly starting point, not validation. */
 function suggestedProjectName(repoName: string): string {
   return repoName;
 }
 
 /**
- * A single labeled field with a toggle to override the detected default —
- * matches screenshot 3's pattern exactly: the field is disabled and shows
- * the detected value as placeholder text until the toggle is flipped, at
- * which point it becomes a real editable input. This is also what keeps
- * "detected vs. user-set" an honest distinction in the submitted payload —
- * see the wizard's handleSubmit, which only sends a field's value at all
- * when its toggle is on.
+ * A single labeled field with a toggle to override the detected default:
+ * disabled, showing the detected value as placeholder text until the toggle
+ * flips, then a real editable input. This is also what keeps "detected vs.
+ * user-set" honest in the submitted payload — the wizard only sends a field's
+ * value at all when its toggle is on.
  */
 function OverridableField({
   label,
@@ -98,9 +98,9 @@ export function BuildConfigForm({
   const [selectedPresetId, setSelectedPresetId] = useState<FrameworkPresetId>("static");
   const [settingsExpanded, setSettingsExpanded] = useState(false);
 
-  // Per-field override state — see OverridableField's docstring. All three
-  // start false: the form shows detected/preset defaults as placeholders
-  // until the user explicitly opts into editing one.
+  // Per-field override state — see OverridableField's docstring. All start
+  // false: detected/preset defaults show as placeholders until the user
+  // explicitly opts into editing one.
   const [installOverride, setInstallOverride] = useState(false);
   const [buildOverride, setBuildOverride] = useState(false);
   const [outputOverride, setOutputOverride] = useState(false);
@@ -126,11 +126,10 @@ export function BuildConfigForm({
   }, []);
 
   /**
-   * The currently-active defaults to show as placeholders — `detected`'s
-   * own values while the dropdown still matches what was auto-detected
-   * (so matchedOn-derived nuances like Next.js's static-export distinction
-   * are preserved), or the plain preset table's defaults the moment the
-   * user manually picks something else.
+   * Active defaults to show as placeholders — `detected`'s own values while
+   * the dropdown still matches what was auto-detected (preserving nuances
+   * like Next.js's static-export distinction), or the plain preset table's
+   * defaults once the user manually picks something else.
    */
   function activeDefaults() {
     if (detected && selectedPresetId === detected.framework.id) {
@@ -214,9 +213,9 @@ export function BuildConfigForm({
           onChange={(e) => {
             const next = e.target.value as FrameworkPresetId;
             setSelectedPresetId(next);
-            // Switching presets resets any per-field override — the
-            // detected/preset defaults for the NEW preset are what should
-            // show, not stale text typed for the old one.
+            // Switching presets resets any per-field override — the new
+            // preset's defaults should show, not stale text typed for the
+            // old one.
             setInstallOverride(false);
             setBuildOverride(false);
             setOutputOverride(false);

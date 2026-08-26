@@ -16,9 +16,8 @@ interface DirectoryNode {
 
 /**
  * One row in the tree — recursive, since a directory can itself contain
- * directories. Only ever renders `dir` entries (files don't matter for a
- * root-directory picker, and aren't navigable further), matching what
- * screenshot 1 shows: every visible row is a folder.
+ * directories. Only ever renders `dir` entries: files don't matter for a
+ * root-directory picker and aren't navigable further.
  */
 function DirectoryRow({
   node,
@@ -124,24 +123,21 @@ export function RootDirectoryPicker({
   onCancel,
 }: {
   repoFullName: string;
-  /** The repo's actual default branch (from GitHub) — used to flag which
-   * option in the branch dropdown is "(default)" and as the initial
-   * selection, but the branch the user ends up building from is whatever
-   * they pick, not necessarily this one. */
+  /** The repo's actual default branch (from GitHub) — flags "(default)" in the
+   * dropdown and seeds the initial selection, but users can build from any
+   * branch they pick. */
   branch: string;
   onContinue: (rootDirectory: string, branch: string) => void;
   onCancel: () => void;
 }) {
   const [roots, setRoots] = useState<DirectoryNode[] | null>(null);
   const [rootError, setRootError] = useState<string | null>(null);
-  // "" means the repo root itself — selectable from the start, matching
-  // screenshot 1's "apps" row being pre-selected by default rather than
-  // requiring the user to explicitly pick the top level first.
+  // "" means the repo root itself — pre-selected by default so the user
+  // doesn't have to explicitly pick the top level first.
   const [selectedPath, setSelectedPath] = useState("");
 
-  // NEW — which branch to deploy. Starts on the repo's default branch and
-  // is fetched directly from GitHub so the user can pick any branch that
-  // actually exists, not just type one in.
+  // Branch choices come straight from GitHub so the user picks any branch
+  // that actually exists instead of typing one in.
   const [selectedBranch, setSelectedBranch] = useState(branch);
   const [branches, setBranches] = useState<RepoBranch[] | null>(null);
   const [branchesError, setBranchesError] = useState<string | null>(null);
@@ -164,10 +160,8 @@ export function RootDirectoryPicker({
     }
   }
 
-  // Fires exactly once on mount — the ref (not just the `roots === null`
-  // state check) is what prevents a second concurrent fetch firing during
-  // the window where the first request is still in flight and `roots` is
-  // still null.
+  // Fires exactly once on mount — the ref guard prevents a second concurrent
+  // fetch while the first request is still in flight and roots is still null.
   useEffect(() => {
     if (hasRequestedRoot.current) return;
     hasRequestedRoot.current = true;
@@ -297,7 +291,6 @@ export function RootDirectoryPicker({
             </div>
           )}
 
-          {/* The repo root itself — always selectable, listed above the folder tree. */}
           {roots && (
             <button
               type="button"

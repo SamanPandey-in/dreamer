@@ -15,19 +15,15 @@ interface UseDeploymentSocketOptions {
 
 /**
  * One socket per mounted log panel, joined to exactly one
- * `deployment:{id}` room — see api-server's src/realtime/socket.server.ts.
- * Mirrors the connect/subscribe pattern already proven out in
- * apps/frontend/app/demo/page.tsx, plus the access-token handshake that
- * page never needed (it predates auth entirely).
+ * `deployment:{id}` room — see api-server/src/realtime/socket.server.ts.
  */
 export function useDeploymentSocket(deploymentId: string, { enabled, onLog, onStatus }: UseDeploymentSocketOptions) {
   const [connected, setConnected] = useState(false);
 
-  // Refs, not dependencies — this hook re-renders far less than the
-  // deployment detail page does (every new log line is a state update on
-  // the PAGE, not here). Reading the latest callback through a ref instead
-  // of re-subscribing the whole socket on every render is what keeps this
-  // hook's effect dependency array down to just [deploymentId, enabled].
+  // Callbacks live in refs, not effect deps: log/status fire far more often
+  // than this hook re-renders (each new log line is a state update on the
+  // page, not here), and reading the latest callback through a ref keeps the
+  // effect dependency array down to just [deploymentId, enabled].
   const onLogRef = useRef(onLog);
   const onStatusRef = useRef(onStatus);
 
@@ -51,10 +47,9 @@ export function useDeploymentSocket(deploymentId: string, { enabled, onLog, onSt
       onStatusRef.current(e.status, e.url);
     });
 
-    // If the in-memory access token rotates (apiFetch's silent refresh)
-    // while this panel is open, update what the NEXT reconnect attempt
-    // sends — Socket.IO re-reads socket.auth on every reconnect, so this is
-    // enough to recover from a token rotation without forcing a disconnect
+    // If the access token rotates while this panel is open (apiFetch's
+    // silent refresh), update socket.auth — Socket.IO re-reads it on every
+    // reconnect, so rotation recovers without forcing a disconnect
     // mid-stream.
     const unsubscribe = onAccessTokenChange((token) => {
       socket.auth = { token };

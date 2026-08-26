@@ -91,11 +91,9 @@ export default function ProjectSettingsPage() {
     defaultBranch !== gitSnapshot.defaultBranch ||
     autoDeployEnabled !== gitSnapshot.autoDeployEnabled;
 
-  // NEW — branches fetched directly from GitHub, so "Production Branch"
-  // is a dropdown of what actually exists on the repo rather than a free-text
-  // field the user could typo. Falls back to the existing text input if the
-  // list can't be fetched (repo not linked, GitHub call fails, etc.) so this
-  // panel never becomes unusable because of a GitHub hiccup.
+  // Branch options come straight from GitHub so users can't typo a branch
+  // name; falls back to the text input when the repo isn't linked or the
+  // fetch fails, so this panel never becomes unusable.
   const [branches, setBranches] = useState<RepoBranch[] | null>(null);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [branchesError, setBranchesError] = useState<string | null>(null);
@@ -112,10 +110,8 @@ export default function ProjectSettingsPage() {
       .finally(() => setBranchesLoading(false));
   }, [project.repoFullName, project.defaultBranch]);
 
-  // The currently-saved branch is always selectable even if it's somehow
-  // missing from what GitHub returned (renamed/deleted upstream) — the
-  // dropdown shouldn't silently swap the project's stored branch just
-  // because the fetched list doesn't happen to include it.
+  // Keep the saved branch selectable even if missing from GitHub's response
+  // (renamed/deleted upstream) — never silently swap it out.
   const branchOptions =
     branches && !branches.some((b) => b.name === defaultBranch)
       ? [{ name: defaultBranch, isDefault: false }, ...branches]

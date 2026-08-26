@@ -18,10 +18,9 @@ interface AuthContextType {
   /** True until the initial silent-refresh-on-mount has resolved. */
   loading: boolean;
   /**
-   * True once GET /api/auth/setup-status has actually returned (as
-   * opposed to `false` because it hasn't loaded yet). Distinguishes
-   * "haven't checked" from "checked: not set up" for callers deciding
-   * whether to redirect to /setup — see app/setup/page.tsx.
+   * True once GET /api/auth/setup-status has actually returned (as opposed to
+   * `false` because it hasn't loaded yet) — distinguishes "haven't checked"
+   * from "checked: not set up" before redirecting to /setup.
    */
   setupStatusLoaded: boolean;
   /** Whether the one-time admin account has already been created. See docs/architecture/local-engine-auth-and-networking.md Decision 1. */
@@ -49,11 +48,9 @@ export function Providers({ children }: { children: ReactNode }) {
   const [setupComplete, setSetupComplete] = useState(false);
   const [setupStatusLoaded, setSetupStatusLoaded] = useState(false);
 
-  // api-client.ts is the single source of truth for the in-memory access
-  // token (apiFetch reads it directly from there for every request). This
-  // keeps this component's state — and therefore every re-render that
-  // depends on it — in sync whenever that token changes, including from
-  // apiFetch's own silent background refresh, not just from calls made here.
+  // api-client.ts owns the in-memory access token (apiFetch reads it from
+  // there on every request); mirror its changes into state so re-renders
+  // track silent background refreshes too, not just calls made here.
   useEffect(() => onAccessTokenChange(setAccessTokenState), []);
 
   const refreshSession = useCallback(async () => {
@@ -65,13 +62,10 @@ export function Providers({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // On first load: check setup status (do we even have an admin yet?) AND
-  // try to turn an existing httpOnly refresh cookie into a fresh access
-  // token — run together, not sequentially, since neither depends on the
-  // other's result. This is what keeps someone logged in across a page
-  // reload without ever putting a token in localStorage, and what lets the
-  // app route a fresh install straight to /setup instead of a login form
-  // that has no account to log into yet.
+  // First load: restore the session from the httpOnly refresh cookie AND
+  // check whether an admin exists yet — in parallel, neither depends on the
+  // other. Keeps logins alive across reloads without localStorage and routes
+  // fresh installs to /setup instead of a login form with no account.
   useEffect(() => {
     let cancelled = false;
     Promise.all([
@@ -85,9 +79,8 @@ export function Providers({ children }: { children: ReactNode }) {
           }
         })
         .catch(() => {
-          // Setup-status check failing (network blip, API not up yet) isn't
-          // fatal — leave setupStatusLoaded false so callers keep waiting
-          // rather than wrongly assuming setup is or isn't done.
+          // Not fatal — leave setupStatusLoaded false so callers keep waiting
+          // rather than wrongly assuming either answer.
         }),
     ]).finally(() => {
       if (!cancelled) setLoading(false);

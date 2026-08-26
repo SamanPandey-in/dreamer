@@ -16,12 +16,11 @@ export interface StagedEnvVar {
 }
 
 /**
- * Parses pasted .env file contents into staged rows — `KEY=value` per
- * line, skipping blank lines and full-line comments. Doesn't attempt to
- * handle every shell-quoting edge case a real `.env` parser (like dotenv's)
- * would, since this only feeds a form the user can still review and edit
- * before submitting — a slightly-wrong parse is correctable here in a way
- * it wouldn't be if this fed straight into storage.
+ * Parses pasted .env file contents into staged rows — `KEY=value` per line,
+ * skipping blank lines and full-line comments. Doesn't handle every
+ * shell-quoting edge case a real `.env` parser (like dotenv's) would — fine,
+ * since rows land in a form the user can still review and edit before
+ * submitting, not straight into storage.
  */
 function parseEnvFileContents(raw: string): StagedEnvVar[] {
   return raw
@@ -33,8 +32,8 @@ function parseEnvFileContents(raw: string): StagedEnvVar[] {
       if (eqIndex === -1) return null;
       const key = line.slice(0, eqIndex).trim();
       let value = line.slice(eqIndex + 1).trim();
-      // Strip a single matching pair of surrounding quotes — common in
-      // .env files (KEY="value with spaces") but not part of the actual value.
+      // Strip a single matching pair of surrounding quotes — common in .env
+      // files but not part of the actual value.
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1);
       }
@@ -122,10 +121,9 @@ export function NewProjectEnvVarsForm({
     file.text().then((text) => {
       const parsed = parseEnvFileContents(text);
       if (parsed.length === 0) return;
-      // Replaces any still-empty starter row rather than appending after
-      // it — a fresh wizard always starts with one blank row, and leaving
-      // it there after an import just adds visual clutter the user has to
-      // manually delete.
+      // Replaces the still-empty starter row rather than appending after it —
+      // a fresh wizard starts with one blank row, and leaving it behind after
+      // an import just adds clutter the user has to manually delete.
       setRows((prev) => {
         const nonEmpty = prev.filter((r) => r.key.trim() || r.value.trim());
         return [...nonEmpty, ...parsed];
@@ -136,9 +134,8 @@ export function NewProjectEnvVarsForm({
   }
 
   function handleDeploy() {
-    // Only rows with a real key are sent — an entirely blank starter row
-    // left untouched shouldn't become a request to create an env var with
-    // an empty name.
+    // Only rows with a real key are sent — an untouched blank starter row
+    // shouldn't become a request to create an env var with an empty name.
     onDeploy(rows.filter((row) => row.key.trim()));
   }
 

@@ -2,11 +2,10 @@ import { API_BASE_URL } from "./config";
 import { apiFetch, setAccessToken } from "./api-client";
 import { ApiError, extractRequestId } from "./api-error";
 
-// Mirrors PublicUser from the API's src/auth/auth.types.ts — keep these in sync.
-// local-engine: see docs/architecture/local-engine-auth-and-networking.md
-// Decision 1 & 2 — no githubUsername/emailVerified anymore (no GitHub
-// login, no email verification for a single admin); hasGitToken replaces
-// them, reflecting the stored PAT instead.
+// Mirrors PublicUser in api-server/src/auth/auth.types.ts — keep in sync.
+// Single-admin setup: no GitHub login or email verification; hasGitToken
+// reflects the stored PAT instead (see
+// docs/architecture/local-engine-auth-and-networking.md).
 export interface AuthUser {
   id: string;
   email: string;
@@ -33,8 +32,7 @@ async function parseAuthResponse(res: Response): Promise<AuthResponse> {
 /**
  * GET /api/auth/setup-status — unauthenticated, safe to call before any
  * login attempt. Drives whether the app shows the one-time setup wizard
- * or the normal login screen. See
- * docs/architecture/local-engine-auth-and-networking.md Decision 1.
+ * or the normal login screen.
  */
 export async function getSetupStatus(): Promise<{ complete: boolean }> {
   const res = await fetch(`${API_BASE_URL}/api/auth/setup-status`);
@@ -45,10 +43,9 @@ export async function getSetupStatus(): Promise<{ complete: boolean }> {
 
 /**
  * POST /api/auth/setup — creates the single admin account. Only ever
- * succeeds once: the server 409s permanently after the first call
- * succeeds, so the setup wizard should never be shown again after this
- * resolves. Logs the new admin in immediately (unlike the old register(),
- * there's no email-verification gap to wait through).
+ * succeeds once (the server permanently 409s after the first success),
+ * so never resurface the setup wizard after this resolves. Logs the new
+ * admin in immediately.
  */
 export async function setup(name: string, email: string, password: string): Promise<AuthResponse> {
   const res = await fetch(`${API_BASE_URL}/api/auth/setup`, {
@@ -155,13 +152,10 @@ export async function changePassword(input: ChangePasswordInput): Promise<void> 
   }
 }
 
-// Git PAT (Settings > Git) — see
-// docs/architecture/local-engine-auth-and-networking.md Decision 2. The
-// token itself is write-only from the client's perspective: AuthUser only
-// ever reports hasGitToken (a boolean), never the token, so there's
-// nothing to prefill an input with — Settings should show a masked
-// placeholder plus "Update"/"Remove" affordances instead of an editable
-// current value.
+// Git PAT (Settings > Git) — write-only from the client's perspective:
+// AuthUser only ever reports hasGitToken, never the token, so there's
+// nothing to prefill an input with — Settings shows a masked placeholder
+// plus "Update"/"Remove" affordances rather than an editable current value.
 
 export async function setGitToken(personalAccessToken: string): Promise<void> {
   const res = await apiFetch("/api/auth/git-token", {

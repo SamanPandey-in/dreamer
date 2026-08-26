@@ -9,9 +9,9 @@ export function getDocSourceText(entry: DocEntry): string {
   return fs.readFileSync(filePath, "utf-8");
 }
 
-// Resolves a relative markdown link (e.g. "./overview.md", "../auth/README.md#tokens")
-// found inside `fromEntry`'s file into either an internal /docs/... route or,
-// if the target file was never migrated into the app, the file's URL on GitHub.
+// Resolves a relative markdown link found inside `fromEntry`'s file into
+// either an internal /docs/... route or — if the target file was never
+// migrated into the app — the file's URL on GitHub.
 export function resolveDocHref(fromEntry: DocEntry, href: string): string {
   if (!href.endsWith(".md") && !href.includes(".md#")) {
     return href; // external link, mailto, anchor-only, etc. — leave untouched
@@ -26,8 +26,8 @@ export function resolveDocHref(fromEntry: DocEntry, href: string): string {
 
   const target = getDocBySource(resolved);
   if (!target) {
-    // Doc exists in the repo but wasn't migrated (e.g. internal build logs) —
-    // point at the real file on GitHub instead of a dead link.
+    // Doc exists in the repo but wasn't migrated (e.g. internal build logs)
+    // — point at the file on GitHub instead of a dead link.
     return `${GITHUB_DOCS_BASE}${resolved}`;
   }
 

@@ -14,14 +14,9 @@ import type { Project } from "@/lib/dashboard-types";
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
   const { projectId } = useParams<{ projectId: string }>();
-  // `loading` is true until Providers' boot-time cookie->accessToken refresh
-  // resolves. Firing getProject() before that finishes means apiFetch sends
-  // Authorization: "" — the API correctly rejects it as NO_TOKEN (not
-  // TOKEN_EXPIRED), so apiFetch's silent-refresh-and-retry never kicks in
-  // and the raw "Missing or malformed Authorization header" error surfaces
-  // to the user. Gating on { loading, user } here (instead of only inside
-  // RequireAuth, which just decides what to *render*) stops this effect from
-  // ever making that request with no token in the first place.
+  // Wait for the boot-time cookie->accessToken refresh before fetching:
+  // firing early sends an empty Authorization header, which the API rejects
+  // as NO_TOKEN — bypassing apiFetch's silent-refresh-and-retry entirely.
   const { loading: authLoading, user } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState<string | null>(null);
