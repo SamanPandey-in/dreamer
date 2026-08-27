@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Run by cron (see install.sh's `install_renewal_cron_job`), and safe to
-# run by hand any time. `certbot renew` itself is a no-op unless a
-# certificate is within 30 days of expiry — running this daily costs
-# nothing on the days it doesn't actually renew anything.
+# Run daily by cron (install.sh step 7); safe to run by hand any time.
+# `certbot renew` is a no-op unless the cert is within 30 days of expiry.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CERT_DIR="${REPO_ROOT}/certbot/letsencrypt"
-CF_INI="${REPO_ROOT}/certbot/cloudflare.ini"
+LOCAL_ENGINE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+CERT_DIR="${LOCAL_ENGINE_ROOT}/certbot/letsencrypt"
+CF_INI="${LOCAL_ENGINE_ROOT}/certbot/cloudflare.ini"
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"; }
 
@@ -27,13 +25,10 @@ docker run --rm \
   --dns-cloudflare-propagation-seconds 30 \
   --quiet
 
-# Reload (not restart) — picks up renewed cert files with zero dropped
-# connections, unlike a restart. Harmless and cheap to run even on the
-# days `certbot renew` above didn't actually renew anything.
 log "Reloading nginx..."
-cd "${REPO_ROOT}"
-if docker compose -f docker-compose.prod.yml --env-file .env.deploy exec -T nginx nginx -s reload; then
+cd "${LOCAL_ENGINE_ROOT}"
+if docker compose --env-file .env.deploy exec -T nginx nginx -s reload; then
   log "nginx reloaded"
 else
-  log "nginx reload failed (is the stack running? 'docker compose -f docker-compose.prod.yml ps')"
+  log "nginx reload failed (is the stack running? 'docker compose ps')"
 fi

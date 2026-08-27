@@ -3,5 +3,6 @@ node_modules
 skills-lock.json
 .env
 .env.deploy
+.env.local
 certbot/
 tests/coverage

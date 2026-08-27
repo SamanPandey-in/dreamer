@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
-# Shared helpers, sourced (not executed) by every other script in this
-# directory — `source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"`.
-# Nothing in here touches the network or the filesystem beyond stdout —
-# it's pure bash utility, kept in one place so a formatting change (colors,
-# a log prefix) doesn't need editing in five different scripts.
+# Shared helpers, sourced (not executed) by every other script here.
 
 set -euo pipefail
 
+if [[ -n "${_DREAMER_COMMON_SOURCED:-}" ]]; then
+  return 0
+fi
+_DREAMER_COMMON_SOURCED=1
+
 # --- logging -----------------------------------------------------------
-# Colored, prefixed output — install.sh runs a LOT of steps in sequence
-# (OS check, Docker install, secret generation, cert issuance, compose up,
-# migrations), and a wall of unprefixed `echo` output makes it genuinely
-# hard to tell "this line is informational" from "this line means it broke"
-# when something DOES go wrong three steps in.
 readonly _C_BLUE='\033[0;34m'
 readonly _C_GREEN='\033[0;32m'
 readonly _C_YELLOW='\033[1;33m'
@@ -31,12 +27,10 @@ fatal() {
 
 # --- environment checks --------------------------------------------------
 
+# Docker install, /etc/cron.d writes, and ports 80/443 all need root.
 require_root() {
-  # Installing Docker, writing to /etc/cron.d, and binding ports 80/443
-  # all need root. Failing fast with a clear message here beats a
-  # confusing "permission denied" forty lines into the Docker install step.
   if [[ "${EUID}" -ne 0 ]]; then
-    fatal "This script needs root — re-run it as: sudo ./scripts/install.sh ..."
+    fatal "This script needs root — re-run it as: sudo ./install.sh ..."
   fi
 }
 
@@ -50,14 +44,12 @@ require_command() {
 
 # --- validation ----------------------------------------------------------
 
-# A deliberately permissive check — this is a sanity check against typos
-# ("exmaple.com", a stray "https://" left in), not a full RFC 1035
-# validator. A real DNS lookup failing later is a much clearer signal of
-# an actually-wrong domain than a regex could ever give.
+# Sanity check against typos, not a full RFC validator — a real DNS lookup
+# failing later is a much clearer signal of an actually-wrong domain.
 validate_domain() {
   local domain="$1"
   if [[ -z "${domain}" ]]; then
-    fatal "No domain provided. Usage: ./scripts/install.sh --domain yourdomain.com"
+    fatal "No domain provided. Usage: ./install.sh --domain yourdomain.com"
   fi
   if [[ "${domain}" == http* ]]; then
     fatal "Pass a bare domain (e.g. singularitydev.xyz), not a URL — got: ${domain}"
@@ -70,18 +62,14 @@ validate_domain() {
 # --- misc ------------------------------------------------------------
 
 random_hex() {
-  # $1 = number of bytes. JWT secrets need >=32 chars per env.ts's own
-  # validation; ENCRYPTION_KEY needs EXACTLY 64 hex chars (32 bytes) — see
-  # that file's comment on why (it's an AES-256 key, not an arbitrary
-  # secret string).
+  # $1 = number of bytes. ENCRYPTION_KEY needs exactly 64 hex chars
+  # (an AES-256 key), JWT secrets need >=32 chars.
   openssl rand -hex "$1"
 }
 
+# Best-effort — only used for the "point your DNS at this IP" message,
+# never fails the install.
 detect_public_ip() {
-  # Best-effort — used only for the friendly "point your DNS at THIS IP"
-  # message at the end, never for anything the install depends on
-  # functioning correctly. Falls back to a placeholder rather than failing
-  # the whole install over a convenience lookup.
   curl -fsSL --max-time 5 https://ifconfig.me 2>/dev/null \
     || curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null \
     || echo "<could-not-detect-fetch-manually-with-curl-ifconfig.me>"

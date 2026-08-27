@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Obtains a certificate covering BOTH the apex domain and the wildcard —
-# a plain `*.domain.com` cert does NOT cover the bare `domain.com` (the
-# dashboard itself lives there), so both names have to be requested
-# together, in one cert, which is only possible via a DNS-01 challenge
-# (HTTP-01 can't prove ownership of a wildcard at all — there's no single
-# file path that answers for every possible subdomain).
+# Requests a WILDCARD-ONLY cert (*.${DOMAIN}) — nothing on this box serves
+# the apex, so requesting it would be pointless and would force the
+# operator to prove control of a domain whose apex may point elsewhere.
+#
+# A wildcard SAN is only obtainable via DNS-01 (HTTP-01 can't prove
+# ownership of a wildcard).
+#
+# --cert-name "${DOMAIN}" pins the on-disk lineage name so nginx's
+# hardcoded /etc/letsencrypt/live/${DOMAIN}/ path is always correct.
 #
 # Certs land in a HOST bind mount (./certbot/letsencrypt), not a Docker
-# named volume — this is deliberate: a bind mount path is identical
-# whether it's written by this standalone `docker run` or by
-# docker-compose.prod.yml's own service definitions, with no dependency on
-# Compose's project-name-based volume naming lining up between the two.
+# named volume — same path whether written by this standalone `docker run`
+# or by compose.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -29,11 +30,11 @@ cert_already_issued() {
 }
 
 issue_via_cloudflare() {
-  log_step "Requesting a wildcard certificate for ${DOMAIN} + *.${DOMAIN} via Cloudflare DNS-01"
+  log_step "Requesting a wildcard-only certificate for *.${DOMAIN} via Cloudflare DNS-01"
 
   local cf_ini="${REPO_ROOT}/certbot/cloudflare.ini"
   printf 'dns_cloudflare_api_token = %s\n' "${CLOUDFLARE_TOKEN}" > "${cf_ini}"
-  chmod 600 "${cf_ini}" # certbot itself refuses to run with a group/world-readable credentials file
+  chmod 600 "${cf_ini}" # certbot refuses group/world-readable credentials
 
   docker run --rm \
     -v "${CERT_DIR}:/etc/letsencrypt" \
@@ -43,13 +44,13 @@ issue_via_cloudflare() {
     --dns-cloudflare \
     --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
     --dns-cloudflare-propagation-seconds 30 \
-    -d "${DOMAIN}" \
+    --cert-name "${DOMAIN}" \
     -d "*.${DOMAIN}" \
     --email "${EMAIL}" \
     --agree-tos \
     --non-interactive
 
-  log_ok "Certificate issued for ${DOMAIN} and *.${DOMAIN}"
+  log_ok "Certificate issued for *.${DOMAIN}"
 }
 
 issue_via_manual_dns() {
@@ -58,19 +59,16 @@ issue_via_manual_dns() {
   log_warn "If you're on Cloudflare, re-run with --cloudflare-token instead for a fully unattended install."
   echo
 
-  # Deliberately interactive (-it, no --non-interactive) — certbot will
-  # print the exact TXT record name/value to create and wait for Enter.
-  # This is the one part of install.sh that CAN'T be made fully autonomous
-  # without a supported DNS provider's API — proving control of a domain
-  # you haven't given this script any credentials for fundamentally
-  # requires a manual step somewhere.
+  # Deliberately interactive — certbot prints the TXT record to create
+  # and waits for Enter. Proving control of a domain without API creds
+  # fundamentally requires this manual step.
   docker run --rm -it \
     -v "${CERT_DIR}:/etc/letsencrypt" \
     certbot/certbot:latest \
     certonly \
     --manual \
     --preferred-challenges dns \
-    -d "${DOMAIN}" \
+    --cert-name "${DOMAIN}" \
     -d "*.${DOMAIN}" \
     --email "${EMAIL}" \
     --agree-tos

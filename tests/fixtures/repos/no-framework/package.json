@@ -1,0 +1,9 @@
+{
+  "name": "demo-plain-html-site",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "dependencies": {}
+}
