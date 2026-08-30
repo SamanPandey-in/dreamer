@@ -20,7 +20,7 @@ Static sites, SSR apps, and Node servers — on your own machine.
 <br />
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-zinc.svg?style=flat-square)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green?style=flat-square&logo=node.js)](https://nodejs.org)
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/npm/node/node.svg?variant=outline&amp;theme=green&amp;logo=nodedotjs&amp;label=Node.js&amp;mode=dark"><img alt="badge" src="https://shieldcn.dev/npm/node/node.svg?variant=outline&amp;theme=green&amp;logo=nodedotjs&amp;label=Node.js&amp;mode=light"></picture>
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql)](https://postgresql.org)
 [![Redis](https://img.shields.io/badge/Redis-7-red?style=flat-square&logo=redis)](https://redis.io)
