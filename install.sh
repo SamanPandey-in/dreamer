@@ -11,6 +11,7 @@
 # add a DNS record for *.yourdomain.com pointing at this box.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
 cd "${SCRIPT_DIR}"
 # shellcheck source=./scripts/lib/common.sh
 source "${SCRIPT_DIR}/scripts/lib/common.sh"

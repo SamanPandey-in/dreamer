@@ -2,9 +2,9 @@
 # Installs Docker Engine + the `docker compose` v2 plugin if missing.
 # Idempotent — safe to re-run on a box that already has Docker.
 set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_INSTALL_DOCKER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./common.sh
-source "${SCRIPT_DIR}/common.sh"
+source "${_INSTALL_DOCKER_DIR}/common.sh"
 
 ensure_docker_installed() {
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
