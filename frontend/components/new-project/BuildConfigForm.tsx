@@ -233,6 +233,13 @@ export function BuildConfigForm({
         )}
       </div>
 
+      {(selectedPresetId === "nextjs-ssr" || selectedPresetId === "nextjs-static") && (
+        <p className="text-xs text-zinc-400 -mt-3 mb-5">
+          Make sure your Next.js app has <span className="font-mono text-zinc-300">output: &apos;standalone&apos;</span> in the{" "}
+          <span className="font-mono text-zinc-300">next.config.ts</span> file
+        </p>
+      )}
+
       {showUnsupportedWarning && (
         <div className="flex gap-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3.5 py-3 mb-5">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />

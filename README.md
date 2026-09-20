@@ -27,7 +27,7 @@ Static sites, SSR apps, and Node servers — on your own machine.
 
 <br />
 
-[**Walkthrough Video**](https://drive.google.com/file/d/1jHGQnt4hf-lu4mkSWboDuhPpi8_1WSUw/view?usp=sharing) · [**Live Link**](https://dreamer.samanp.xyz) · [**Architecture Docs**](#architecture) · [**Self-Host Guide**](docs/SELF-HOSTING.md) · [**Recruiter?**](#recruiter)
+[**Walkthrough Video**](https://drive.google.com/file/d/1jHGQnt4hf-lu4mkSWboDuhPpi8_1WSUw/view?usp=sharing) · [**Live Link**](https://dreamer.samanp.xyz) · [**Architecture Docs**](#architecture) · [**Self-Host Guide**](docs/SELF-HOSTING.md) · [**Contributing**](CONTRIBUTING.md) · [**Recruiter?**](#recruiter)
 
 <br />
 
