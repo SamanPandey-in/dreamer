@@ -3,6 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')
 const mime = require('mime-types')
+const { runPool } = require('./run-pool')
 const { publishLog, publishStatus, publishCommitInfo, publishImageReady, publisher } = require('./redis')
 const { writeNetrcIfNeeded, scrubNetrc, runClone, runCheckoutIfPinned, getCommitInfo, getBuildContextPath } = require('./clone-repo')
 const { resolveDockerfile } = require('./dockerfile-resolver')
@@ -25,6 +26,8 @@ const PROJECT_SLUG = process.env.PROJECT_SLUG
 const GIT_REPOSITORY_URL = process.env.GIT_REPOSITORY_URL
 const BRANCH = process.env.BRANCH || 'main'
 const S3_BUCKET = process.env.S3_BUCKET || 'dreamer-outputs'
+// Uploads in flight at once during the S3 phase; env override clamped to 1-32.
+const UPLOAD_CONCURRENCY = Math.min(32, Math.max(1, parseInt(process.env.UPLOAD_CONCURRENCY, 10) || 8))
 const BASE_DOMAIN = process.env.BASE_DOMAIN
 
 // Project build config from the Project row; defaults keep pre-existing
@@ -124,9 +127,13 @@ async function runStaticBuild(buildContextPath) {
     const distFolderContents = fs.readdirSync(distFolderPath, { recursive: true })
     let uploadedCount = 0
 
-    for (const file of distFolderContents) {
+    const filesToUpload = distFolderContents.filter(
+        (file) => !fs.lstatSync(path.join(distFolderPath, file)).isDirectory()
+    )
+
+    // Bounded-concurrency upload; first failure stops new uploads and throws.
+    await runPool(filesToUpload, UPLOAD_CONCURRENCY, async (file) => {
         const filePath = path.join(distFolderPath, file)
-        if (fs.lstatSync(filePath).isDirectory()) continue;
 
         console.log('uploading', filePath)
         publishLog(`uploading ${file}`, 'INFO', 'platform')
@@ -144,7 +151,7 @@ async function runStaticBuild(buildContextPath) {
         await s3Client.send(command)
         uploadedCount++
         publishLog(`uploaded ${file}`, 'INFO', 'platform')
-    }
+    })
 
     const url = `https://${PROJECT_SLUG}.${BASE_DOMAIN}`
     publishLog(`Done — ${uploadedCount} files uploaded`, 'SYSTEM')

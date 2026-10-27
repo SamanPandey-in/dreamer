@@ -7,7 +7,7 @@
   "type": "commonjs",
   "main": "script.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test run-pool.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1071.0",
