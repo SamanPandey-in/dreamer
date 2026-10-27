@@ -45,3 +45,20 @@ test('first error rejects and no new items start afterward', async () => {
     await sleep(30)
     assert.ok(started.length < 8, `expected fail-fast, started ${started.length}`)
 })
+
+test('rejects only after in-flight items settle', async () => {
+    let inFlight = 0
+    await assert.rejects(
+        runPool([1, 2, 3], 3, async (n) => {
+            inFlight++
+            try {
+                if (n === 1) throw new Error('boom')
+                await sleep(20)
+            } finally {
+                inFlight--
+            }
+        }),
+        /boom/
+    )
+    assert.equal(inFlight, 0)
+})
