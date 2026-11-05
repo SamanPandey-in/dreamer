@@ -342,9 +342,11 @@ model DeploymentLog {
   level          LogLevel   @default(INFO)
   message        String     @db.Text
   
-  // Full-text search index (built in migration, not in Prisma schema)
-  // See migration note below.
-  ts_message   Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, message)"))
+  // Full-text search. ts_message is a PLAIN tsvector column kept current by a
+  // BEFORE INSERT/UPDATE trigger defined in the migration (NOT a generated column and
+  // NOT a @default — either makes Prisma report permanent drift). Leave it bare so the
+  // schema matches the DB exactly; Prisma keeps Unsupported fields read-only.
+  ts_message   Unsupported("tsvector")?
   sequence       Int        // monotonically increasing within a deployment (for ordered SSE replay)
   source         String?    @db.VarChar(50)   // "build" | "npm" | "s3" | "platform" | "container"
   
@@ -352,7 +354,10 @@ model DeploymentLog {
 
   @@index([deploymentId, sequence])     // log stream query: ORDER BY sequence
   @@index([deploymentId, timestamp])    // time-range queries
-  // Full-text index created in raw migration — see migration note
+  // Full-text GIN index on ts_message (idx_deployment_log_fts) is created in the raw
+  // migration. Prisma cannot model an index on an Unsupported column, so it is NOT
+  // declared here; `prisma migrate dev`/`migrate diff` will therefore report a benign
+  // "DROP INDEX idx_deployment_log_fts" — keep the index and discard that one hunk.
 }
 
 

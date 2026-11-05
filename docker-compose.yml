@@ -56,7 +56,7 @@ services:
   # S3-compatible object store for static-site output. The AWS SDK talks to
   # this unmodified given S3_ENDPOINT_URL + S3_FORCE_PATH_STYLE.
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest@sha256:3c60a2a8c4d33409a9bc7a623a7fcbfb4605adc3d89422d2f53b3f673a6e5597   # was minio/minio:latest (MinIO removed its Docker Hub community images, 2025/26)
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -72,7 +72,7 @@ services:
 
   # Creates the outputs bucket with anonymous download enabled.
   minio-init:
-    image: minio/mc:latest
+    image: cgr.dev/chainguard/minio:latest@sha256:3c60a2a8c4d33409a9bc7a623a7fcbfb4605adc3d89422d2f53b3f673a6e5597   # was minio/mc:latest; chainguard mc is distroless (no shell), so reuse the server image here (bundles mc + sh)
     depends_on:
       minio:
         condition: service_healthy

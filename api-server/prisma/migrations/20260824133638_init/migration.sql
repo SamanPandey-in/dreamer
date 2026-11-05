@@ -139,7 +139,7 @@ CREATE TABLE "DeploymentLog" (
     "deploymentId" UUID NOT NULL,
     "level" "LogLevel" NOT NULL DEFAULT 'INFO',
     "message" TEXT NOT NULL,
-    "ts_message" tsvector DEFAULT to_tsvector('english'::regconfig, message),
+    "ts_message" tsvector,
     "sequence" INTEGER NOT NULL,
     "source" VARCHAR(50),
     "timestamp" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -362,3 +362,25 @@ ALTER TABLE "ProjectMetricInterval" ADD CONSTRAINT "ProjectMetricInterval_projec
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Full-text search for DeploymentLog.message.
+-- NOTE: a GENERATED ALWAYS AS (...) STORED column would be the obvious choice,
+-- but Prisma cannot model generated columns, so every `prisma migrate diff`
+-- reports spurious drift and `migrate dev` emits an invalid `DROP DEFAULT`.
+-- A BEFORE INSERT/UPDATE trigger keeps ts_message a PLAIN tsvector column, which
+-- Prisma maps cleanly to `Unsupported("tsvector")?` with zero drift. The trigger
+-- and GIN index are invisible to Prisma (it does not manage them).
+CREATE OR REPLACE FUNCTION deploymentlog_ts_message_update() RETURNS trigger AS $BODY$
+BEGIN
+  NEW."ts_message" := to_tsvector('english', COALESCE(NEW."message", ''));
+  RETURN NEW;
+END;
+$BODY$ LANGUAGE plpgsql;
+
+CREATE TRIGGER deploymentlog_ts_message_trg
+  BEFORE INSERT OR UPDATE OF "message" ON "DeploymentLog"
+  FOR EACH ROW EXECUTE FUNCTION deploymentlog_ts_message_update();
+
+-- Full-text GIN index (previously only in prisma/unsupported.sql, which the
+-- documented install flow never runs -- folded in here so FTS works out of the box).
+CREATE INDEX IF NOT EXISTS idx_deployment_log_fts ON "DeploymentLog" USING GIN ("ts_message");
